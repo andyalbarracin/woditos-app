@@ -27,7 +27,7 @@ export default function ProfilePage() {
     queryFn: async () => {
       if (!user?.id) return null;
       const { data } = await supabase.rpc('get_member_stats', { p_user_id: user.id });
-      return data;
+      return data as any;
     },
     enabled: !!user?.id,
   });
