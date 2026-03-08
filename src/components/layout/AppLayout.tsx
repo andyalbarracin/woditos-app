@@ -1,9 +1,11 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { Home, Calendar, Users, BookOpen, User, LogOut, Bell, Dumbbell } from 'lucide-react';
+import { useTheme } from '@/hooks/useTheme';
+import { Home, Calendar, Users, BookOpen, User, LogOut, Bell, Dumbbell, Sun, Moon } from 'lucide-react';
 import woditosLogo from '@/assets/woditos-logo.png';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Switch } from '@/components/ui/switch';
 
 const navItems = [
   { to: '/', icon: Home, label: 'Inicio' },
@@ -15,6 +17,7 @@ const navItems = [
 
 export default function AppLayout() {
   const { profile, user, signOut } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const isCoach = user?.role === 'coach' || user?.role === 'super_admin';
 
@@ -65,9 +68,21 @@ export default function AppLayout() {
           )}
         </nav>
 
+        {/* Theme Toggle */}
+        <div className="px-4 py-3 border-t border-border">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              {theme === 'dark' ? <Moon size={14} /> : <Sun size={14} />}
+              <span>{theme === 'dark' ? 'Modo oscuro' : 'Modo claro'}</span>
+            </div>
+            <Switch checked={theme === 'dark'} onCheckedChange={toggleTheme} />
+          </div>
+        </div>
+
         <div className="p-4 border-t border-border">
           <div className="flex items-center gap-3">
             <Avatar className="h-9 w-9">
+              {profile?.avatar_url && <AvatarImage src={profile.avatar_url} />}
               <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
                 {profile?.full_name?.slice(0, 2).toUpperCase() || '?'}
               </AvatarFallback>
@@ -91,9 +106,14 @@ export default function AppLayout() {
             <img src={woditosLogo} alt="Woditos" className="h-8" />
             <span className="font-display font-bold text-foreground">Woditos</span>
           </div>
-          <Button variant="ghost" size="icon" className="text-muted-foreground">
-            <Bell size={20} />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" onClick={toggleTheme} className="text-muted-foreground">
+              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            </Button>
+            <Button variant="ghost" size="icon" className="text-muted-foreground">
+              <Bell size={20} />
+            </Button>
+          </div>
         </header>
 
         <div className="flex-1 overflow-y-auto p-4 md:p-8">
