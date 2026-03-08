@@ -8,7 +8,57 @@
   :root {
     --font-display: 'Space Grotesk', sans-serif;
     --font-body: 'Inter', sans-serif;
+  }
 
+  .light {
+    --background: 0 0% 98%;
+    --foreground: 230 25% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 230 25% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 230 25% 10%;
+
+    --primary: 16 100% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 165 80% 32%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 220 14% 92%;
+    --muted-foreground: 220 10% 40%;
+
+    --accent: 45 100% 50%;
+    --accent-foreground: 230 25% 10%;
+
+    --destructive: 345 82% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 13% 88%;
+    --input: 220 13% 88%;
+    --ring: 16 100% 50%;
+
+    --radius: 0.75rem;
+
+    --success: 165 80% 32%;
+    --warning: 45 100% 50%;
+    --error: 345 82% 50%;
+    --info: 213 94% 50%;
+
+    --surface: 220 14% 95%;
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 230 25% 10%;
+    --sidebar-primary: 16 100% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 14% 95%;
+    --sidebar-accent-foreground: 230 25% 10%;
+    --sidebar-border: 220 13% 88%;
+    --sidebar-ring: 16 100% 50%;
+  }
+
+  .dark {
     --background: 230 25% 5%;
     --foreground: 250 20% 96%;
 
