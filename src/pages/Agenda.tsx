@@ -75,7 +75,7 @@ export default function Agenda() {
       queryClient.invalidateQueries({ queryKey: ['sessions-week'] });
       toast.success('Reserva cancelada');
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: () => toast.error('No se pudo cancelar la reserva.'),
   });
 
   const daySessions = sessions?.filter((s: any) => isSameDay(new Date(s.start_time), selectedDay)) || [];

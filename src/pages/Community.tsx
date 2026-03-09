@@ -67,7 +67,7 @@ export default function Community() {
       setPostType('text');
       toast.success('Publicación creada');
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: () => toast.error('No se pudo crear la publicación. Intentá de nuevo.'),
   });
 
   /** Todos los posts aplanados de todas las páginas */
