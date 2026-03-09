@@ -20,7 +20,7 @@ import { format, isSameDay, startOfMonth, endOfMonth, startOfDay } from 'date-fn
 import { es } from 'date-fns/locale';
 import {
   ClipboardCheck, Calendar as CalendarIcon, Check, Clock, X,
-  MessageSquare, QrCode, User, Search, Save, Plus, Send, ChevronLeft, ChevronRight
+  MessageSquare, QrCode, User, Search, Save, Plus, Send, ScanLine
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -35,6 +35,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { toast } from 'sonner';
 import { QRCodeSVG } from 'qrcode.react';
 import { cn } from '@/lib/utils';
+import QRScanner from '@/components/QRScanner';
 
 /** Estados posibles de asistencia */
 type AttendanceStatus = 'present' | 'late' | 'absent' | 'excused';
@@ -91,6 +92,8 @@ export default function AttendancePage() {
   // Comunicar a asistentes dialog
   const [showCommunicate, setShowCommunicate] = useState(false);
   const [communicateMessage, setCommunicateMessage] = useState('');
+  // QR Scanner
+  const [showQRScanner, setShowQRScanner] = useState(false);
 
   // Form para nueva sesión
   const [sessionForm, setSessionForm] = useState({
@@ -290,6 +293,44 @@ export default function AttendancePage() {
     }
   };
 
+  // Manejar escaneo QR
+  const handleQRScan = async (result: string) => {
+    setShowQRScanner(false);
+    
+    // Extraer user ID del QR (formato: woditos://member/{userId})
+    const match = result.match(/woditos:\/\/member\/([a-f0-9-]+)/i);
+    if (!match) {
+      toast.error('QR inválido. Probá con el QR de un miembro.');
+      return;
+    }
+
+    const scannedUserId = match[1];
+    const attendee = attendees[scannedUserId];
+
+    if (!attendee) {
+      toast.error('Este miembro no está en la lista de esta sesión.');
+      return;
+    }
+
+    // Marcar como presente
+    updateLocalStatus(scannedUserId, 'present');
+    
+    // Guardar automáticamente
+    const { error } = await supabase.from('attendance').upsert({
+      session_id: selectedSessionId,
+      user_id: scannedUserId,
+      attendance_status: 'present',
+      checkin_time: new Date().toISOString(),
+    }, { onConflict: 'session_id,user_id' });
+
+    if (error) {
+      toast.error('No se pudo registrar la asistencia');
+    } else {
+      toast.success(`✅ ${attendee.fullName} registrado como presente`);
+      queryClient.invalidateQueries({ queryKey: ['attendance-session', selectedSessionId] });
+    }
+  };
+
   // Filtrar miembros
   const filteredAttendees = Object.values(attendees).filter(a =>
     a.fullName.toLowerCase().includes(searchMember.toLowerCase())
@@ -316,6 +357,18 @@ export default function AttendancePage() {
           </p>
         </div>
         <div className="flex gap-2">
+          {/* Botón escanear QR */}
+          {selectedSessionId && Object.keys(attendees).length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+              onClick={() => setShowQRScanner(true)}
+            >
+              <ScanLine size={14} /> Escanear QR
+            </Button>
+          )}
+          
           {/* Botón crear sesión */}
           <Dialog open={showCreateSession} onOpenChange={setShowCreateSession}>
             <DialogTrigger asChild>
@@ -660,6 +713,14 @@ export default function AttendancePage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* QR Scanner fullscreen */}
+      {showQRScanner && (
+        <QRScanner
+          onScan={handleQRScan}
+          onClose={() => setShowQRScanner(false)}
+        />
+      )}
     </div>
   );
 }
