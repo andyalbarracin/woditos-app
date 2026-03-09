@@ -182,7 +182,7 @@ export default function CoachDashboard() {
         group_id: groupId,
         coach_id: user!.id,
         title: sessionForm.title || 'Sesión',
-        session_type: sessionForm.session_type || 'general',
+        session_type: sessionForm.session_type || 'functional',
         start_time: startISO,
         end_time: endISO,
         location: sessionForm.location || null,
@@ -194,13 +194,14 @@ export default function CoachDashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['coach-today-sessions'] });
       queryClient.invalidateQueries({ queryKey: ['coach-groups'] });
+      queryClient.invalidateQueries({ queryKey: ['attendance-all-sessions'] });
       setShowCreateSession(false);
       setSessionForm({ title: '', session_type: '', session_date: '', start_time: '', end_time: '', location: '', capacity: '20', notes: '' });
       setCrewMode('existing');
       setNewCrewForm({ name: '', group_type: 'functional', location: '', capacity: '20' });
-      toast.success('Sesión creada');
+      toast.success('¡Sesión creada exitosamente!');
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: (err: any) => toast.error('No se pudo crear la sesión. Verificá los datos ingresados.'),
   });
 
   const markAttendance = useMutation({
@@ -215,9 +216,9 @@ export default function CoachDashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['coach-today-sessions'] });
-      toast.success('Asistencia registrada');
+      toast.success('¡Asistencia guardada!');
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: () => toast.error('No se pudo registrar la asistencia.'),
   });
 
   const totalMembers = members?.length || 0;
@@ -303,15 +304,25 @@ export default function CoachDashboard() {
                 />
               </div>
 
-              {/* Tipo de sesión: texto libre */}
+              {/* Tipo de sesión: Select con valores válidos del constraint */}
               <div className="space-y-2">
                 <Label>Tipo de sesión</Label>
-                <Input
-                  placeholder="Ej: running, funcional, HIIT, técnica..."
+                <Select
                   value={sessionForm.session_type}
-                  onChange={e => setSessionForm(f => ({ ...f, session_type: e.target.value }))}
-                  className="bg-background border-border"
-                />
+                  onValueChange={(v) => setSessionForm(f => ({ ...f, session_type: v }))}
+                >
+                  <SelectTrigger className="bg-background border-border">
+                    <SelectValue placeholder="Elegir tipo..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="running">Running</SelectItem>
+                    <SelectItem value="functional">Funcional</SelectItem>
+                    <SelectItem value="amrap">AMRAP</SelectItem>
+                    <SelectItem value="emom">EMOM</SelectItem>
+                    <SelectItem value="hiit">HIIT</SelectItem>
+                    <SelectItem value="technique">Técnica</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Fecha única */}

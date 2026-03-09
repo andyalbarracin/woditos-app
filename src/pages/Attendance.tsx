@@ -1,33 +1,40 @@
 /**
  * Archivo: Attendance.tsx
  * Ruta: src/pages/Attendance.tsx
- * Última modificación: 2025-03-09
- * Descripción: Sistema de control de asistencia para coaches. Permite seleccionar
- *              una sesión del día, marcar presencia/ausencia/tarde con checkbox,
- *              agregar notas individuales y ver el QR personal de cada miembro.
- *              Solo accesible para usuarios con rol coach o super_admin.
+ * Última modificación: 2026-03-09
+ * Descripción: Sistema de control de asistencia para coaches.
+ *   - Calendario interactivo para elegir fecha con sesiones
+ *   - Selector de sesión del día elegido
+ *   - Marcar presencia/ausencia/tarde con botones rápidos
+ *   - Notas individuales por asistente
+ *   - QR personal de cada miembro
+ *   - Botón para crear nueva sesión
+ *   - Botón para comunicar mensaje a todos los asistentes
  */
 
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
-import { format } from 'date-fns';
+import { format, isSameDay, startOfMonth, endOfMonth, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
-  ClipboardCheck, Calendar, ChevronDown, Check, Clock, X,
-  MessageSquare, QrCode, User, Search, Save
+  ClipboardCheck, Calendar as CalendarIcon, Check, Clock, X,
+  MessageSquare, QrCode, User, Search, Save, Plus, Send, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from 'sonner';
 import { QRCodeSVG } from 'qrcode.react';
+import { cn } from '@/lib/utils';
 
 /** Estados posibles de asistencia */
 type AttendanceStatus = 'present' | 'late' | 'absent' | 'excused';
@@ -51,64 +58,110 @@ const STATUS_CONFIG: Record<AttendanceStatus, { label: string; icon: typeof Chec
   excused: { label: 'Excusado',  icon: Check,  className: 'bg-muted text-muted-foreground border-border' },
 };
 
+/** Tipos válidos de sesión (según constraint de BD) */
+const SESSION_TYPES = [
+  { value: 'running', label: 'Running' },
+  { value: 'functional', label: 'Funcional' },
+  { value: 'amrap', label: 'AMRAP' },
+  { value: 'emom', label: 'EMOM' },
+  { value: 'hiit', label: 'HIIT' },
+  { value: 'technique', label: 'Técnica' },
+];
+
 export default function AttendancePage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  // ID de la sesión seleccionada para pasar lista
+  // Fecha seleccionada en el calendario
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  // ID de la sesión seleccionada
   const [selectedSessionId, setSelectedSessionId] = useState<string>('');
-  // Búsqueda de miembros en la lista
+  // Búsqueda de miembros
   const [searchMember, setSearchMember] = useState('');
-  // Estado local de asistencia por miembro (map userId → state)
+  // Estado local de asistencia
   const [attendees, setAttendees] = useState<Record<string, AttendeeState>>({});
-  // Miembro cuyo QR se está mostrando en el diálogo
+  // QR dialog
   const [qrMember, setQrMember] = useState<AttendeeState | null>(null);
-  // Miembro cuya nota se está editando inline
+  // Nota expandida
   const [editingNoteFor, setEditingNoteFor] = useState<string | null>(null);
-  // Indica si se están guardando todos los cambios
+  // Guardando
   const [savingAll, setSavingAll] = useState(false);
+  // Crear sesión dialog
+  const [showCreateSession, setShowCreateSession] = useState(false);
+  // Comunicar a asistentes dialog
+  const [showCommunicate, setShowCommunicate] = useState(false);
+  const [communicateMessage, setCommunicateMessage] = useState('');
 
-  /** Sesiones de hoy (para el selector de sesión) */
-  const { data: todaySessions } = useQuery({
-    queryKey: ['attendance-today-sessions'],
+  // Form para nueva sesión
+  const [sessionForm, setSessionForm] = useState({
+    title: '',
+    session_type: 'functional',
+    start_time: '08:00',
+    end_time: '09:00',
+    location: '',
+    capacity: '20',
+    notes: '',
+  });
+  const [selectedGroupId, setSelectedGroupId] = useState('');
+
+  /** Todas las sesiones del mes para marcar días en el calendario */
+  const { data: monthSessions } = useQuery({
+    queryKey: ['attendance-month-sessions', selectedDate.getMonth(), selectedDate.getFullYear()],
     queryFn: async () => {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
+      const start = startOfMonth(selectedDate);
+      const end = endOfMonth(selectedDate);
+      const { data } = await supabase
+        .from('sessions')
+        .select('id, start_time')
+        .gte('start_time', start.toISOString())
+        .lte('start_time', end.toISOString());
+      return data || [];
+    },
+  });
+
+  /** Sesiones del día seleccionado */
+  const { data: daySessions } = useQuery({
+    queryKey: ['attendance-day-sessions', selectedDate.toDateString()],
+    queryFn: async () => {
+      const dayStart = startOfDay(selectedDate);
+      const dayEnd = new Date(dayStart);
+      dayEnd.setDate(dayEnd.getDate() + 1);
       const { data } = await supabase
         .from('sessions')
         .select('*, groups(name)')
-        .gte('start_time', today.toISOString())
-        .lt('start_time', tomorrow.toISOString())
+        .gte('start_time', dayStart.toISOString())
+        .lt('start_time', dayEnd.toISOString())
         .order('start_time');
       return data || [];
     },
   });
 
-  /**
-   * Cuando se selecciona una sesión, carga las reservas confirmadas
-   * y las asistencias ya registradas para inicializar el estado local.
-   */
+  /** Groups disponibles para crear sesión */
+  const { data: groups } = useQuery({
+    queryKey: ['attendance-groups'],
+    queryFn: async () => {
+      const { data } = await supabase.from('groups').select('id, name').order('name');
+      return data || [];
+    },
+  });
+
+  /** Asistentes de la sesión seleccionada */
   const { isLoading: loadingAttendees } = useQuery({
     queryKey: ['attendance-session', selectedSessionId],
     queryFn: async () => {
       if (!selectedSessionId) return [];
 
-      // Reservas confirmadas (lista de participantes esperados)
       const { data: reservations } = await supabase
         .from('reservations')
         .select('id, user_id, profiles!user_id(full_name, avatar_url)')
         .eq('session_id', selectedSessionId)
         .eq('reservation_status', 'confirmed');
 
-      // Asistencias ya guardadas para esta sesión
       const { data: existingAttendance } = await supabase
         .from('attendance')
         .select('*')
         .eq('session_id', selectedSessionId);
 
-      // Construir mapa de estado local
       const newAttendees: Record<string, AttendeeState> = {};
       (reservations || []).forEach((r: any) => {
         const existing = existingAttendance?.find(a => a.user_id === r.user_id);
@@ -128,26 +181,22 @@ export default function AttendancePage() {
     enabled: !!selectedSessionId,
   });
 
-  /** Actualiza el estado local de un miembro sin guardar aún en BD */
+  // Días con sesiones
+  const daysWithSessions = useMemo(() => {
+    if (!monthSessions) return [];
+    return monthSessions.map((s: any) => new Date(s.start_time));
+  }, [monthSessions]);
+
+  // Actualizar estado local
   const updateLocalStatus = (userId: string, status: AttendanceStatus) => {
-    setAttendees(prev => ({
-      ...prev,
-      [userId]: { ...prev[userId], status },
-    }));
+    setAttendees(prev => ({ ...prev, [userId]: { ...prev[userId], status } }));
   };
 
-  /** Actualiza la nota local de un miembro */
   const updateLocalNote = (userId: string, note: string) => {
-    setAttendees(prev => ({
-      ...prev,
-      [userId]: { ...prev[userId], note },
-    }));
+    setAttendees(prev => ({ ...prev, [userId]: { ...prev[userId], note } }));
   };
 
-  /**
-   * Guarda la asistencia de UN miembro (upsert en BD).
-   * Usa el campo de conflicto session_id,user_id para evitar duplicados.
-   */
+  // Guardar uno
   const saveSingleAttendance = async (userId: string) => {
     const a = attendees[userId];
     if (!a.status) { toast.error('Seleccioná un estado primero'); return; }
@@ -158,17 +207,14 @@ export default function AttendancePage() {
       notes: a.note || null,
       checkin_time: a.status === 'present' ? new Date().toISOString() : null,
     }, { onConflict: 'session_id,user_id' });
-    if (error) toast.error(error.message);
+    if (error) toast.error('No se pudo guardar');
     else {
       toast.success(`✓ ${a.fullName} guardado`);
       queryClient.invalidateQueries({ queryKey: ['attendance-session', selectedSessionId] });
     }
   };
 
-  /**
-   * Guarda todos los cambios pendientes de una vez.
-   * Itera por todos los miembros con estado asignado y hace upsert en lote.
-   */
+  // Guardar todos
   const saveAllAttendance = async () => {
     const withStatus = Object.values(attendees).filter(a => a.status);
     if (withStatus.length === 0) { toast.error('Marcá al menos un asistente'); return; }
@@ -182,83 +228,245 @@ export default function AttendancePage() {
     }));
     const { error } = await supabase.from('attendance').upsert(rows, { onConflict: 'session_id,user_id' });
     setSavingAll(false);
-    if (error) toast.error(error.message);
+    if (error) toast.error('No se pudo guardar la asistencia');
     else {
       toast.success(`✅ ${withStatus.length} asistencias guardadas`);
       queryClient.invalidateQueries({ queryKey: ['attendance-session', selectedSessionId] });
-      queryClient.invalidateQueries({ queryKey: ['coach-today-sessions'] });
     }
   };
 
-  // Filtrar miembros por búsqueda
+  // Crear sesión
+  const handleCreateSession = async () => {
+    if (!selectedGroupId) { toast.error('Elegí un crew'); return; }
+    if (!sessionForm.session_type) { toast.error('Elegí un tipo de sesión'); return; }
+
+    const dateStr = format(selectedDate, 'yyyy-MM-dd');
+    const startISO = `${dateStr}T${sessionForm.start_time}:00`;
+    const endISO = `${dateStr}T${sessionForm.end_time}:00`;
+
+    const { error } = await supabase.from('sessions').insert({
+      group_id: selectedGroupId,
+      coach_id: user?.id,
+      title: sessionForm.title || 'Sesión',
+      session_type: sessionForm.session_type,
+      start_time: startISO,
+      end_time: endISO,
+      location: sessionForm.location || null,
+      capacity: parseInt(sessionForm.capacity) || 20,
+      notes: sessionForm.notes || null,
+    });
+
+    if (error) {
+      toast.error('No se pudo crear la sesión');
+    } else {
+      toast.success('¡Sesión creada!');
+      setShowCreateSession(false);
+      setSessionForm({ title: '', session_type: 'functional', start_time: '08:00', end_time: '09:00', location: '', capacity: '20', notes: '' });
+      setSelectedGroupId('');
+      queryClient.invalidateQueries({ queryKey: ['attendance-day-sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['attendance-month-sessions'] });
+    }
+  };
+
+  // Comunicar a asistentes (simulated - crea notificaciones)
+  const handleCommunicate = async () => {
+    if (!communicateMessage.trim()) { toast.error('Escribí un mensaje'); return; }
+    const userIds = Object.keys(attendees);
+    if (userIds.length === 0) { toast.error('No hay asistentes en esta sesión'); return; }
+
+    const notifications = userIds.map(uid => ({
+      user_id: uid,
+      title: 'Mensaje del coach',
+      message: communicateMessage.trim(),
+      type: 'announcement',
+    }));
+
+    const { error } = await supabase.from('notifications').insert(notifications);
+    if (error) toast.error('No se pudo enviar el mensaje');
+    else {
+      toast.success(`Mensaje enviado a ${userIds.length} asistentes`);
+      setShowCommunicate(false);
+      setCommunicateMessage('');
+    }
+  };
+
+  // Filtrar miembros
   const filteredAttendees = Object.values(attendees).filter(a =>
     a.fullName.toLowerCase().includes(searchMember.toLowerCase())
   );
 
-  // Contadores para el resumen rápido
+  // Contadores
   const presentCount = Object.values(attendees).filter(a => a.status === 'present').length;
-  const lateCount    = Object.values(attendees).filter(a => a.status === 'late').length;
-  const absentCount  = Object.values(attendees).filter(a => a.status === 'absent').length;
+  const lateCount = Object.values(attendees).filter(a => a.status === 'late').length;
+  const absentCount = Object.values(attendees).filter(a => a.status === 'absent').length;
   const pendingCount = Object.values(attendees).filter(a => !a.status).length;
 
-  const selectedSession = todaySessions?.find((s: any) => s.id === selectedSessionId);
+  const selectedSession = daySessions?.find((s: any) => s.id === selectedSessionId);
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="font-display text-3xl font-extrabold text-foreground flex items-center gap-2">
             <ClipboardCheck size={28} className="text-primary" /> Asistencia
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {format(new Date(), "EEEE d 'de' MMMM yyyy", { locale: es })}
+            {format(selectedDate, "EEEE d 'de' MMMM yyyy", { locale: es })}
           </p>
         </div>
-        {selectedSessionId && Object.values(attendees).some(a => a.status) && (
-          <Button
-            onClick={saveAllAttendance}
-            disabled={savingAll}
-            className="gradient-primary text-primary-foreground gap-2"
-          >
-            <Save size={16} />
-            {savingAll ? 'Guardando...' : 'Guardar todo'}
-          </Button>
-        )}
+        <div className="flex gap-2">
+          {/* Botón crear sesión */}
+          <Dialog open={showCreateSession} onOpenChange={setShowCreateSession}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1">
+                <Plus size={14} /> Crear sesión
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="bg-card border-border">
+              <DialogHeader>
+                <DialogTitle className="font-display">Nueva Sesión para {format(selectedDate, 'd MMM', { locale: es })}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Crew</Label>
+                  <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
+                    <SelectTrigger className="bg-background border-border">
+                      <SelectValue placeholder="Elegir crew..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {groups?.map((g: any) => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Título</Label>
+                  <Input
+                    placeholder="Ej: AMRAP 20'"
+                    value={sessionForm.title}
+                    onChange={e => setSessionForm(f => ({ ...f, title: e.target.value }))}
+                    className="bg-background border-border"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Tipo</Label>
+                  <Select value={sessionForm.session_type} onValueChange={v => setSessionForm(f => ({ ...f, session_type: v }))}>
+                    <SelectTrigger className="bg-background border-border">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SESSION_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label>Hora inicio</Label>
+                    <Input type="time" value={sessionForm.start_time} onChange={e => setSessionForm(f => ({ ...f, start_time: e.target.value }))} className="bg-background border-border" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Hora fin</Label>
+                    <Input type="time" value={sessionForm.end_time} onChange={e => setSessionForm(f => ({ ...f, end_time: e.target.value }))} className="bg-background border-border" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Ubicación</Label>
+                  <Input placeholder="Opcional" value={sessionForm.location} onChange={e => setSessionForm(f => ({ ...f, location: e.target.value }))} className="bg-background border-border" />
+                </div>
+                <Button onClick={handleCreateSession} className="w-full gradient-primary text-primary-foreground">
+                  Crear sesión
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Guardar todo */}
+          {selectedSessionId && Object.values(attendees).some(a => a.status) && (
+            <Button onClick={saveAllAttendance} disabled={savingAll} className="gradient-primary text-primary-foreground gap-1" size="sm">
+              <Save size={14} />
+              {savingAll ? 'Guardando...' : 'Guardar todo'}
+            </Button>
+          )}
+        </div>
       </div>
 
-      {/* Selector de sesión */}
+      {/* Calendario interactivo */}
+      <div className="bg-card border border-border rounded-xl p-4">
+        <label className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-3 block">
+          Elegí una fecha
+        </label>
+        <Calendar
+          mode="single"
+          selected={selectedDate}
+          onSelect={(d) => { if (d) { setSelectedDate(d); setSelectedSessionId(''); setAttendees({}); } }}
+          locale={es}
+          className="rounded-md border-0 mx-auto pointer-events-auto"
+          modifiers={{ hasSessions: daysWithSessions }}
+          modifiersClassNames={{ hasSessions: 'bg-primary/20 text-primary font-bold' }}
+        />
+      </div>
+
+      {/* Selector de sesión del día */}
       <div className="bg-card border border-border rounded-xl p-4">
         <label className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-2 block">
-          Sesión del día
+          Sesiones del {format(selectedDate, 'd MMM', { locale: es })}
         </label>
-        <Select value={selectedSessionId} onValueChange={setSelectedSessionId}>
-          <SelectTrigger className="bg-background border-border">
-            <SelectValue placeholder="Seleccionar sesión..." />
-          </SelectTrigger>
-          <SelectContent>
-            {todaySessions && todaySessions.length > 0 ? (
-              todaySessions.map((s: any) => (
+        {daySessions && daySessions.length > 0 ? (
+          <Select value={selectedSessionId} onValueChange={setSelectedSessionId}>
+            <SelectTrigger className="bg-background border-border">
+              <SelectValue placeholder="Seleccionar sesión..." />
+            </SelectTrigger>
+            <SelectContent>
+              {daySessions.map((s: any) => (
                 <SelectItem key={s.id} value={s.id}>
                   {format(new Date(s.start_time), 'HH:mm')} · {s.title} · {s.groups?.name || 'Sin crew'}
                 </SelectItem>
-              ))
-            ) : (
-              <SelectItem value="none" disabled>No hay sesiones hoy</SelectItem>
-            )}
-          </SelectContent>
-        </Select>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <p className="text-sm text-muted-foreground">No hay sesiones para este día</p>
+        )}
 
-        {/* Info de la sesión seleccionada */}
+        {/* Info sesión seleccionada + botón comunicar */}
         {selectedSession && (
-          <div className="mt-3 flex items-center gap-4 text-sm text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <Calendar size={14} />
-              {format(new Date(selectedSession.start_time), 'HH:mm')} -
-              {format(new Date(selectedSession.end_time), 'HH:mm')}
-            </span>
-            <span className="uppercase text-xs font-bold text-primary">{selectedSession.session_type}</span>
-            <span>{selectedSession.groups?.name}</span>
+          <div className="mt-3 flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-3 text-sm text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <CalendarIcon size={14} />
+                {format(new Date(selectedSession.start_time), 'HH:mm')} - {format(new Date(selectedSession.end_time), 'HH:mm')}
+              </span>
+              <Badge variant="outline" className="text-xs uppercase">{selectedSession.session_type}</Badge>
+              <span>{selectedSession.groups?.name}</span>
+            </div>
+            {Object.keys(attendees).length > 0 && (
+              <Dialog open={showCommunicate} onOpenChange={setShowCommunicate}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1">
+                    <Send size={14} /> Comunicar
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="bg-card border-border">
+                  <DialogHeader>
+                    <DialogTitle className="font-display">Enviar mensaje a asistentes</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      Este mensaje se enviará como notificación a los {Object.keys(attendees).length} asistentes de esta sesión.
+                    </p>
+                    <Textarea
+                      placeholder="Ej: La sesión de hoy se cancela por lluvia. Nos vemos mañana!"
+                      value={communicateMessage}
+                      onChange={e => setCommunicateMessage(e.target.value)}
+                      className="bg-background border-border min-h-[100px]"
+                    />
+                    <Button onClick={handleCommunicate} className="w-full gradient-primary text-primary-foreground gap-2">
+                      <Send size={16} /> Enviar mensaje
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            )}
           </div>
         )}
       </div>
@@ -271,9 +479,9 @@ export default function AttendancePage() {
             <div className="grid grid-cols-4 gap-2">
               {[
                 { label: 'Presentes', count: presentCount, color: 'text-secondary' },
-                { label: 'Tarde',     count: lateCount,    color: 'text-accent' },
-                { label: 'Ausentes',  count: absentCount,  color: 'text-destructive' },
-                { label: 'Sin marcar',count: pendingCount, color: 'text-muted-foreground' },
+                { label: 'Tarde', count: lateCount, color: 'text-accent' },
+                { label: 'Ausentes', count: absentCount, color: 'text-destructive' },
+                { label: 'Sin marcar', count: pendingCount, color: 'text-muted-foreground' },
               ].map(({ label, count, color }) => (
                 <div key={label} className="bg-card border border-border rounded-xl p-3 text-center">
                   <p className={`text-2xl font-display font-bold ${color}`}>{count}</p>
@@ -283,7 +491,7 @@ export default function AttendancePage() {
             </div>
           )}
 
-          {/* Buscador de miembros */}
+          {/* Buscador */}
           <div className="relative">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -294,7 +502,7 @@ export default function AttendancePage() {
             />
           </div>
 
-          {/* Lista de miembros */}
+          {/* Lista */}
           {loadingAttendees ? (
             <div className="space-y-2">
               {Array.from({ length: 5 }).map((_, i) => (
@@ -308,12 +516,12 @@ export default function AttendancePage() {
                 return (
                   <div
                     key={attendee.userId}
-                    className={`bg-card border rounded-xl p-4 transition-colors ${
+                    className={cn(
+                      'bg-card border rounded-xl p-4 transition-colors',
                       attendee.status ? 'border-border' : 'border-border border-dashed'
-                    }`}
+                    )}
                   >
                     <div className="flex items-center gap-3">
-                      {/* Avatar + nombre */}
                       <Avatar className="h-10 w-10 shrink-0">
                         {attendee.avatarUrl && <AvatarImage src={attendee.avatarUrl} />}
                         <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
@@ -323,16 +531,14 @@ export default function AttendancePage() {
 
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-foreground text-sm">{attendee.fullName}</p>
-                        {/* Badge de estado actual */}
                         {attendee.status && (
-                          <Badge variant="outline" className={`text-xs mt-0.5 ${STATUS_CONFIG[attendee.status].className}`}>
+                          <Badge variant="outline" className={cn('text-xs mt-0.5', STATUS_CONFIG[attendee.status].className)}>
                             <StatusIcon size={10} className="mr-1" />
                             {STATUS_CONFIG[attendee.status].label}
                           </Badge>
                         )}
                       </div>
 
-                      {/* Botones de estado */}
                       <div className="flex items-center gap-1">
                         {(['present', 'late', 'absent'] as AttendanceStatus[]).map(s => {
                           const cfg = STATUS_CONFIG[s];
@@ -342,31 +548,31 @@ export default function AttendancePage() {
                               key={s}
                               onClick={() => updateLocalStatus(attendee.userId, s)}
                               title={cfg.label}
-                              className={`w-8 h-8 rounded-full border flex items-center justify-center transition-all ${
+                              className={cn(
+                                'w-8 h-8 rounded-full border flex items-center justify-center transition-all',
                                 attendee.status === s
                                   ? cfg.className + ' scale-110'
                                   : 'border-border text-muted-foreground hover:border-primary/40'
-                              }`}
+                              )}
                             >
                               <Icon size={14} />
                             </button>
                           );
                         })}
 
-                        {/* Botón nota */}
                         <button
                           onClick={() => setEditingNoteFor(editingNoteFor === attendee.userId ? null : attendee.userId)}
                           title="Agregar nota"
-                          className={`w-8 h-8 rounded-full border flex items-center justify-center transition-all ${
+                          className={cn(
+                            'w-8 h-8 rounded-full border flex items-center justify-center transition-all',
                             attendee.note
                               ? 'border-secondary text-secondary bg-secondary/10'
                               : 'border-border text-muted-foreground hover:border-secondary/40'
-                          }`}
+                          )}
                         >
                           <MessageSquare size={13} />
                         </button>
 
-                        {/* Botón QR */}
                         <button
                           onClick={() => setQrMember(attendee)}
                           title="Ver QR"
@@ -377,11 +583,10 @@ export default function AttendancePage() {
                       </div>
                     </div>
 
-                    {/* Área de nota expandible */}
                     {editingNoteFor === attendee.userId && (
                       <div className="mt-3 pt-3 border-t border-border">
                         <Textarea
-                          placeholder="Feedback de la sesión, observaciones, rendimiento..."
+                          placeholder="Feedback, observaciones, rendimiento..."
                           value={attendee.note}
                           onChange={e => updateLocalNote(attendee.userId, e.target.value)}
                           className="bg-background border-border resize-none text-sm min-h-[70px]"
@@ -410,24 +615,23 @@ export default function AttendancePage() {
               <p className="text-muted-foreground">
                 {Object.keys(attendees).length === 0
                   ? 'No hay reservas confirmadas para esta sesión'
-                  : 'No se encontraron miembros con ese nombre'
-                }
+                  : 'No se encontraron miembros con ese nombre'}
               </p>
             </div>
           )}
         </>
       )}
 
-      {/* Estado vacío: no se seleccionó sesión */}
+      {/* Estado vacío */}
       {!selectedSessionId && (
         <div className="bg-card border border-dashed border-border rounded-xl p-12 text-center">
-          <Calendar size={40} className="mx-auto text-muted-foreground mb-4" />
+          <CalendarIcon size={40} className="mx-auto text-muted-foreground mb-4" />
           <p className="font-display font-bold text-foreground mb-1">Seleccioná una sesión</p>
-          <p className="text-sm text-muted-foreground">Elegí la sesión del día para ver la lista de asistencia</p>
+          <p className="text-sm text-muted-foreground">Elegí un día con sesiones en el calendario y luego la sesión específica</p>
         </div>
       )}
 
-      {/* Diálogo QR del miembro */}
+      {/* QR dialog */}
       <Dialog open={!!qrMember} onOpenChange={() => setQrMember(null)}>
         <DialogContent className="bg-card border-border max-w-xs text-center">
           <DialogHeader>
@@ -435,7 +639,6 @@ export default function AttendancePage() {
           </DialogHeader>
           {qrMember && (
             <div className="flex flex-col items-center gap-4 py-2">
-              {/* Avatar */}
               <Avatar className="h-16 w-16">
                 {qrMember.avatarUrl && <AvatarImage src={qrMember.avatarUrl} />}
                 <AvatarFallback className="bg-primary/20 text-primary font-bold text-lg">
@@ -443,8 +646,6 @@ export default function AttendancePage() {
                 </AvatarFallback>
               </Avatar>
               <p className="font-display font-bold text-foreground">{qrMember.fullName}</p>
-
-              {/* QR con el userId único e irrepetible del miembro */}
               <div className="bg-white p-4 rounded-xl">
                 <QRCodeSVG
                   value={`woditos://member/${qrMember.userId}`}
@@ -453,13 +654,8 @@ export default function AttendancePage() {
                   includeMargin={false}
                 />
               </div>
-
-              <p className="text-xs text-muted-foreground">
-                Escanear para registrar asistencia rápida
-              </p>
-              <p className="text-xs font-mono text-muted-foreground/60 break-all">
-                ID: {qrMember.userId.slice(0, 16)}...
-              </p>
+              <p className="text-xs text-muted-foreground">Escanear para registrar asistencia rápida</p>
+              <p className="text-xs font-mono text-muted-foreground/60 break-all">ID: {qrMember.userId.slice(0, 16)}...</p>
             </div>
           )}
         </DialogContent>
