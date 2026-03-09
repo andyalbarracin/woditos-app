@@ -430,13 +430,7 @@ export default function AttendancePage() {
             </DialogContent>
           </Dialog>
 
-          {/* Guardar todo */}
-          {selectedSessionId && Object.values(attendees).some(a => a.status) && (
-            <Button onClick={saveAllAttendance} disabled={savingAll} className="gradient-primary text-primary-foreground gap-1" size="sm">
-              <Save size={14} />
-              {savingAll ? 'Guardando...' : 'Guardar todo'}
-            </Button>
-          )}
+          {/* Auto-save: no manual save button needed */}
         </div>
       </div>
 
