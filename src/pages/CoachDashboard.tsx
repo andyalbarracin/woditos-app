@@ -303,15 +303,25 @@ export default function CoachDashboard() {
                 />
               </div>
 
-              {/* Tipo de sesión: texto libre */}
+              {/* Tipo de sesión: Select con valores válidos del constraint */}
               <div className="space-y-2">
                 <Label>Tipo de sesión</Label>
-                <Input
-                  placeholder="Ej: running, funcional, HIIT, técnica..."
+                <Select
                   value={sessionForm.session_type}
-                  onChange={e => setSessionForm(f => ({ ...f, session_type: e.target.value }))}
-                  className="bg-background border-border"
-                />
+                  onValueChange={(v) => setSessionForm(f => ({ ...f, session_type: v }))}
+                >
+                  <SelectTrigger className="bg-background border-border">
+                    <SelectValue placeholder="Elegir tipo..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="running">Running</SelectItem>
+                    <SelectItem value="functional">Funcional</SelectItem>
+                    <SelectItem value="amrap">AMRAP</SelectItem>
+                    <SelectItem value="emom">EMOM</SelectItem>
+                    <SelectItem value="hiit">HIIT</SelectItem>
+                    <SelectItem value="technique">Técnica</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Fecha única */}
