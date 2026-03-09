@@ -1,12 +1,22 @@
+/**
+ * Archivo: AppLayout.tsx
+ * Ruta: src/components/layout/AppLayout.tsx
+ * Última modificación: 2025-03-09
+ * Descripción: Layout principal de la app. Incluye sidebar desktop, barra de navegación
+ *              móvil inferior, header con toggle de tema, y rutas protegidas por rol.
+ *              El rol "super_admin" se muestra como "Coach" en la UI.
+ */
+
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
-import { Home, Calendar, Users, BookOpen, User, LogOut, Bell, Dumbbell, Sun, Moon } from 'lucide-react';
+import { Home, Calendar, Users, BookOpen, User, LogOut, Bell, Dumbbell, Sun, Moon, ClipboardCheck } from 'lucide-react';
 import woditosLogo from '@/assets/woditos-logo.png';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
 
+/** Ítems de navegación comunes a todos los usuarios */
 const navItems = [
   { to: '/', icon: Home, label: 'Inicio' },
   { to: '/agenda', icon: Calendar, label: 'Agenda' },
@@ -15,10 +25,22 @@ const navItems = [
   { to: '/perfil', icon: User, label: 'Perfil' },
 ];
 
+/**
+ * Convierte el rol interno en una etiqueta legible para el usuario.
+ * "super_admin" → "Coach" para simplificar la UX.
+ */
+function formatRole(role: string | undefined): string {
+  if (!role) return 'Miembro';
+  if (role === 'super_admin') return 'Coach';
+  return role.charAt(0).toUpperCase() + role.slice(1);
+}
+
 export default function AppLayout() {
   const { profile, user, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
+
+  /** Verifica si el usuario tiene permisos de coach (coach o super_admin) */
   const isCoach = user?.role === 'coach' || user?.role === 'super_admin';
 
   const handleSignOut = async () => {
@@ -28,13 +50,17 @@ export default function AppLayout() {
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
-      {/* Sidebar - Desktop */}
+
+      {/* ─── SIDEBAR DESKTOP ───────────────────────────────────────────────────── */}
       <aside className="hidden md:flex flex-col w-64 border-r border-border bg-sidebar">
+
+        {/* Logo + nombre */}
         <div className="p-5 flex items-center gap-3">
           <img src={woditosLogo} alt="Woditos" className="h-9" />
           <span className="font-display font-bold text-lg text-foreground">Woditos</span>
         </div>
 
+        {/* Ítems de navegación */}
         <nav className="flex-1 px-3 py-2 space-y-1">
           {navItems.map(({ to, icon: Icon, label }) => (
             <NavLink
@@ -53,22 +79,37 @@ export default function AppLayout() {
               {label}
             </NavLink>
           ))}
+
+          {/* Rutas exclusivas para Coach / Super Admin */}
           {isCoach && (
-            <NavLink
-              to="/coach"
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                  isActive ? 'bg-secondary/10 text-secondary' : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                }`
-              }
-            >
-              <Dumbbell size={18} />
-              Coach Panel
-            </NavLink>
+            <>
+              <NavLink
+                to="/coach"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                    isActive ? 'bg-secondary/10 text-secondary' : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`
+                }
+              >
+                <Dumbbell size={18} />
+                Coach Panel
+              </NavLink>
+              <NavLink
+                to="/asistencia"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                    isActive ? 'bg-accent/10 text-accent' : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`
+                }
+              >
+                <ClipboardCheck size={18} />
+                Asistencia
+              </NavLink>
+            </>
           )}
         </nav>
 
-        {/* Theme Toggle */}
+        {/* Toggle de tema (oscuro / claro) */}
         <div className="px-4 py-3 border-t border-border">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -79,6 +120,7 @@ export default function AppLayout() {
           </div>
         </div>
 
+        {/* Perfil del usuario + botón de cierre de sesión */}
         <div className="p-4 border-t border-border">
           <div className="flex items-center gap-3">
             <Avatar className="h-9 w-9">
@@ -89,7 +131,8 @@ export default function AppLayout() {
             </Avatar>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-foreground truncate">{profile?.full_name || 'Usuario'}</p>
-              <p className="text-xs text-muted-foreground truncate capitalize">{user?.role || 'member'}</p>
+              {/* Muestra "Coach" en lugar de "super_admin" */}
+              <p className="text-xs text-muted-foreground truncate">{formatRole(user?.role)}</p>
             </div>
             <Button variant="ghost" size="icon" onClick={handleSignOut} className="text-muted-foreground hover:text-destructive">
               <LogOut size={16} />
@@ -98,9 +141,10 @@ export default function AppLayout() {
         </div>
       </aside>
 
-      {/* Main Content */}
+      {/* ─── CONTENIDO PRINCIPAL ───────────────────────────────────────────────── */}
       <main className="flex-1 flex flex-col overflow-hidden">
-        {/* Top bar mobile */}
+
+        {/* Header móvil */}
         <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-border bg-sidebar">
           <div className="flex items-center gap-2">
             <img src={woditosLogo} alt="Woditos" className="h-8" />
@@ -116,11 +160,12 @@ export default function AppLayout() {
           </div>
         </header>
 
+        {/* Área de contenido con scroll */}
         <div className="flex-1 overflow-y-auto p-4 md:p-8">
           <Outlet />
         </div>
 
-        {/* Bottom nav mobile */}
+        {/* Barra de navegación inferior (móvil) */}
         <nav className="md:hidden flex items-center justify-around border-t border-border bg-sidebar py-2 pb-safe">
           {navItems.map(({ to, icon: Icon, label }) => (
             <NavLink
@@ -137,6 +182,20 @@ export default function AppLayout() {
               {label}
             </NavLink>
           ))}
+          {/* Ítem Coach en móvil (si aplica) */}
+          {isCoach && (
+            <NavLink
+              to="/coach"
+              className={({ isActive }) =>
+                `flex flex-col items-center gap-1 py-1 px-2 text-xs font-medium transition-all ${
+                  isActive ? 'text-secondary' : 'text-muted-foreground'
+                }`
+              }
+            >
+              <Dumbbell size={20} />
+              Coach
+            </NavLink>
+          )}
         </nav>
       </main>
     </div>
