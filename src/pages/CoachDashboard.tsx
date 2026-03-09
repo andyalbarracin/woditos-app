@@ -239,57 +239,142 @@ export default function CoachDashboard() {
               <Plus size={16} /> Nueva Sesión
             </Button>
           </DialogTrigger>
-          <DialogContent className="bg-card border-border">
+          <DialogContent className="bg-card border-border max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="font-display">Crear Sesión</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
+
+              {/* ─── Crew: seleccionar existente o crear nuevo ─── */}
               <div className="space-y-2">
-                <Label>Crew</Label>
-                <Select value={selectedGroup} onValueChange={setSelectedGroup}>
-                  <SelectTrigger className="bg-background border-border"><SelectValue placeholder="Seleccionar crew" /></SelectTrigger>
-                  <SelectContent>
-                    {groups?.map((g: any) => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center justify-between">
+                  <Label>Crew</Label>
+                  <button
+                    type="button"
+                    onClick={() => setCrewMode(m => m === 'existing' ? 'new' : 'existing')}
+                    className="text-xs text-primary font-medium hover:underline"
+                  >
+                    {crewMode === 'existing' ? '+ Crear nuevo crew' : 'Elegir crew existente'}
+                  </button>
+                </div>
+                {crewMode === 'existing' ? (
+                  <Select value={selectedGroup} onValueChange={setSelectedGroup}>
+                    <SelectTrigger className="bg-background border-border">
+                      <SelectValue placeholder="Seleccionar crew" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {groups?.map((g: any) => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="space-y-2 p-3 border border-dashed border-primary/30 rounded-lg bg-primary/5">
+                    <Input
+                      placeholder="Nombre del nuevo crew"
+                      value={newCrewForm.name}
+                      onChange={e => setNewCrewForm(f => ({ ...f, name: e.target.value }))}
+                      className="bg-background border-border"
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        placeholder="Tipo (ej: functional)"
+                        value={newCrewForm.group_type}
+                        onChange={e => setNewCrewForm(f => ({ ...f, group_type: e.target.value }))}
+                        className="bg-background border-border text-sm"
+                      />
+                      <Input
+                        placeholder="Ubicación"
+                        value={newCrewForm.location}
+                        onChange={e => setNewCrewForm(f => ({ ...f, location: e.target.value }))}
+                        className="bg-background border-border text-sm"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
+
+              {/* Título */}
               <div className="space-y-2">
                 <Label>Título</Label>
-                <Input value={sessionForm.title} onChange={e => setSessionForm(f => ({ ...f, title: e.target.value }))} className="bg-background border-border" />
+                <Input
+                  placeholder="Ej: AMRAP 20min"
+                  value={sessionForm.title}
+                  onChange={e => setSessionForm(f => ({ ...f, title: e.target.value }))}
+                  className="bg-background border-border"
+                />
               </div>
+
+              {/* Tipo de sesión: texto libre */}
               <div className="space-y-2">
-                <Label>Tipo</Label>
-                <Select value={sessionForm.session_type} onValueChange={v => setSessionForm(f => ({ ...f, session_type: v }))}>
-                  <SelectTrigger className="bg-background border-border"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {['running', 'functional', 'amrap', 'emom', 'hiit', 'technique'].map(t => (
-                      <SelectItem key={t} value={t}>{t.toUpperCase()}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Tipo de sesión</Label>
+                <Input
+                  placeholder="Ej: running, funcional, HIIT, técnica..."
+                  value={sessionForm.session_type}
+                  onChange={e => setSessionForm(f => ({ ...f, session_type: e.target.value }))}
+                  className="bg-background border-border"
+                />
               </div>
+
+              {/* Fecha única */}
+              <div className="space-y-2">
+                <Label>Fecha</Label>
+                <Input
+                  type="date"
+                  value={sessionForm.session_date}
+                  onChange={e => setSessionForm(f => ({ ...f, session_date: e.target.value }))}
+                  className="bg-background border-border"
+                />
+              </div>
+
+              {/* Hora inicio + hora fin separadas — usa selector nativo del OS (rueda en iOS) */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <Label>Inicio</Label>
-                  <Input type="datetime-local" value={sessionForm.start_time} onChange={e => setSessionForm(f => ({ ...f, start_time: e.target.value }))} className="bg-background border-border" />
+                  <Label>Hora inicio</Label>
+                  <Input
+                    type="time"
+                    value={sessionForm.start_time}
+                    onChange={e => setSessionForm(f => ({ ...f, start_time: e.target.value }))}
+                    className="bg-background border-border"
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label>Fin</Label>
-                  <Input type="datetime-local" value={sessionForm.end_time} onChange={e => setSessionForm(f => ({ ...f, end_time: e.target.value }))} className="bg-background border-border" />
+                  <Label>Hora fin</Label>
+                  <Input
+                    type="time"
+                    value={sessionForm.end_time}
+                    onChange={e => setSessionForm(f => ({ ...f, end_time: e.target.value }))}
+                    className="bg-background border-border"
+                  />
                 </div>
               </div>
+
+              {/* Ubicación + Capacidad */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label>Ubicación</Label>
-                  <Input value={sessionForm.location} onChange={e => setSessionForm(f => ({ ...f, location: e.target.value }))} className="bg-background border-border" />
+                  <Input
+                    placeholder="Ej: Palermo Rosedal"
+                    value={sessionForm.location}
+                    onChange={e => setSessionForm(f => ({ ...f, location: e.target.value }))}
+                    className="bg-background border-border"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Capacidad</Label>
-                  <Input type="number" value={sessionForm.capacity} onChange={e => setSessionForm(f => ({ ...f, capacity: e.target.value }))} className="bg-background border-border" />
+                  <Input
+                    type="number"
+                    value={sessionForm.capacity}
+                    onChange={e => setSessionForm(f => ({ ...f, capacity: e.target.value }))}
+                    className="bg-background border-border"
+                  />
                 </div>
               </div>
-              <Button onClick={() => createSession.mutate()} disabled={createSession.isPending} className="w-full gradient-primary text-primary-foreground">
-                Crear Sesión
+
+              <Button
+                onClick={() => createSession.mutate()}
+                disabled={createSession.isPending}
+                className="w-full gradient-primary text-primary-foreground"
+              >
+                {createSession.isPending ? 'Creando...' : 'Crear Sesión'}
               </Button>
             </div>
           </DialogContent>
