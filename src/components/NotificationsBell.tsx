@@ -12,13 +12,14 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
-import { Bell } from 'lucide-react';
+import { Bell, BellRing } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 
 interface Notification {
   id: string;
@@ -34,6 +35,7 @@ export default function NotificationsBell() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
+  const push = usePushNotifications();
 
   // Fetch notificaciones
   const { data: notifications } = useQuery({
@@ -174,6 +176,33 @@ export default function NotificationsBell() {
             </div>
           )}
         </ScrollArea>
+
+        {/* Push notifications toggle */}
+        {push.isSupported && (
+          <div className="px-4 py-3 border-t border-border">
+            {push.isSubscribed ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full text-xs text-muted-foreground gap-2"
+                onClick={() => push.unsubscribe()}
+                disabled={push.isLoading}
+              >
+                <BellRing size={14} /> Desactivar notificaciones push
+              </Button>
+            ) : (
+              <Button
+                variant="default"
+                size="sm"
+                className="w-full text-xs gap-2"
+                onClick={() => push.subscribe()}
+                disabled={push.isLoading}
+              >
+                <BellRing size={14} /> {push.isLoading ? 'Activando...' : 'Activar notificaciones push'}
+              </Button>
+            )}
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );

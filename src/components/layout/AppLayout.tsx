@@ -149,6 +149,17 @@ export default function AppLayout() {
       {/* ─── CONTENIDO PRINCIPAL ───────────────────────────────────────────────── */}
       <main className="flex-1 flex flex-col overflow-hidden">
 
+        {/* Header desktop con notificaciones y próxima sesión */}
+        <header className="hidden md:flex items-center justify-between px-6 py-3 border-b border-border bg-card/50">
+          <NextSessionBanner />
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" onClick={toggleTheme} className="text-muted-foreground hover:text-foreground">
+              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            </Button>
+            <NotificationsBell />
+          </div>
+        </header>
+
         {/* Header móvil */}
         <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-border bg-sidebar">
           <div className="flex items-center gap-2">
