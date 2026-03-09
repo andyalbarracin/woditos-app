@@ -61,7 +61,7 @@ export default function Agenda() {
       queryClient.invalidateQueries({ queryKey: ['sessions-week'] });
       toast.success('¡Reserva confirmada!');
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: () => toast.error('No se pudo hacer la reserva. Intentá de nuevo.'),
   });
 
   const cancelMutation = useMutation({
