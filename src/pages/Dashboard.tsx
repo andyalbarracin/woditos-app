@@ -54,7 +54,7 @@ export default function Dashboard() {
     queryFn: async () => {
       const { data } = await supabase
         .from('posts')
-        .select('*, profiles!author_user_id(full_name, avatar_url)')
+        .select('*, users!author_user_id(id, profiles(full_name, avatar_url))')
         .order('created_at', { ascending: false })
         .limit(3);
       return data || [];
