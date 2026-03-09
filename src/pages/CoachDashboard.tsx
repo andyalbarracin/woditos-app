@@ -194,13 +194,14 @@ export default function CoachDashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['coach-today-sessions'] });
       queryClient.invalidateQueries({ queryKey: ['coach-groups'] });
+      queryClient.invalidateQueries({ queryKey: ['attendance-all-sessions'] });
       setShowCreateSession(false);
       setSessionForm({ title: '', session_type: '', session_date: '', start_time: '', end_time: '', location: '', capacity: '20', notes: '' });
       setCrewMode('existing');
       setNewCrewForm({ name: '', group_type: 'functional', location: '', capacity: '20' });
-      toast.success('Sesión creada');
+      toast.success('¡Sesión creada exitosamente!');
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: (err: any) => toast.error('No se pudo crear la sesión. Verificá los datos ingresados.'),
   });
 
   const markAttendance = useMutation({
