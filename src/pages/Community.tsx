@@ -82,9 +82,7 @@ export default function Community() {
 
       {/* ─── STORIES BAR ─────────────────────────────────────────────────────── */}
       <div className="bg-card border border-border rounded-xl px-3 py-2">
-        <StoriesBar
-          onAddStory={() => toast.info('Para subir una story, contactá al coach')}
-        />
+        <StoriesBar />
       </div>
 
       {/* ─── COMPOSITOR DE POSTS ──────────────────────────────────────────────── */}
