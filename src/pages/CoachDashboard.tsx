@@ -182,7 +182,7 @@ export default function CoachDashboard() {
         group_id: groupId,
         coach_id: user!.id,
         title: sessionForm.title || 'Sesión',
-        session_type: sessionForm.session_type || 'general',
+        session_type: sessionForm.session_type || 'functional',
         start_time: startISO,
         end_time: endISO,
         location: sessionForm.location || null,
