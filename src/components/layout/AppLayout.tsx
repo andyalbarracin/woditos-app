@@ -149,13 +149,10 @@ export default function AppLayout() {
       {/* ─── CONTENIDO PRINCIPAL ───────────────────────────────────────────────── */}
       <main className="flex-1 flex flex-col overflow-hidden">
 
-        {/* Header desktop con notificaciones y próxima sesión */}
+        {/* Header desktop */}
         <header className="hidden md:flex items-center justify-between px-6 py-3 border-b border-border bg-card/50">
           <NextSessionBanner />
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={toggleTheme} className="text-muted-foreground hover:text-foreground">
-              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-            </Button>
             <NotificationsBell />
           </div>
         </header>
@@ -166,11 +163,8 @@ export default function AppLayout() {
             <img src={woditosLogo} alt="Woditos" className="h-8" />
             <span className="font-display font-bold text-foreground">Woditos</span>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
             <NextSessionBanner />
-            <Button variant="ghost" size="icon" onClick={toggleTheme} className="text-muted-foreground">
-              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-            </Button>
             <NotificationsBell />
           </div>
         </header>
