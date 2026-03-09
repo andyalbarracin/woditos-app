@@ -164,25 +164,35 @@ Insertar stories, posts y attendance para estos usuarios.
 - Creación de este archivo WODITOS_LOG.md
 - Identificación honesta de brechas entre lo prometido y lo entregado
 
-**Pendiente de esta sesión:**
-- Crear usuarios dummy para poder testear la app como usuario real
+### Sesión 3 (2026-03-09)
+**Prompt:** Crear usuarios dummy + data de prueba
+**Lo que se hizo (VERIFICADO):**
+- ✅ Creados 4 usuarios en Auth con email_confirm: true
+- ✅ Roles asignados (1 coach + 3 members)
+- ✅ Profiles actualizados con nombre, avatar, goals, experiencia, contacto
+- ✅ 6 group_memberships (usuarios asignados a crews existentes)
+- ✅ 5 posts realistas (milestones, anuncios, texto)
+- ✅ 3 stories con imágenes de Unsplash (expiran en 23h)
+- ✅ 7 registros de asistencia (present, late, absent con notas)
+- ✅ 5 reservaciones a sesiones futuras
+- ✅ 4 logros/achievements para 3 usuarios
 
 ---
 
 ## 🔐 CREDENCIALES DE ACCESO
 
-### Usuario Real (funciona hoy)
+### Usuario Real
 | Email | Password | Rol | Notas |
 |-------|----------|-----|-------|
-| figo.albarra@gmail.com | (contraseña del dueño) | super_admin / Coach | Único usuario real |
+| figo.albarra@gmail.com | (contraseña del dueño) | super_admin / Coach | Dueño del proyecto |
 
-### Usuarios Dummy (PENDIENTES — NO EXISTEN AÚN)
+### Usuarios Dummy (✅ CREADOS 2026-03-09)
 | Email | Password | Rol | Estado |
 |-------|----------|-----|--------|
-| coach@woditos.app | Woditos2024! | coach | ❌ Por crear |
-| maria@woditos.app | Woditos2024! | member | ❌ Por crear |
-| juan@woditos.app | Woditos2024! | member | ❌ Por crear |
-| sofia@woditos.app | Woditos2024! | member | ❌ Por crear |
+| coach@woditos.app | Woditos2024! | coach | ✅ Activo |
+| maria@woditos.app | Woditos2024! | member | ✅ Activo |
+| juan@woditos.app | Woditos2024! | member | ✅ Activo |
+| sofia@woditos.app | Woditos2024! | member | ✅ Activo |
 
 ---
 
