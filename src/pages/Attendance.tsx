@@ -692,6 +692,13 @@ export default function AttendancePage() {
               </p>
             </div>
           )}
+
+          {/* ─── ASIGNAR MIEMBRO MANUALMENTE ────────────────────────── */}
+          <AssignMemberToSession
+            sessionId={selectedSessionId}
+            existingUserIds={Object.keys(attendees)}
+            onAssigned={() => queryClient.invalidateQueries({ queryKey: ['attendance-session', selectedSessionId] })}
+          />
         </>
       )}
 
@@ -740,6 +747,88 @@ export default function AttendancePage() {
           onScan={handleQRScan}
           onClose={() => setShowQRScanner(false)}
         />
+      )}
+    </div>
+  );
+}
+
+/** Subcomponente: buscar y asignar un miembro a la sesión actual */
+function AssignMemberToSession({
+  sessionId, existingUserIds, onAssigned
+}: {
+  sessionId: string; existingUserIds: string[]; onAssigned: () => void;
+}) {
+  const [search, setSearch] = useState('');
+  const [assigning, setAssigning] = useState(false);
+
+  const { data: searchResults } = useQuery({
+    queryKey: ['search-members-assign', search],
+    queryFn: async () => {
+      if (search.length < 2) return [];
+      const { data } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, avatar_url')
+        .ilike('full_name', `%${search}%`)
+        .limit(5);
+      return (data || []).filter((p: any) => !existingUserIds.includes(p.user_id));
+    },
+    enabled: search.length >= 2,
+  });
+
+  const assignMember = async (userId: string, name: string) => {
+    setAssigning(true);
+    const { error } = await supabase.from('reservations').insert({
+      session_id: sessionId,
+      user_id: userId,
+      reservation_status: 'confirmed',
+    });
+    setAssigning(false);
+    if (error) {
+      toast.error('No se pudo asignar al miembro');
+    } else {
+      toast.success(`✅ ${name} asignado a esta sesión`);
+      setSearch('');
+      onAssigned();
+    }
+  };
+
+  return (
+    <div className="bg-card border border-dashed border-border rounded-xl p-4">
+      <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-2">
+        Asignar miembro manualmente
+      </p>
+      <div className="relative">
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Buscar por nombre..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="pl-9 bg-background border-border"
+        />
+      </div>
+      {searchResults && searchResults.length > 0 && (
+        <div className="mt-2 space-y-1">
+          {searchResults.map((p: any) => (
+            <button
+              key={p.user_id}
+              onClick={() => assignMember(p.user_id, p.full_name)}
+              disabled={assigning}
+              className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-muted transition-colors text-left"
+            >
+              <Avatar className="h-8 w-8">
+                {p.avatar_url && <AvatarImage src={p.avatar_url} />}
+                <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
+                  {p.full_name?.slice(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <span className="text-sm text-foreground font-medium">{p.full_name}</span>
+              <Plus size={14} className="ml-auto text-primary" />
+            </button>
+          ))}
+        </div>
+      )}
+      {search.length >= 2 && searchResults?.length === 0 && (
+        <p className="text-xs text-muted-foreground mt-2">No se encontraron miembros</p>
       )}
     </div>
   );

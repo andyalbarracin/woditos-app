@@ -88,7 +88,7 @@ export default function CoachDashboard() {
     queryKey: ['coach-members', selectedGroup],
     queryFn: async () => {
       let query = supabase.from('group_memberships')
-        .select('*, users(email, role, status), profiles!user_id(full_name, avatar_url, experience_level)')
+        .select('*, users!user_id(id, email, role, status, profiles(full_name, avatar_url, experience_level))')
         .eq('membership_status', 'active');
       if (selectedGroup && selectedGroup !== 'all') query = query.eq('group_id', selectedGroup);
       const { data } = await query;
@@ -504,27 +504,30 @@ export default function CoachDashboard() {
               </thead>
               <tbody>
                 {members && members.length > 0 ? (
-                  members.map((m: any) => (
+                  members.map((m: any) => {
+                    const mp = m.users?.profiles;
+                    return (
                     <tr key={m.id} className="border-b border-border last:border-0 hover:bg-muted/50">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">
-                            {m.profiles?.full_name?.slice(0, 2).toUpperCase() || '?'}
+                            {mp?.full_name?.slice(0, 2).toUpperCase() || '?'}
                           </div>
                           <div>
-                            <p className="text-sm font-medium text-foreground">{m.profiles?.full_name || 'Sin nombre'}</p>
+                            <p className="text-sm font-medium text-foreground">{mp?.full_name || 'Sin nombre'}</p>
                             <p className="text-xs text-muted-foreground">{m.users?.email}</p>
                           </div>
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        <span className="text-xs capitalize text-muted-foreground">{m.profiles?.experience_level || '-'}</span>
+                        <span className="text-xs capitalize text-muted-foreground">{mp?.experience_level || '-'}</span>
                       </td>
                       <td className="px-4 py-3">
                         <span className="text-xs capitalize text-secondary">{m.membership_status}</span>
                       </td>
                     </tr>
-                  ))
+                    );
+                  })
                 ) : (
                   <tr>
                     <td colSpan={3} className="px-4 py-8 text-center text-muted-foreground">No hay miembros</td>
