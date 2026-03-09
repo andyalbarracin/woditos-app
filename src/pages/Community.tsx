@@ -30,13 +30,17 @@ export default function Community() {
   // Tipo de post seleccionado para el compositor
   const [postType, setPostType] = useState<'text' | 'milestone' | 'announcement'>('text');
 
-  /** Consulta paginada del feed de posts con perfil del autor, reacciones y comentarios */
+  /**
+   * Consulta paginada del feed de posts con perfil del autor, reacciones y comentarios.
+   * FK: posts.author_user_id → users.id, y users.id ← profiles.user_id
+   * Por lo tanto usamos users!author_user_id(id, profiles(...)) para hacer el join correctamente.
+   */
   const { data, fetchNextPage, hasNextPage, isLoading } = useInfiniteQuery({
     queryKey: ['feed'],
     queryFn: async ({ pageParam = 0 }) => {
       const { data } = await supabase
         .from('posts')
-        .select('*, profiles!author_user_id(full_name, avatar_url), reactions(count), comments(count)')
+        .select('*, users!author_user_id(id, profiles(full_name, avatar_url)), reactions(count), comments(count)')
         .order('created_at', { ascending: false })
         .range(pageParam * PAGE_SIZE, (pageParam + 1) * PAGE_SIZE - 1);
       return data || [];
@@ -78,13 +82,11 @@ export default function Community() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-4 animate-fade-in">
-      <h1 className="font-display text-3xl font-extrabold text-foreground">Comunidad</h1>
+      <h1 className="font-display text-3xl font-extrabold text-foreground">Crew</h1>
 
       {/* ─── STORIES BAR ─────────────────────────────────────────────────────── */}
       <div className="bg-card border border-border rounded-xl px-3 py-2">
-        <StoriesBar
-          onAddStory={() => toast.info('Para subir una story, contactá al coach')}
-        />
+        <StoriesBar />
       </div>
 
       {/* ─── COMPOSITOR DE POSTS ──────────────────────────────────────────────── */}
@@ -161,18 +163,20 @@ export default function Community() {
         ) : posts.length > 0 ? (
           posts.map((post: any) => {
             const typeStyle = POST_TYPE_STYLES[post.post_type] || POST_TYPE_STYLES.text;
+            // El perfil viene anidado en users.profiles debido al join correcto
+            const authorProfile = post.users?.profiles;
             return (
               <div key={post.id} className="bg-card border border-border rounded-xl p-5">
                 {/* Header del post: avatar, nombre, fecha, badge de tipo */}
                 <div className="flex items-center gap-3 mb-3">
                   <Avatar className="h-10 w-10">
-                    {post.profiles?.avatar_url && <AvatarImage src={post.profiles.avatar_url} />}
+                    {authorProfile?.avatar_url && <AvatarImage src={authorProfile.avatar_url} />}
                     <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
-                      {post.profiles?.full_name?.slice(0, 2).toUpperCase() || '?'}
+                      {authorProfile?.full_name?.slice(0, 2).toUpperCase() || '?'}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
-                    <p className="font-semibold text-foreground text-sm">{post.profiles?.full_name}</p>
+                    <p className="font-semibold text-foreground text-sm">{authorProfile?.full_name || 'Usuario'}</p>
                     <p className="text-xs text-muted-foreground">
                       {format(new Date(post.created_at), "d MMM · HH:mm", { locale: es })}
                     </p>

@@ -1,3 +1,12 @@
+/**
+ * Archivo: index.css
+ * Ruta: src/index.css
+ * Última modificación: 2026-03-09
+ * Descripción: Sistema de diseño global de Woditos.
+ *   Paleta de branding: navy #0D1846, blue #406EB7, orange #E95623, off-white #E3E3E3
+ *   Tokens HSL para modo claro y oscuro, tipografías y utilidades globales.
+ */
+
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
@@ -10,100 +19,114 @@
     --font-body: 'Inter', sans-serif;
   }
 
+  /* ── MODO CLARO ───────────────────────────────────────────────────────────
+   * Fondo off-white (#E3E3E3 → hsl 0 0% 89%), primario naranja (#E95623),
+   * sidebar navy (#0D1846), acentos blue (#406EB7).
+   */
   .light {
-    --background: 0 0% 98%;
-    --foreground: 230 25% 10%;
+    --background: 220 20% 97%;           /* casi blanco, suave */
+    --foreground: 232 73% 11%;           /* navy oscuro para texto */
 
     --card: 0 0% 100%;
-    --card-foreground: 230 25% 10%;
+    --card-foreground: 232 73% 11%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 230 25% 10%;
+    --popover-foreground: 232 73% 11%;
 
-    --primary: 16 100% 50%;
+    /* Primario: naranja Woditos #E95623 */
+    --primary: 17 81% 52%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 165 80% 32%;
+    /* Secundario: azul Woditos #406EB7 */
+    --secondary: 217 47% 48%;
     --secondary-foreground: 0 0% 100%;
 
     --muted: 220 14% 92%;
-    --muted-foreground: 220 10% 40%;
+    --muted-foreground: 220 10% 45%;
 
-    --accent: 45 100% 50%;
-    --accent-foreground: 230 25% 10%;
+    /* Acento: naranja más suave para highlights */
+    --accent: 25 95% 58%;
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 345 82% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 13% 88%;
-    --input: 220 13% 88%;
-    --ring: 16 100% 50%;
+    --border: 220 13% 86%;
+    --input: 220 13% 86%;
+    --ring: 17 81% 52%;
 
     --radius: 0.75rem;
 
     --success: 165 80% 32%;
     --warning: 45 100% 50%;
     --error: 345 82% 50%;
-    --info: 213 94% 50%;
+    --info: 217 47% 48%;
 
     --surface: 220 14% 95%;
 
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 230 25% 10%;
-    --sidebar-primary: 16 100% 50%;
+    /* Sidebar navy #0D1846 → hsl(232, 73%, 16%) */
+    --sidebar-background: 232 73% 16%;
+    --sidebar-foreground: 0 0% 90%;
+    --sidebar-primary: 17 81% 52%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 14% 95%;
-    --sidebar-accent-foreground: 230 25% 10%;
-    --sidebar-border: 220 13% 88%;
-    --sidebar-ring: 16 100% 50%;
+    --sidebar-accent: 232 60% 22%;
+    --sidebar-accent-foreground: 0 0% 90%;
+    --sidebar-border: 232 50% 22%;
+    --sidebar-ring: 17 81% 52%;
   }
 
+  /* ── MODO OSCURO ──────────────────────────────────────────────────────────
+   * Fondo muy oscuro navy, primario naranja vibrante, sidebar navy más profundo.
+   */
   .dark {
-    --background: 230 25% 5%;
-    --foreground: 250 20% 96%;
+    --background: 232 73% 6%;            /* navy muy oscuro */
+    --foreground: 0 0% 93%;             /* off-white #E3E3E3 */
 
-    --card: 230 20% 9%;
-    --card-foreground: 250 20% 96%;
+    --card: 232 50% 10%;
+    --card-foreground: 0 0% 93%;
 
-    --popover: 230 20% 9%;
-    --popover-foreground: 250 20% 96%;
+    --popover: 232 50% 10%;
+    --popover-foreground: 0 0% 93%;
 
-    --primary: 16 100% 58%;
+    /* Primario: naranja Woditos #E95623 (más vivo en dark) */
+    --primary: 17 81% 55%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 165 100% 39%;
+    /* Secundario: azul Woditos #406EB7 */
+    --secondary: 217 47% 55%;
     --secondary-foreground: 0 0% 100%;
 
-    --muted: 240 10% 14%;
-    --muted-foreground: 250 10% 55%;
+    --muted: 232 40% 14%;
+    --muted-foreground: 232 15% 55%;
 
-    --accent: 45 100% 70%;
-    --accent-foreground: 230 25% 5%;
+    --accent: 25 95% 62%;
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 345 82% 65%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 240 12% 18%;
-    --input: 240 12% 18%;
-    --ring: 16 100% 58%;
+    --border: 232 35% 18%;
+    --input: 232 35% 18%;
+    --ring: 17 81% 55%;
 
     --radius: 0.75rem;
 
     --success: 165 100% 39%;
-    --warning: 45 100% 70%;
+    --warning: 45 100% 60%;
     --error: 345 82% 65%;
-    --info: 213 100% 65%;
+    --info: 217 80% 65%;
 
-    --surface: 230 18% 10%;
+    --surface: 232 45% 12%;
 
-    --sidebar-background: 230 20% 7%;
-    --sidebar-foreground: 250 20% 96%;
-    --sidebar-primary: 16 100% 58%;
+    /* Sidebar navy profundo #0D1846 → aún más oscuro en dark */
+    --sidebar-background: 232 73% 11%;
+    --sidebar-foreground: 0 0% 88%;
+    --sidebar-primary: 17 81% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 10% 14%;
-    --sidebar-accent-foreground: 250 20% 96%;
-    --sidebar-border: 240 12% 18%;
-    --sidebar-ring: 16 100% 58%;
+    --sidebar-accent: 232 60% 17%;
+    --sidebar-accent-foreground: 0 0% 88%;
+    --sidebar-border: 232 50% 16%;
+    --sidebar-ring: 17 81% 55%;
   }
 }
 
@@ -120,30 +143,39 @@
 }
 
 @layer utilities {
+  /* Gradiente naranja Woditos */
   .gradient-primary {
-    background: linear-gradient(135deg, hsl(16, 100%, 58%), hsl(30, 100%, 60%));
+    background: linear-gradient(135deg, hsl(17, 81%, 52%), hsl(25, 95%, 58%));
   }
+  /* Gradiente azul Woditos */
   .gradient-secondary {
-    background: linear-gradient(135deg, hsl(165, 100%, 39%), hsl(180, 80%, 45%));
+    background: linear-gradient(135deg, hsl(217, 47%, 48%), hsl(210, 60%, 55%));
   }
+  /* Gradiente de superficie oscura (navy) */
   .gradient-surface {
-    background: linear-gradient(180deg, hsl(230, 20%, 9%), hsl(230, 25%, 5%));
+    background: linear-gradient(180deg, hsl(232, 50%, 10%), hsl(232, 73%, 6%));
   }
+  /* Texto con gradiente naranja */
   .text-gradient-primary {
-    background: linear-gradient(135deg, hsl(16, 100%, 58%), hsl(45, 100%, 70%));
+    background: linear-gradient(135deg, hsl(17, 81%, 55%), hsl(25, 95%, 62%));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
+  /* Glows */
   .glow-primary {
-    box-shadow: 0 0 30px -5px hsl(16 100% 58% / 0.3);
+    box-shadow: 0 0 30px -5px hsl(17 81% 52% / 0.35);
   }
   .glow-secondary {
-    box-shadow: 0 0 30px -5px hsl(165 100% 39% / 0.3);
+    box-shadow: 0 0 30px -5px hsl(217 47% 48% / 0.35);
   }
+  /* Ocultar scrollbar pero mantener scroll */
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 }
 
-/* Scrollbar */
+/* Scrollbar global (escritorio) */
 ::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: hsl(230, 25%, 5%); }
-::-webkit-scrollbar-thumb { background: hsl(240, 12%, 18%); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: hsl(240, 12%, 25%); }
+::-webkit-scrollbar-track { background: hsl(232, 73%, 6%); }
+::-webkit-scrollbar-thumb { background: hsl(232, 35%, 18%); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(232, 35%, 25%); }

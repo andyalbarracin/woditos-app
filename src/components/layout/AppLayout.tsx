@@ -20,8 +20,8 @@ import { Switch } from '@/components/ui/switch';
 const navItems = [
   { to: '/', icon: Home, label: 'Inicio' },
   { to: '/agenda', icon: Calendar, label: 'Agenda' },
-  { to: '/comunidad', icon: Users, label: 'Comunidad' },
-  { to: '/biblioteca', icon: BookOpen, label: 'Biblioteca' },
+  { to: '/comunidad', icon: Users, label: 'Crew' },
+  { to: '/biblioteca', icon: BookOpen, label: 'Wiki' },
   { to: '/perfil', icon: User, label: 'Perfil' },
 ];
 
@@ -70,8 +70,8 @@ export default function AppLayout() {
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
                   isActive
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                    ? 'bg-sidebar-primary/20 text-sidebar-primary'
+                    : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent'
                 }`
               }
             >
@@ -80,14 +80,17 @@ export default function AppLayout() {
             </NavLink>
           ))}
 
-          {/* Rutas exclusivas para Coach / Super Admin */}
+          {/* Divider + rutas exclusivas para Coach / Super Admin */}
           {isCoach && (
             <>
+              {/* Línea divisoria sutil antes de las opciones de Coach */}
+              <div className="my-3 border-t border-sidebar-border" />
+              
               <NavLink
                 to="/coach"
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                    isActive ? 'bg-secondary/10 text-secondary' : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                    isActive ? 'bg-sidebar-primary/20 text-sidebar-primary' : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent'
                   }`
                 }
               >
@@ -98,12 +101,12 @@ export default function AppLayout() {
                 to="/asistencia"
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                    isActive ? 'bg-accent/10 text-accent' : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                    isActive ? 'bg-sidebar-primary/20 text-sidebar-primary' : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent'
                   }`
                 }
               >
                 <ClipboardCheck size={18} />
-                Asistencia
+                Asistencias
               </NavLink>
             </>
           )}
