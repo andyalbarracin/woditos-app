@@ -20,7 +20,7 @@ import { format, isSameDay, startOfMonth, endOfMonth, startOfDay } from 'date-fn
 import { es } from 'date-fns/locale';
 import {
   ClipboardCheck, Calendar as CalendarIcon, Check, Clock, X,
-  MessageSquare, QrCode, User, Search, Save, Plus, Send, ChevronLeft, ChevronRight
+  MessageSquare, QrCode, User, Search, Save, Plus, Send, ScanLine
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -35,6 +35,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { toast } from 'sonner';
 import { QRCodeSVG } from 'qrcode.react';
 import { cn } from '@/lib/utils';
+import QRScanner from '@/components/QRScanner';
 
 /** Estados posibles de asistencia */
 type AttendanceStatus = 'present' | 'late' | 'absent' | 'excused';
