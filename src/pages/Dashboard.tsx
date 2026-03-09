@@ -1,3 +1,10 @@
+/**
+ * Archivo: Dashboard.tsx
+ * Ruta: src/pages/Dashboard.tsx
+ * Última modificación: 2026-03-09
+ * Descripción: Pantalla principal del miembro. Muestra saludo, estadísticas
+ *              de asistencia, próximas sesiones y actividad reciente del feed.
+ */
 import { useAuth } from '@/hooks/useAuth';
 import { Calendar, Flame, TrendingUp, Users, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
