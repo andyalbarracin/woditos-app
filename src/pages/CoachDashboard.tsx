@@ -88,7 +88,7 @@ export default function CoachDashboard() {
     queryKey: ['coach-members', selectedGroup],
     queryFn: async () => {
       let query = supabase.from('group_memberships')
-        .select('*, users(email, role, status), profiles!user_id(full_name, avatar_url, experience_level)')
+        .select('*, users!user_id(id, email, role, status, profiles(full_name, avatar_url, experience_level))')
         .eq('membership_status', 'active');
       if (selectedGroup && selectedGroup !== 'all') query = query.eq('group_id', selectedGroup);
       const { data } = await query;

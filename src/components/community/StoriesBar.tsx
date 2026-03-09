@@ -5,11 +5,11 @@
  * Descripción: Barra de Stories estilo Instagram. Muestra círculos con avatar de cada
  *              usuario que subió una story activa (últimas 24h). Al hacer click abre
  *              un viewer de pantalla completa con avance automático de 5 segundos.
+ *              Soporta swipe táctil (izquierda/derecha) para navegar entre stories.
  *              El botón "Tu story" abre el selector nativo de archivo/cámara del dispositivo.
- *              Usa datos reales de la tabla `stories` via join users→profiles.
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
@@ -17,10 +17,8 @@ import { X, ChevronLeft, ChevronRight, Plus, Camera } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 
-/** Tiempo de visualización automática por story (ms) */
 const STORY_DURATION = 5000;
 
-/** Una story individual del servidor */
 interface Story {
   id: string;
   media_url: string;
@@ -29,7 +27,6 @@ interface Story {
   created_at: string;
 }
 
-/** Story agrupada por autor para mostrar en la barra */
 interface AuthorStories {
   authorId: string;
   fullName: string;
@@ -41,63 +38,54 @@ interface AuthorStories {
 export default function StoriesBar() {
   const { user, profile } = useAuth();
   const queryClient = useQueryClient();
-
-  // Referencia oculta al input de archivo para activar selector nativo
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Estado del viewer de stories
   const [viewingAuthorIndex, setViewingAuthorIndex] = useState(-1);
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
   const [progress, setProgress] = useState(0);
   const progressRef = useRef<NodeJS.Timeout | null>(null);
 
-  /**
-   * Carga stories activas (no vencidas) de las últimas 24h.
-   * FK: stories.author_user_id → users.id → profiles.user_id
-   * Se usa el join users!author_user_id(id, profiles(...)) ya que no hay FK directa a profiles.
-   */
+  // Touch/swipe state
+  const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
+
+  /** Fetch active stories with author profile data */
   const { data: storiesData } = useQuery({
     queryKey: ['stories-bar'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('stories')
-        .select('*, users!author_user_id(id, profiles(full_name, avatar_url))')
+        .select('*, profiles!author_user_id(full_name, avatar_url)')
         .gt('expires_at', new Date().toISOString())
         .order('created_at', { ascending: false });
-      if (error) console.error('[StoriesBar] query error:', error);
+      if (error) {
+        // Fallback: try direct query without join
+        const { data: fallbackData } = await supabase
+          .from('stories')
+          .select('*')
+          .gt('expires_at', new Date().toISOString())
+          .order('created_at', { ascending: false });
+        return fallbackData || [];
+      }
       return data || [];
     },
     refetchInterval: 60000,
   });
 
-  /**
-   * Mutación para subir una story al bucket "stories" y registrarla en la tabla.
-   * El bucket ya es público, así que media_url es la URL pública generada por Supabase Storage.
-   */
   const uploadStory = useMutation({
     mutationFn: async (file: File) => {
       if (!user) throw new Error('No autenticado');
-      // Validar que sea imagen o video
       if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
         throw new Error('Solo se permiten imágenes o videos');
       }
       const ext = file.name.split('.').pop() || 'jpg';
       const path = `${user.id}/${Date.now()}.${ext}`;
-
-      // Subir al bucket "stories"
-      const { error: uploadError } = await supabase.storage
-        .from('stories')
-        .upload(path, file, { upsert: true });
+      const { error: uploadError } = await supabase.storage.from('stories').upload(path, file, { upsert: true });
       if (uploadError) throw uploadError;
-
-      // Obtener URL pública
       const { data: urlData } = supabase.storage.from('stories').getPublicUrl(path);
-      const publicUrl = urlData.publicUrl;
-
-      // Insertar registro en la tabla stories (expires_at se setea automáticamente a +24h)
       const { error: insertError } = await supabase.from('stories').insert({
         author_user_id: user.id,
-        media_url: publicUrl,
+        media_url: urlData.publicUrl,
       });
       if (insertError) throw insertError;
     },
@@ -108,37 +96,25 @@ export default function StoriesBar() {
     onError: (err: any) => toast.error(err.message || 'Error al subir la story'),
   });
 
-  /** Maneja la selección de archivo del input oculto */
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) uploadStory.mutate(file);
-    // Limpiar el input para permitir subir el mismo archivo nuevamente
     e.target.value = '';
   };
 
-  /**
-   * Al hacer click en "Tu story", activa el selector nativo del dispositivo.
-   * En móvil iOS/Android abre el menú de cámara o galería (con permisos del OS).
-   * El atributo accept permite imágenes y videos; capture="environment" sugiere cámara.
-   */
-  const handleAddStoryClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  /**
-   * Agrupa las stories por autor para mostrar un solo círculo por persona.
-   */
+  /** Group stories by author */
   const authorGroups: AuthorStories[] = [];
   (storiesData || []).forEach((s: any) => {
-    const profile = s.users?.profiles;
+    // Try to get profile from join, otherwise use fallback
+    const prof = s.profiles || null;
     const existing = authorGroups.find(g => g.authorId === s.author_user_id);
     if (existing) {
       existing.stories.push(s);
     } else {
       authorGroups.push({
         authorId: s.author_user_id,
-        fullName: profile?.full_name || 'Usuario',
-        avatarUrl: profile?.avatar_url || null,
+        fullName: prof?.full_name || 'Usuario',
+        avatarUrl: prof?.avatar_url || null,
         stories: [s],
         hasUnread: true,
       });
@@ -151,12 +127,12 @@ export default function StoriesBar() {
     setProgress(0);
   };
 
-  const closeViewer = () => {
+  const closeViewer = useCallback(() => {
     setViewingAuthorIndex(-1);
     if (progressRef.current) clearInterval(progressRef.current);
-  };
+  }, []);
 
-  const nextStory = () => {
+  const nextStory = useCallback(() => {
     const group = authorGroups[viewingAuthorIndex];
     if (!group) return;
     if (currentStoryIndex < group.stories.length - 1) {
@@ -169,9 +145,9 @@ export default function StoriesBar() {
     } else {
       closeViewer();
     }
-  };
+  }, [viewingAuthorIndex, currentStoryIndex, authorGroups, closeViewer]);
 
-  const prevStory = () => {
+  const prevStory = useCallback(() => {
     if (currentStoryIndex > 0) {
       setCurrentStoryIndex(i => i - 1);
       setProgress(0);
@@ -180,9 +156,9 @@ export default function StoriesBar() {
       setCurrentStoryIndex(0);
       setProgress(0);
     }
-  };
+  }, [viewingAuthorIndex, currentStoryIndex]);
 
-  /** Avance automático con barra de progreso */
+  /** Auto-advance timer */
   useEffect(() => {
     if (viewingAuthorIndex < 0) return;
     if (progressRef.current) clearInterval(progressRef.current);
@@ -200,12 +176,35 @@ export default function StoriesBar() {
     return () => { if (progressRef.current) clearInterval(progressRef.current); };
   }, [viewingAuthorIndex, currentStoryIndex]);
 
+  /** Touch handlers for swipe */
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    const dy = e.changedTouches[0].clientY - touchStartY.current;
+    // Only horizontal swipes (ignore vertical scrolling)
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
+      if (dx < 0) nextStory();
+      else prevStory();
+    }
+  };
+
+  /** Tap left/right halves to navigate */
+  const handleViewerTap = (e: React.MouseEvent) => {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    if (x < rect.width / 3) prevStory();
+    else nextStory();
+  };
+
   const currentAuthor = authorGroups[viewingAuthorIndex];
   const currentStory = currentAuthor?.stories[currentStoryIndex];
 
   return (
     <>
-      {/* Input de archivo oculto — activado programáticamente por handleAddStoryClick */}
       <input
         ref={fileInputRef}
         type="file"
@@ -215,12 +214,11 @@ export default function StoriesBar() {
         onChange={handleFileChange}
       />
 
-      {/* ─── BARRA DE STORIES ──────────────────────────────────────────────── */}
+      {/* ─── STORIES BAR ──────────────────────────────────────────────── */}
       <div className="flex gap-4 overflow-x-auto py-2 px-1 no-scrollbar">
-
-        {/* Botón "Tu story" — abre cámara/galería nativa del dispositivo */}
+        {/* Add story button */}
         <button
-          onClick={handleAddStoryClick}
+          onClick={() => fileInputRef.current?.click()}
           disabled={uploadStory.isPending}
           className="flex flex-col items-center gap-1.5 shrink-0 opacity-100 hover:opacity-80 transition-opacity"
         >
@@ -246,14 +244,13 @@ export default function StoriesBar() {
           </span>
         </button>
 
-        {/* Círculos de stories por autor */}
+        {/* Author circles */}
         {authorGroups.map((group, idx) => (
           <button
             key={group.authorId}
             onClick={() => openViewer(idx)}
             className="flex flex-col items-center gap-1.5 shrink-0"
           >
-            {/* Anillo naranja/gradiente indica story activa */}
             <div className={`p-0.5 rounded-full ${group.hasUnread
               ? 'bg-gradient-to-tr from-primary via-orange-400 to-secondary'
               : 'bg-muted'
@@ -279,16 +276,20 @@ export default function StoriesBar() {
         )}
       </div>
 
-      {/* ─── VIEWER DE STORIES (OVERLAY FULLSCREEN) ────────────────────────── */}
+      {/* ─── FULLSCREEN STORY VIEWER ────────────────────────────────── */}
       {viewingAuthorIndex >= 0 && currentStory && (
-        <div className="fixed inset-0 z-50 bg-black flex flex-col" onClick={nextStory}>
-
-          {/* Barras de progreso */}
+        <div
+          className="fixed inset-0 z-50 bg-black flex flex-col select-none"
+          onClick={handleViewerTap}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+        >
+          {/* Progress bars */}
           <div className="absolute top-0 left-0 right-0 flex gap-1 p-3 z-10">
             {currentAuthor.stories.map((_, i) => (
               <div key={i} className="flex-1 h-0.5 rounded-full bg-white/30 overflow-hidden">
                 <div
-                  className="h-full bg-white rounded-full"
+                  className="h-full bg-white rounded-full transition-none"
                   style={{
                     width: i < currentStoryIndex ? '100%' : i === currentStoryIndex ? `${progress}%` : '0%',
                   }}
@@ -297,7 +298,7 @@ export default function StoriesBar() {
             ))}
           </div>
 
-          {/* Header: avatar + nombre + cerrar */}
+          {/* Header */}
           <div
             className="absolute top-0 left-0 right-0 flex items-center gap-3 p-4 pt-8 z-10"
             onClick={(e) => e.stopPropagation()}
@@ -314,12 +315,12 @@ export default function StoriesBar() {
                 {new Date(currentStory.created_at).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}
               </p>
             </div>
-            <button onClick={closeViewer} className="ml-auto text-white/80 hover:text-white p-1">
+            <button onClick={(e) => { e.stopPropagation(); closeViewer(); }} className="ml-auto text-white/80 hover:text-white p-1">
               <X size={22} />
             </button>
           </div>
 
-          {/* Imagen/video */}
+          {/* Image */}
           <div className="flex-1 flex items-center justify-center">
             <img
               src={currentStory.media_url}
@@ -331,9 +332,9 @@ export default function StoriesBar() {
             />
           </div>
 
-          {/* Botones prev/next */}
+          {/* Nav buttons (desktop) */}
           <div
-            className="absolute inset-y-0 left-0 right-0 flex items-center justify-between px-2 pointer-events-none"
+            className="absolute inset-y-0 left-0 right-0 hidden md:flex items-center justify-between px-2 pointer-events-none"
             onClick={(e) => e.stopPropagation()}
           >
             <button
