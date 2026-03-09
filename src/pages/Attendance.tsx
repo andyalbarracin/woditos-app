@@ -92,6 +92,9 @@ export default function AttendancePage() {
   // Comunicar a asistentes dialog
   const [showCommunicate, setShowCommunicate] = useState(false);
   const [communicateMessage, setCommunicateMessage] = useState('');
+  // QR Scanner
+  const [showQRScanner, setShowQRScanner] = useState(false);
+  const [communicateMessage, setCommunicateMessage] = useState('');
 
   // Form para nueva sesión
   const [sessionForm, setSessionForm] = useState({
