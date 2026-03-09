@@ -156,7 +156,7 @@ export default function AttendancePage() {
 
       const { data: reservations } = await supabase
         .from('reservations')
-        .select('id, user_id, profiles!user_id(full_name, avatar_url)')
+        .select('id, user_id, users!user_id(id, profiles(full_name, avatar_url))')
         .eq('session_id', selectedSessionId)
         .eq('reservation_status', 'confirmed');
 
@@ -168,10 +168,11 @@ export default function AttendancePage() {
       const newAttendees: Record<string, AttendeeState> = {};
       (reservations || []).forEach((r: any) => {
         const existing = existingAttendance?.find(a => a.user_id === r.user_id);
+        const userProfile = r.users?.profiles;
         newAttendees[r.user_id] = {
           userId: r.user_id,
-          fullName: r.profiles?.full_name || 'Sin nombre',
-          avatarUrl: r.profiles?.avatar_url || null,
+          fullName: userProfile?.full_name || 'Sin nombre',
+          avatarUrl: userProfile?.avatar_url || null,
           reservationId: r.id,
           status: existing?.attendance_status as AttendanceStatus || null,
           note: existing?.notes || '',

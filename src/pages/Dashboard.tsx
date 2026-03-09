@@ -1,3 +1,10 @@
+/**
+ * Archivo: Dashboard.tsx
+ * Ruta: src/pages/Dashboard.tsx
+ * Última modificación: 2026-03-09
+ * Descripción: Pantalla principal del miembro. Muestra saludo, estadísticas
+ *              de asistencia, próximas sesiones y actividad reciente del feed.
+ */
 import { useAuth } from '@/hooks/useAuth';
 import { Calendar, Flame, TrendingUp, Users, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -47,7 +54,7 @@ export default function Dashboard() {
     queryFn: async () => {
       const { data } = await supabase
         .from('posts')
-        .select('*, profiles!author_user_id(full_name, avatar_url)')
+        .select('*, users!author_user_id(id, profiles(full_name, avatar_url))')
         .order('created_at', { ascending: false })
         .limit(3);
       return data || [];
@@ -136,10 +143,10 @@ export default function Dashboard() {
               <div key={p.id} className="bg-card border border-border rounded-xl p-4">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">
-                    {p.profiles?.full_name?.slice(0, 2).toUpperCase() || '?'}
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{p.profiles?.full_name}</p>
+                    {p.users?.profiles?.full_name?.slice(0, 2).toUpperCase() || '?'}
+                   </div>
+                   <div>
+                     <p className="text-sm font-medium text-foreground">{p.users?.profiles?.full_name}</p>
                     <p className="text-xs text-muted-foreground">
                       {format(new Date(p.created_at), "d MMM · HH:mm", { locale: es })}
                     </p>

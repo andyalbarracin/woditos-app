@@ -1,3 +1,10 @@
+/**
+ * Archivo: Agenda.tsx
+ * Ruta: src/pages/Agenda.tsx
+ * Última modificación: 2026-03-09
+ * Descripción: Agenda semanal de sesiones. Permite ver sesiones por día,
+ *              reservar plaza y cancelar reservas. Vista optimizada para móvil.
+ */
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
@@ -54,7 +61,7 @@ export default function Agenda() {
       queryClient.invalidateQueries({ queryKey: ['sessions-week'] });
       toast.success('¡Reserva confirmada!');
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: () => toast.error('No se pudo hacer la reserva. Intentá de nuevo.'),
   });
 
   const cancelMutation = useMutation({
@@ -68,7 +75,7 @@ export default function Agenda() {
       queryClient.invalidateQueries({ queryKey: ['sessions-week'] });
       toast.success('Reserva cancelada');
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: () => toast.error('No se pudo cancelar la reserva.'),
   });
 
   const daySessions = sessions?.filter((s: any) => isSameDay(new Date(s.start_time), selectedDay)) || [];
