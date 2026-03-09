@@ -357,8 +357,8 @@ export default function AttendancePage() {
           </p>
         </div>
         <div className="flex gap-2">
-          {/* Botón escanear QR */}
-          {selectedSessionId && Object.keys(attendees).length > 0 && (
+          {/* Botón escanear QR - siempre visible si hay sesión seleccionada */}
+          {selectedSessionId && (
             <Button
               variant="outline"
               size="sm"
