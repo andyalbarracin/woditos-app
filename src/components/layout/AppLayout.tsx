@@ -155,13 +155,12 @@ export default function AppLayout() {
             <img src={woditosLogo} alt="Woditos" className="h-8" />
             <span className="font-display font-bold text-foreground">Woditos</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            <NextSessionBanner />
             <Button variant="ghost" size="icon" onClick={toggleTheme} className="text-muted-foreground">
               {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
             </Button>
-            <Button variant="ghost" size="icon" className="text-muted-foreground">
-              <Bell size={20} />
-            </Button>
+            <NotificationsBell />
           </div>
         </header>
 
