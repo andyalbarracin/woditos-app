@@ -145,26 +145,59 @@ export default function CoachDashboard() {
     return acc;
   }, []) || [];
 
+  /**
+   * Mutación para crear una nueva sesión.
+   * Si crewMode='new', primero crea el crew nuevo y luego lo usa como group_id.
+   * Combina session_date + start_time/end_time en timestamps ISO completos.
+   */
   const createSession = useMutation({
     mutationFn: async () => {
-      if (!selectedGroup || selectedGroup === 'all') throw new Error('Selecciona un crew');
+      let groupId = selectedGroup;
+
+      // Si el coach quiere crear un crew nuevo inline
+      if (crewMode === 'new') {
+        if (!newCrewForm.name.trim()) throw new Error('El nombre del crew es obligatorio');
+        const { data: newGroup, error: groupError } = await supabase.from('groups').insert({
+          name: newCrewForm.name.trim(),
+          group_type: newCrewForm.group_type || 'functional',
+          location: newCrewForm.location || null,
+          capacity: parseInt(newCrewForm.capacity) || 20,
+          coach_id: user!.id,
+        }).select('id').single();
+        if (groupError) throw groupError;
+        groupId = newGroup.id;
+      }
+
+      if (!groupId) throw new Error('Selecciona o creá un crew');
+      if (!sessionForm.session_date) throw new Error('La fecha es obligatoria');
+      if (!sessionForm.start_time) throw new Error('La hora de inicio es obligatoria');
+
+      // Construir timestamps ISO combinando fecha + hora
+      const startISO = `${sessionForm.session_date}T${sessionForm.start_time || '08:00'}:00`;
+      const endISO = sessionForm.end_time
+        ? `${sessionForm.session_date}T${sessionForm.end_time}:00`
+        : `${sessionForm.session_date}T${sessionForm.start_time.split(':').map((v, i) => i === 0 ? String(Number(v) + 1).padStart(2, '0') : v).join(':')}:00`;
+
       const { error } = await supabase.from('sessions').insert({
-        group_id: selectedGroup,
+        group_id: groupId,
         coach_id: user!.id,
-        title: sessionForm.title,
-        session_type: sessionForm.session_type,
-        start_time: sessionForm.start_time,
-        end_time: sessionForm.end_time,
+        title: sessionForm.title || 'Sesión',
+        session_type: sessionForm.session_type || 'general',
+        start_time: startISO,
+        end_time: endISO,
         location: sessionForm.location || null,
-        capacity: parseInt(sessionForm.capacity),
+        capacity: parseInt(sessionForm.capacity) || 20,
         notes: sessionForm.notes || null,
       });
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['coach-today-sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['coach-groups'] });
       setShowCreateSession(false);
-      setSessionForm({ title: '', session_type: 'running', start_time: '', end_time: '', location: '', capacity: '20', notes: '' });
+      setSessionForm({ title: '', session_type: '', session_date: '', start_time: '', end_time: '', location: '', capacity: '20', notes: '' });
+      setCrewMode('existing');
+      setNewCrewForm({ name: '', group_type: 'functional', location: '', capacity: '20' });
       toast.success('Sesión creada');
     },
     onError: (err: any) => toast.error(err.message),
