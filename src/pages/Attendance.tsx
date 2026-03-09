@@ -713,6 +713,14 @@ export default function AttendancePage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* QR Scanner fullscreen */}
+      {showQRScanner && (
+        <QRScanner
+          onScan={handleQRScan}
+          onClose={() => setShowQRScanner(false)}
+        />
+      )}
     </div>
   );
 }
