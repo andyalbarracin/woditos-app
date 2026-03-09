@@ -17,7 +17,7 @@ import { toast } from 'sonner';
 // La private key debe estar en los secrets del backend
 const VAPID_PUBLIC_KEY = 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U';
 
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
+function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
   const rawData = window.atob(base64);
@@ -25,7 +25,7 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   for (let i = 0; i < rawData.length; ++i) {
     outputArray[i] = rawData.charCodeAt(i);
   }
-  return outputArray;
+  return outputArray.buffer as ArrayBuffer;
 }
 
 export function usePushNotifications() {
