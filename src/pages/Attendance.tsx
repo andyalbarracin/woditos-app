@@ -692,6 +692,13 @@ export default function AttendancePage() {
               </p>
             </div>
           )}
+
+          {/* ─── ASIGNAR MIEMBRO MANUALMENTE ────────────────────────── */}
+          <AssignMemberToSession
+            sessionId={selectedSessionId}
+            existingUserIds={Object.keys(attendees)}
+            onAssigned={() => queryClient.invalidateQueries({ queryKey: ['attendance-session', selectedSessionId] })}
+          />
         </>
       )}
 
