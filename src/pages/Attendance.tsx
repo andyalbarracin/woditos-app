@@ -322,7 +322,7 @@ export default function AttendancePage() {
     }
 
     // Marcar como presente
-    updateLocalStatus(scannedUserId, 'present');
+    autoSaveAttendance(scannedUserId, 'present');
     
     // Guardar automáticamente
     const { error } = await supabase.from('attendance').upsert({
