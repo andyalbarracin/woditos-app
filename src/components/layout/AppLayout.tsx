@@ -1,20 +1,22 @@
 /**
  * Archivo: AppLayout.tsx
  * Ruta: src/components/layout/AppLayout.tsx
- * Última modificación: 2025-03-09
+ * Última modificación: 2026-03-09
  * Descripción: Layout principal de la app. Incluye sidebar desktop, barra de navegación
- *              móvil inferior, header con toggle de tema, y rutas protegidas por rol.
+ *              móvil inferior, header con toggle de tema, notificaciones y rutas protegidas por rol.
  *              El rol "super_admin" se muestra como "Coach" en la UI.
  */
 
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
-import { Home, Calendar, Users, BookOpen, User, LogOut, Bell, Dumbbell, Sun, Moon, ClipboardCheck } from 'lucide-react';
+import { Home, Calendar, Users, BookOpen, User, LogOut, Dumbbell, Sun, Moon, ClipboardCheck } from 'lucide-react';
 import woditosLogo from '@/assets/woditos-logo.png';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
+import NotificationsBell from '@/components/NotificationsBell';
+import NextSessionBanner from '@/components/NextSessionBanner';
 
 /** Ítems de navegación comunes a todos los usuarios */
 const navItems = [
