@@ -618,7 +618,7 @@ export default function AttendancePage() {
                           return (
                             <button
                               key={s}
-                              onClick={() => updateLocalStatus(attendee.userId, s)}
+                              onClick={() => autoSaveAttendance(attendee.userId, s)}
                               title={cfg.label}
                               className={cn(
                                 'w-8 h-8 rounded-full border flex items-center justify-center transition-all',
