@@ -82,7 +82,7 @@ export default function Community() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-4 animate-fade-in">
-      <h1 className="font-display text-3xl font-extrabold text-foreground">Comunidad</h1>
+      <h1 className="font-display text-3xl font-extrabold text-foreground">Crew</h1>
 
       {/* ─── STORIES BAR ─────────────────────────────────────────────────────── */}
       <div className="bg-card border border-border rounded-xl px-3 py-2">
