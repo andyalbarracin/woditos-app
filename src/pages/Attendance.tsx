@@ -191,9 +191,17 @@ export default function AttendancePage() {
     return monthSessions.map((s: any) => new Date(s.start_time));
   }, [monthSessions]);
 
-  // Actualizar estado local
-  const updateLocalStatus = (userId: string, status: AttendanceStatus) => {
+  // Auto-save attendance when status changes
+  const autoSaveAttendance = async (userId: string, status: AttendanceStatus) => {
     setAttendees(prev => ({ ...prev, [userId]: { ...prev[userId], status } }));
+    const { error } = await supabase.from('attendance').upsert({
+      session_id: selectedSessionId,
+      user_id: userId,
+      attendance_status: status,
+      checkin_time: status === 'present' ? new Date().toISOString() : null,
+    }, { onConflict: 'session_id,user_id' });
+    if (error) toast.error('No se pudo guardar');
+    else queryClient.invalidateQueries({ queryKey: ['attendance-session', selectedSessionId] });
   };
 
   const updateLocalNote = (userId: string, note: string) => {
