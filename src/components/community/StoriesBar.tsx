@@ -97,8 +97,7 @@ export default function StoriesBar() {
   /** Group stories by author */
   const authorGroups: AuthorStories[] = [];
   (storiesData || []).forEach((s: any) => {
-    // Try to get profile from join, otherwise use fallback
-    const prof = s.profiles || null;
+    const prof = s.users?.profiles || null;
     const existing = authorGroups.find(g => g.authorId === s.author_user_id);
     if (existing) {
       existing.stories.push(s);
