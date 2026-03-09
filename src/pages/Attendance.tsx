@@ -191,9 +191,17 @@ export default function AttendancePage() {
     return monthSessions.map((s: any) => new Date(s.start_time));
   }, [monthSessions]);
 
-  // Actualizar estado local
-  const updateLocalStatus = (userId: string, status: AttendanceStatus) => {
+  // Auto-save attendance when status changes
+  const autoSaveAttendance = async (userId: string, status: AttendanceStatus) => {
     setAttendees(prev => ({ ...prev, [userId]: { ...prev[userId], status } }));
+    const { error } = await supabase.from('attendance').upsert({
+      session_id: selectedSessionId,
+      user_id: userId,
+      attendance_status: status,
+      checkin_time: status === 'present' ? new Date().toISOString() : null,
+    }, { onConflict: 'session_id,user_id' });
+    if (error) toast.error('No se pudo guardar');
+    else queryClient.invalidateQueries({ queryKey: ['attendance-session', selectedSessionId] });
   };
 
   const updateLocalNote = (userId: string, note: string) => {
@@ -314,7 +322,7 @@ export default function AttendancePage() {
     }
 
     // Marcar como presente
-    updateLocalStatus(scannedUserId, 'present');
+    autoSaveAttendance(scannedUserId, 'present');
     
     // Guardar automáticamente
     const { error } = await supabase.from('attendance').upsert({
@@ -358,18 +366,6 @@ export default function AttendancePage() {
           </p>
         </div>
         <div className="flex gap-2">
-          {/* Botón escanear QR - siempre visible si hay sesión seleccionada */}
-          {selectedSessionId && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
-              onClick={() => setShowQRScanner(true)}
-            >
-              <ScanLine size={14} /> Escanear QR
-            </Button>
-          )}
-          
           {/* Botón crear sesión */}
           <Dialog open={showCreateSession} onOpenChange={setShowCreateSession}>
             <DialogTrigger asChild>
@@ -434,13 +430,7 @@ export default function AttendancePage() {
             </DialogContent>
           </Dialog>
 
-          {/* Guardar todo */}
-          {selectedSessionId && Object.values(attendees).some(a => a.status) && (
-            <Button onClick={saveAllAttendance} disabled={savingAll} className="gradient-primary text-primary-foreground gap-1" size="sm">
-              <Save size={14} />
-              {savingAll ? 'Guardando...' : 'Guardar todo'}
-            </Button>
-          )}
+          {/* Auto-save: no manual save button needed */}
         </div>
       </div>
 
@@ -564,15 +554,24 @@ export default function AttendancePage() {
             </div>
           )}
 
-          {/* Buscador */}
-          <div className="relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Buscar miembro..."
-              value={searchMember}
-              onChange={e => setSearchMember(e.target.value)}
-              className="pl-9 bg-card border-border"
-            />
+          {/* Buscador + Escanear QR */}
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar miembro..."
+                value={searchMember}
+                onChange={e => setSearchMember(e.target.value)}
+                className="pl-9 bg-card border-border"
+              />
+            </div>
+            <Button
+              variant="outline"
+              className="gap-1 border-primary text-primary hover:bg-primary hover:text-primary-foreground shrink-0"
+              onClick={() => setShowQRScanner(true)}
+            >
+              <ScanLine size={16} /> QR
+            </Button>
           </div>
 
           {/* Lista */}
@@ -619,7 +618,7 @@ export default function AttendancePage() {
                           return (
                             <button
                               key={s}
-                              onClick={() => updateLocalStatus(attendee.userId, s)}
+                              onClick={() => autoSaveAttendance(attendee.userId, s)}
                               title={cfg.label}
                               className={cn(
                                 'w-8 h-8 rounded-full border flex items-center justify-center transition-all',
