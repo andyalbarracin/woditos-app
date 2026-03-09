@@ -156,7 +156,7 @@ export default function AttendancePage() {
 
       const { data: reservations } = await supabase
         .from('reservations')
-        .select('id, user_id, profiles!user_id(full_name, avatar_url)')
+        .select('id, user_id, users!user_id(id, profiles(full_name, avatar_url))')
         .eq('session_id', selectedSessionId)
         .eq('reservation_status', 'confirmed');
 
