@@ -20,8 +20,8 @@ import { Switch } from '@/components/ui/switch';
 const navItems = [
   { to: '/', icon: Home, label: 'Inicio' },
   { to: '/agenda', icon: Calendar, label: 'Agenda' },
-  { to: '/comunidad', icon: Users, label: 'Comunidad' },
-  { to: '/biblioteca', icon: BookOpen, label: 'Biblioteca' },
+  { to: '/comunidad', icon: Users, label: 'Crew' },
+  { to: '/biblioteca', icon: BookOpen, label: 'Wiki' },
   { to: '/perfil', icon: User, label: 'Perfil' },
 ];
 
