@@ -357,6 +357,18 @@ export default function AttendancePage() {
           </p>
         </div>
         <div className="flex gap-2">
+          {/* Botón escanear QR */}
+          {selectedSessionId && Object.keys(attendees).length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+              onClick={() => setShowQRScanner(true)}
+            >
+              <ScanLine size={14} /> Escanear QR
+            </Button>
+          )}
+          
           {/* Botón crear sesión */}
           <Dialog open={showCreateSession} onOpenChange={setShowCreateSession}>
             <DialogTrigger asChild>
