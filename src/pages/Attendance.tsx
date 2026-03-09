@@ -554,15 +554,24 @@ export default function AttendancePage() {
             </div>
           )}
 
-          {/* Buscador */}
-          <div className="relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Buscar miembro..."
-              value={searchMember}
-              onChange={e => setSearchMember(e.target.value)}
-              className="pl-9 bg-card border-border"
-            />
+          {/* Buscador + Escanear QR */}
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar miembro..."
+                value={searchMember}
+                onChange={e => setSearchMember(e.target.value)}
+                className="pl-9 bg-card border-border"
+              />
+            </div>
+            <Button
+              variant="outline"
+              className="gap-1 border-primary text-primary hover:bg-primary hover:text-primary-foreground shrink-0"
+              onClick={() => setShowQRScanner(true)}
+            >
+              <ScanLine size={16} /> QR
+            </Button>
           </div>
 
           {/* Lista */}
