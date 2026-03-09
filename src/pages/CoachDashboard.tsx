@@ -1,10 +1,23 @@
+/**
+ * Archivo: CoachDashboard.tsx
+ * Ruta: src/pages/CoachDashboard.tsx
+ * Última modificación: 2026-03-09
+ * Descripción: Panel exclusivo para coaches y super_admin.
+ *   - Resumen diario de sesiones
+ *   - Gestión de miembros por crew
+ *   - Analytics de asistencia y sesiones
+ *   - Formulario mejorado para crear sesiones:
+ *       * Crear nuevo crew inline sin salir del form
+ *       * Tipo de sesión como texto libre
+ *       * Fecha única (date) + hora de inicio y fin separadas (time input nativo)
+ */
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Users, Calendar, TrendingUp, Plus, Check, X, Clock, UserCheck, BarChart3, Activity } from 'lucide-react';
+import { Users, Calendar, TrendingUp, Plus, Check, X, Clock, UserCheck, BarChart3, Activity, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,16 +27,38 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
-const PIE_COLORS = ['hsl(165,100%,39%)', 'hsl(16,100%,58%)', 'hsl(45,100%,70%)', 'hsl(213,100%,65%)'];
+const PIE_COLORS = ['hsl(165,100%,39%)', 'hsl(17,81%,52%)', 'hsl(45,100%,60%)', 'hsl(217,47%,55%)'];
 
 export default function CoachDashboard() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [showCreateSession, setShowCreateSession] = useState(false);
+
+  /** Estado del formulario de nueva sesión */
   const [sessionForm, setSessionForm] = useState({
-    title: '', session_type: 'running', start_time: '', end_time: '', location: '', capacity: '20', notes: '',
+    title: '',
+    session_type: '',        // texto libre — el coach escribe el tipo
+    session_date: '',        // fecha única (YYYY-MM-DD)
+    start_time: '',          // hora inicio (HH:mm) — input type="time" nativo
+    end_time: '',            // hora fin (HH:mm)
+    location: '',
+    capacity: '20',
+    notes: '',
   });
+
+  /** ID del crew seleccionado para la sesión (puede ser uno existente o recién creado) */
   const [selectedGroup, setSelectedGroup] = useState<string>('');
+
+  /** Modo de crew: 'existing' | 'new' */
+  const [crewMode, setCrewMode] = useState<'existing' | 'new'>('existing');
+
+  /** Datos del nuevo crew a crear inline */
+  const [newCrewForm, setNewCrewForm] = useState({
+    name: '',
+    group_type: 'functional',
+    location: '',
+    capacity: '20',
+  });
 
   const { data: groups } = useQuery({
     queryKey: ['coach-groups'],
