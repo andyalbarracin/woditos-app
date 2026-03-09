@@ -35,6 +35,7 @@ export default function NotificationsBell() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
+  const push = usePushNotifications();
 
   // Fetch notificaciones
   const { data: notifications } = useQuery({
