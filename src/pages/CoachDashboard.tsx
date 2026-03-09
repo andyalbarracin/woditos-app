@@ -216,9 +216,9 @@ export default function CoachDashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['coach-today-sessions'] });
-      toast.success('Asistencia registrada');
+      toast.success('¡Asistencia guardada!');
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: () => toast.error('No se pudo registrar la asistencia.'),
   });
 
   const totalMembers = members?.length || 0;
