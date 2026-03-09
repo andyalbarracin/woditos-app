@@ -55,18 +55,10 @@ export default function StoriesBar() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('stories')
-        .select('*, profiles!author_user_id(full_name, avatar_url)')
+        .select('*, users!author_user_id(id, profiles(full_name, avatar_url))')
         .gt('expires_at', new Date().toISOString())
         .order('created_at', { ascending: false });
-      if (error) {
-        // Fallback: try direct query without join
-        const { data: fallbackData } = await supabase
-          .from('stories')
-          .select('*')
-          .gt('expires_at', new Date().toISOString())
-          .order('created_at', { ascending: false });
-        return fallbackData || [];
-      }
+      if (error) console.error('[StoriesBar] query error:', error);
       return data || [];
     },
     refetchInterval: 60000,
