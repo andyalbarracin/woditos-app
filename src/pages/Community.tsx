@@ -30,13 +30,17 @@ export default function Community() {
   // Tipo de post seleccionado para el compositor
   const [postType, setPostType] = useState<'text' | 'milestone' | 'announcement'>('text');
 
-  /** Consulta paginada del feed de posts con perfil del autor, reacciones y comentarios */
+  /**
+   * Consulta paginada del feed de posts con perfil del autor, reacciones y comentarios.
+   * FK: posts.author_user_id → users.id, y users.id ← profiles.user_id
+   * Por lo tanto usamos users!author_user_id(id, profiles(...)) para hacer el join correctamente.
+   */
   const { data, fetchNextPage, hasNextPage, isLoading } = useInfiniteQuery({
     queryKey: ['feed'],
     queryFn: async ({ pageParam = 0 }) => {
       const { data } = await supabase
         .from('posts')
-        .select('*, profiles!author_user_id(full_name, avatar_url), reactions(count), comments(count)')
+        .select('*, users!author_user_id(id, profiles(full_name, avatar_url)), reactions(count), comments(count)')
         .order('created_at', { ascending: false })
         .range(pageParam * PAGE_SIZE, (pageParam + 1) * PAGE_SIZE - 1);
       return data || [];
