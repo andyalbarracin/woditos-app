@@ -176,6 +176,33 @@ export default function NotificationsBell() {
             </div>
           )}
         </ScrollArea>
+
+        {/* Push notifications toggle */}
+        {push.isSupported && (
+          <div className="px-4 py-3 border-t border-border">
+            {push.isSubscribed ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full text-xs text-muted-foreground gap-2"
+                onClick={() => push.unsubscribe()}
+                disabled={push.isLoading}
+              >
+                <BellRing size={14} /> Desactivar notificaciones push
+              </Button>
+            ) : (
+              <Button
+                variant="default"
+                size="sm"
+                className="w-full text-xs gap-2"
+                onClick={() => push.subscribe()}
+                disabled={push.isLoading}
+              >
+                <BellRing size={14} /> {push.isLoading ? 'Activando...' : 'Activar notificaciones push'}
+              </Button>
+            )}
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );
