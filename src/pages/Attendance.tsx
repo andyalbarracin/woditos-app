@@ -293,6 +293,44 @@ export default function AttendancePage() {
     }
   };
 
+  // Manejar escaneo QR
+  const handleQRScan = async (result: string) => {
+    setShowQRScanner(false);
+    
+    // Extraer user ID del QR (formato: woditos://member/{userId})
+    const match = result.match(/woditos:\/\/member\/([a-f0-9-]+)/i);
+    if (!match) {
+      toast.error('QR inválido. Probá con el QR de un miembro.');
+      return;
+    }
+
+    const scannedUserId = match[1];
+    const attendee = attendees[scannedUserId];
+
+    if (!attendee) {
+      toast.error('Este miembro no está en la lista de esta sesión.');
+      return;
+    }
+
+    // Marcar como presente
+    updateLocalStatus(scannedUserId, 'present');
+    
+    // Guardar automáticamente
+    const { error } = await supabase.from('attendance').upsert({
+      session_id: selectedSessionId,
+      user_id: scannedUserId,
+      attendance_status: 'present',
+      checkin_time: new Date().toISOString(),
+    }, { onConflict: 'session_id,user_id' });
+
+    if (error) {
+      toast.error('No se pudo registrar la asistencia');
+    } else {
+      toast.success(`✅ ${attendee.fullName} registrado como presente`);
+      queryClient.invalidateQueries({ queryKey: ['attendance-session', selectedSessionId] });
+    }
+  };
+
   // Filtrar miembros
   const filteredAttendees = Object.values(attendees).filter(a =>
     a.fullName.toLowerCase().includes(searchMember.toLowerCase())
