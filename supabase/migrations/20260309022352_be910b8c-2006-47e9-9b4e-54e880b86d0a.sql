@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS attendance_session_user_unique ON public.attendance (session_id, user_id);
