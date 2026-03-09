@@ -1,3 +1,10 @@
+/**
+ * Archivo: useAuth.tsx
+ * Ruta: src/hooks/useAuth.tsx
+ * Última modificación: 2026-03-09
+ * Descripción: Contexto y hook de autenticación. Maneja sesión, login, registro,
+ *              logout y carga de datos de usuario (users + profiles).
+ */
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { User, Profile } from '@/types';

@@ -1,3 +1,10 @@
+/**
+ * Archivo: Agenda.tsx
+ * Ruta: src/pages/Agenda.tsx
+ * Última modificación: 2026-03-09
+ * Descripción: Agenda semanal de sesiones. Permite ver sesiones por día,
+ *              reservar plaza y cancelar reservas. Vista optimizada para móvil.
+ */
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';

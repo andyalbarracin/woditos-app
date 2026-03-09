@@ -36,7 +36,7 @@ export default function NextSessionBanner() {
           .gte('start_time', now)
           .order('start_time', { ascending: true })
           .limit(1)
-          .single();
+          .maybeSingle();
         return data;
       } else {
         // Para member: próxima reservación confirmada
@@ -45,10 +45,8 @@ export default function NextSessionBanner() {
           .select('session_id, sessions(*, groups(name))')
           .eq('user_id', user.id)
           .eq('reservation_status', 'confirmed')
-          .gte('sessions.start_time', now)
-          .order('sessions.start_time', { ascending: true })
           .limit(1)
-          .single();
+          .maybeSingle();
 
         return reservation?.sessions || null;
       }

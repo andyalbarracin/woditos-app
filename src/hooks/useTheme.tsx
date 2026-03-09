@@ -1,3 +1,10 @@
+/**
+ * Archivo: useTheme.tsx
+ * Ruta: src/hooks/useTheme.tsx
+ * Última modificación: 2026-03-09
+ * Descripción: Contexto y hook de tema. Permite alternar entre modo oscuro y claro.
+ *              Persiste la preferencia en localStorage.
+ */
 import { createContext, useContext, useEffect, useState } from 'react';
 
 type Theme = 'light' | 'dark';

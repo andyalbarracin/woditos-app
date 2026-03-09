@@ -1,3 +1,10 @@
+/**
+ * Archivo: Register.tsx
+ * Ruta: src/pages/Register.tsx
+ * Última modificación: 2026-03-09
+ * Descripción: Página de registro de nuevos usuarios. Crea cuenta con email/contraseña
+ *              y nombre completo. Redirige al login tras registro exitoso.
+ */
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';

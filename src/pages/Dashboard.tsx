@@ -143,10 +143,10 @@ export default function Dashboard() {
               <div key={p.id} className="bg-card border border-border rounded-xl p-4">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">
-                    {p.profiles?.full_name?.slice(0, 2).toUpperCase() || '?'}
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{p.profiles?.full_name}</p>
+                    {p.users?.profiles?.full_name?.slice(0, 2).toUpperCase() || '?'}
+                   </div>
+                   <div>
+                     <p className="text-sm font-medium text-foreground">{p.users?.profiles?.full_name}</p>
                     <p className="text-xs text-muted-foreground">
                       {format(new Date(p.created_at), "d MMM · HH:mm", { locale: es })}
                     </p>
