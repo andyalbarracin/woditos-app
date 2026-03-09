@@ -163,18 +163,20 @@ export default function Community() {
         ) : posts.length > 0 ? (
           posts.map((post: any) => {
             const typeStyle = POST_TYPE_STYLES[post.post_type] || POST_TYPE_STYLES.text;
+            // El perfil viene anidado en users.profiles debido al join correcto
+            const authorProfile = post.users?.profiles;
             return (
               <div key={post.id} className="bg-card border border-border rounded-xl p-5">
                 {/* Header del post: avatar, nombre, fecha, badge de tipo */}
                 <div className="flex items-center gap-3 mb-3">
                   <Avatar className="h-10 w-10">
-                    {post.profiles?.avatar_url && <AvatarImage src={post.profiles.avatar_url} />}
+                    {authorProfile?.avatar_url && <AvatarImage src={authorProfile.avatar_url} />}
                     <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
-                      {post.profiles?.full_name?.slice(0, 2).toUpperCase() || '?'}
+                      {authorProfile?.full_name?.slice(0, 2).toUpperCase() || '?'}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
-                    <p className="font-semibold text-foreground text-sm">{post.profiles?.full_name}</p>
+                    <p className="font-semibold text-foreground text-sm">{authorProfile?.full_name || 'Usuario'}</p>
                     <p className="text-xs text-muted-foreground">
                       {format(new Date(post.created_at), "d MMM · HH:mm", { locale: es })}
                     </p>
