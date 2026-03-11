@@ -50,7 +50,7 @@ export default function Register() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-6 gradient-surface">
+    <div className="flex min-h-screen items-center justify-center p-6 gradient-surface relative">
       <div className="w-full max-w-sm space-y-8">
         <div className="text-center">
           <img src={woditosLogo} alt="Woditos" className="h-16 mx-auto mb-6" />
