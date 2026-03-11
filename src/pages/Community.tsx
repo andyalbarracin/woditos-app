@@ -49,9 +49,11 @@ export default function Community() {
   /** Create post */
   const createPostMutation = useMutation({
     mutationFn: async (text: string) => {
+      const sanitized = sanitizeText(text);
+      if (!sanitized || sanitized.length > 2000) throw new Error('Contenido inválido');
       const { error } = await supabase.from('posts').insert({
         author_user_id: user!.id,
-        content_text: text,
+        content_text: sanitized,
         post_type: postType,
         visibility: 'all_members',
       });
