@@ -23,7 +23,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { QRCodeSVG } from 'qrcode.react';
-
+import { profileUpdateSchema } from '@/lib/validation';
 /**
  * Convierte el rol interno en etiqueta legible.
  * super_admin → Coach para no exponer terminología interna.
