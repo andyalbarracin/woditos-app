@@ -171,7 +171,14 @@ export default function AppLayout() {
 
         {/* Área de contenido con scroll */}
         <div className="flex-1 overflow-y-auto p-4 md:p-8">
-          <Outlet />
+          <div className="min-h-full flex flex-col">
+            <div className="flex-1">
+              <Outlet />
+            </div>
+            <footer className="mt-8 py-4 text-center text-xs text-muted-foreground border-t border-border">
+              © 2026 Woditos. Todos los derechos reservados.
+            </footer>
+          </div>
         </div>
 
         {/* Barra de navegación inferior (móvil) */}
