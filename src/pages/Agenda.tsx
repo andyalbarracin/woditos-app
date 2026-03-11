@@ -167,7 +167,12 @@ export default function Agenda() {
                     </div>
                   </div>
                   <div>
-                    {userReservation ? (
+                    {/* Coaches no necesitan reservar — ellos crean las sesiones */}
+                    {isCoach ? (
+                      <span className="text-xs font-medium text-muted-foreground px-2 py-1 bg-muted rounded-md">
+                        Tu sesión
+                      </span>
+                    ) : userReservation ? (
                       <Button
                         variant="outline"
                         size="sm"
