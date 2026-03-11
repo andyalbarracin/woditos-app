@@ -166,6 +166,9 @@ export default function Login() {
           </p>
         </div>
       </div>
+      <footer className="absolute bottom-4 left-0 right-0 text-center text-xs text-muted-foreground">
+        © 2026 Woditos. Todos los derechos reservados.
+      </footer>
     </div>
   );
 }
