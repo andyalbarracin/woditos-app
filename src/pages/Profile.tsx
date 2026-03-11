@@ -23,7 +23,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { QRCodeSVG } from 'qrcode.react';
-
+import { profileUpdateSchema } from '@/lib/validation';
 /**
  * Convierte el rol interno en etiqueta legible.
  * super_admin → Coach para no exponer terminología interna.
@@ -73,12 +73,13 @@ export default function ProfilePage() {
   /** Mutación para actualizar los datos del perfil */
   const updateProfile = useMutation({
     mutationFn: async () => {
+      const validated = profileUpdateSchema.parse(form);
       const { error } = await supabase
         .from('profiles')
         .update({
-          full_name: form.full_name,
-          goals: form.goals,
-          emergency_contact: form.emergency_contact,
+          full_name: validated.full_name,
+          goals: validated.goals || null,
+          emergency_contact: validated.emergency_contact || null,
           updated_at: new Date().toISOString(),
         })
         .eq('user_id', user!.id);

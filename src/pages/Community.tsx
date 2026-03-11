@@ -9,6 +9,7 @@
 import { useState } from 'react';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { sanitizeText } from '@/lib/validation';
 import { useAuth } from '@/hooks/useAuth';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -49,9 +50,11 @@ export default function Community() {
   /** Create post */
   const createPostMutation = useMutation({
     mutationFn: async (text: string) => {
+      const sanitized = sanitizeText(text);
+      if (!sanitized || sanitized.length > 2000) throw new Error('Contenido inválido');
       const { error } = await supabase.from('posts').insert({
         author_user_id: user!.id,
-        content_text: text,
+        content_text: sanitized,
         post_type: postType,
         visibility: 'all_members',
       });
@@ -88,10 +91,12 @@ export default function Community() {
   /** Add comment */
   const addComment = useMutation({
     mutationFn: async ({ postId, text }: { postId: string; text: string }) => {
+      const sanitized = sanitizeText(text);
+      if (!sanitized || sanitized.length > 1000) throw new Error('Comentario inválido');
       const { error } = await supabase.from('comments').insert({
         post_id: postId,
         author_user_id: user!.id,
-        content_text: text,
+        content_text: sanitized,
       });
       if (error) throw error;
     },

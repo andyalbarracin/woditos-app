@@ -78,6 +78,7 @@ export default function Agenda() {
     onError: () => toast.error('No se pudo cancelar la reserva.'),
   });
 
+  const isCoach = user?.role === 'coach' || user?.role === 'super_admin';
   const daySessions = sessions?.filter((s: any) => isSameDay(new Date(s.start_time), selectedDay)) || [];
 
   return (
@@ -166,7 +167,12 @@ export default function Agenda() {
                     </div>
                   </div>
                   <div>
-                    {userReservation ? (
+                    {/* Coaches no necesitan reservar — ellos crean las sesiones */}
+                    {isCoach ? (
+                      <span className="text-xs font-medium text-muted-foreground px-2 py-1 bg-muted rounded-md">
+                        Tu sesión
+                      </span>
+                    ) : userReservation ? (
                       <Button
                         variant="outline"
                         size="sm"
