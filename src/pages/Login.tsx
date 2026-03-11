@@ -1,10 +1,8 @@
 /**
  * Archivo: Login.tsx
  * Ruta: src/pages/Login.tsx
- * Última modificación: 2025-03-09
- * Descripción: Página de inicio de sesión. Ofrece login con email/contraseña
- *              y también con Google (via Lovable Cloud OAuth). Usa design de dos
- *              columnas en desktop: imagen hero a la izquierda, formulario a la derecha.
+ * Última modificación: 2026-03-11
+ * Descripción: Página de inicio de sesión con validación Zod.
  */
 
 import { useState } from 'react';
@@ -17,21 +15,34 @@ import { Label } from '@/components/ui/label';
 import woditosLogo from '@/assets/woditos-logo.png';
 import heroBg from '@/assets/hero-bg.jpg';
 import { toast } from 'sonner';
+import { loginSchema } from '@/lib/validation';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const { signIn } = useAuth();
   const navigate = useNavigate();
 
-  /** Maneja el login con email + contraseña */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrors({});
+
+    const result = loginSchema.safeParse({ email, password });
+    if (!result.success) {
+      const fieldErrors: Record<string, string> = {};
+      result.error.errors.forEach(err => {
+        if (err.path[0]) fieldErrors[err.path[0] as string] = err.message;
+      });
+      setErrors(fieldErrors);
+      return;
+    }
+
     setLoading(true);
     try {
-      await signIn(email, password);
+      await signIn(result.data.email, result.data.password);
       navigate('/');
     } catch (err: any) {
       toast.error(err.message || 'Error al iniciar sesión');
@@ -40,7 +51,6 @@ export default function Login() {
     }
   };
 
-  /** Maneja el login con Google via Lovable Cloud */
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
     try {
@@ -76,14 +86,12 @@ export default function Login() {
       {/* Columna derecha: formulario */}
       <div className="flex-1 flex items-center justify-center p-6 lg:p-12">
         <div className="w-full max-w-sm space-y-8">
-          {/* Logo */}
           <div className="text-center">
             <img src={woditosLogo} alt="Woditos" className="h-16 mx-auto mb-6" />
             <h1 className="font-display text-2xl font-bold text-foreground">Iniciar Sesión</h1>
             <p className="text-muted-foreground mt-2">Bienvenido de vuelta a tu crew</p>
           </div>
 
-          {/* Botón Google */}
           <Button
             type="button"
             variant="outline"
@@ -91,7 +99,6 @@ export default function Login() {
             onClick={handleGoogleSignIn}
             disabled={googleLoading}
           >
-            {/* SVG del logo de Google */}
             <svg width="18" height="18" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
               <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -101,7 +108,6 @@ export default function Login() {
             {googleLoading ? 'Conectando...' : 'Continuar con Google'}
           </Button>
 
-          {/* Separador */}
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t border-border" />
@@ -111,7 +117,6 @@ export default function Login() {
             </div>
           </div>
 
-          {/* Formulario email/contraseña */}
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -122,8 +127,10 @@ export default function Login() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                maxLength={255}
                 className="bg-card border-border"
               />
+              {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Contraseña</Label>
@@ -134,15 +141,16 @@ export default function Login() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                maxLength={128}
                 className="bg-card border-border"
               />
+              {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
             </div>
             <Button type="submit" className="w-full gradient-primary text-primary-foreground font-semibold" disabled={loading}>
               {loading ? 'Entrando...' : 'Entrar'}
             </Button>
           </form>
 
-          {/* Credenciales de prueba visibles para facilitar el testing */}
           <div className="bg-muted/50 rounded-lg p-3 space-y-1 text-xs text-muted-foreground">
             <p className="font-semibold text-foreground">👤 Usuarios de prueba:</p>
             <p>📧 maria@woditos.app · 🔑 Woditos2024!</p>
