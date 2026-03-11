@@ -78,6 +78,7 @@ export default function Agenda() {
     onError: () => toast.error('No se pudo cancelar la reserva.'),
   });
 
+  const isCoach = user?.role === 'coach' || user?.role === 'super_admin';
   const daySessions = sessions?.filter((s: any) => isSameDay(new Date(s.start_time), selectedDay)) || [];
 
   return (
