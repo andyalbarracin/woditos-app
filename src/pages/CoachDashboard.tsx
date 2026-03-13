@@ -76,7 +76,7 @@ export default function CoachDashboard() {
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
       const { data } = await supabase.from('sessions')
-        .select('*, groups(name), reservations(id, user_id, reservation_status), attendance(id, user_id, attendance_status)')
+        .select('*, groups(name), reservations(id, user_id, reservation_status, users!user_id(id, profiles(full_name, avatar_url))), attendance(id, user_id, attendance_status)')
         .gte('start_time', today.toISOString())
         .lt('start_time', tomorrow.toISOString())
         .order('start_time');
@@ -205,18 +205,40 @@ export default function CoachDashboard() {
   });
 
   const markAttendance = useMutation({
-    mutationFn: async ({ sessionId, userId, status }: { sessionId: string; userId: string; status: string }) => {
+    mutationFn: async ({
+      sessionId,
+      userId,
+      status,
+      currentStatus,
+    }: {
+      sessionId: string;
+      userId: string;
+      status: 'present' | 'late' | 'absent';
+      currentStatus?: string | null;
+    }) => {
+      if (currentStatus === status) {
+        const { error } = await supabase
+          .from('attendance')
+          .delete()
+          .eq('session_id', sessionId)
+          .eq('user_id', userId);
+        if (error) throw error;
+        return { cleared: true };
+      }
+
       const { error } = await supabase.from('attendance').upsert({
         session_id: sessionId,
         user_id: userId,
         attendance_status: status,
         checkin_time: status === 'present' ? new Date().toISOString() : null,
       }, { onConflict: 'session_id,user_id' });
+
       if (error) throw error;
+      return { cleared: false };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['coach-today-sessions'] });
-      toast.success('¡Asistencia guardada!');
+      toast.success(result.cleared ? 'Asistencia desmarcada' : '¡Asistencia guardada!');
     },
     onError: () => toast.error('No se pudo registrar la asistencia.'),
   });
@@ -448,11 +470,18 @@ export default function CoachDashboard() {
                       <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold">Asistencia</p>
                       {confirmed.map((r: any) => {
                         const att = s.attendance?.find((a: any) => a.user_id === r.user_id);
+                        const participantName = r.users?.profiles?.full_name || 'Sin nombre';
+
                         return (
                           <div key={r.id} className="flex items-center justify-between py-1.5">
-                            <span className="text-sm text-foreground">{r.user_id.slice(0, 8)}...</span>
+                            <div>
+                              <span className="text-sm text-foreground">{participantName}</span>
+                              {!r.users?.profiles?.full_name && (
+                                <p className="text-xs text-muted-foreground">{r.user_id.slice(0, 8)}...</p>
+                              )}
+                            </div>
                             <div className="flex gap-1">
-                              {['present', 'late', 'absent'].map(status => (
+                              {(['present', 'late', 'absent'] as const).map((status) => (
                                 <Button
                                   key={status}
                                   variant={att?.attendance_status === status ? 'default' : 'outline'}
@@ -461,7 +490,12 @@ export default function CoachDashboard() {
                                     status === 'present' ? 'bg-secondary text-secondary-foreground' :
                                     status === 'late' ? 'bg-accent text-accent-foreground' :
                                     'bg-destructive text-destructive-foreground' : ''}`}
-                                  onClick={() => markAttendance.mutate({ sessionId: s.id, userId: r.user_id, status })}
+                                  onClick={() => markAttendance.mutate({
+                                    sessionId: s.id,
+                                    userId: r.user_id,
+                                    status,
+                                    currentStatus: att?.attendance_status || null,
+                                  })}
                                 >
                                   {status === 'present' ? <Check size={12} /> : status === 'late' ? <Clock size={12} /> : <X size={12} />}
                                 </Button>

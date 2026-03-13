@@ -31,7 +31,7 @@ function formatRole(role: string | undefined): string {
 }
 
 export default function ProfilePage() {
-  const { user, profile } = useAuth();
+  const { user, profile, refreshUserData } = useAuth();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [showQR, setShowQR] = useState(false);
@@ -137,7 +137,8 @@ export default function ProfilePage() {
         .eq('user_id', user!.id);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      await refreshUserData();
       queryClient.invalidateQueries({ queryKey: ['profile'] });
       setEditing(false);
       toast.success('Perfil actualizado');
@@ -184,8 +185,9 @@ export default function ProfilePage() {
     if (updateError) {
       toast.error('No se pudo actualizar el perfil');
     } else {
-      toast.success('Foto de perfil actualizada');
+      await refreshUserData();
       queryClient.invalidateQueries({ queryKey: ['profile'] });
+      toast.success('Foto de perfil actualizada');
     }
   };
 
