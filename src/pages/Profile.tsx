@@ -185,8 +185,9 @@ export default function ProfilePage() {
     if (updateError) {
       toast.error('No se pudo actualizar el perfil');
     } else {
-      toast.success('Foto de perfil actualizada');
+      await refreshUserData();
       queryClient.invalidateQueries({ queryKey: ['profile'] });
+      toast.success('Foto de perfil actualizada');
     }
   };
 
