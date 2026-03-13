@@ -205,18 +205,40 @@ export default function CoachDashboard() {
   });
 
   const markAttendance = useMutation({
-    mutationFn: async ({ sessionId, userId, status }: { sessionId: string; userId: string; status: string }) => {
+    mutationFn: async ({
+      sessionId,
+      userId,
+      status,
+      currentStatus,
+    }: {
+      sessionId: string;
+      userId: string;
+      status: 'present' | 'late' | 'absent';
+      currentStatus?: string | null;
+    }) => {
+      if (currentStatus === status) {
+        const { error } = await supabase
+          .from('attendance')
+          .delete()
+          .eq('session_id', sessionId)
+          .eq('user_id', userId);
+        if (error) throw error;
+        return { cleared: true };
+      }
+
       const { error } = await supabase.from('attendance').upsert({
         session_id: sessionId,
         user_id: userId,
         attendance_status: status,
         checkin_time: status === 'present' ? new Date().toISOString() : null,
       }, { onConflict: 'session_id,user_id' });
+
       if (error) throw error;
+      return { cleared: false };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['coach-today-sessions'] });
-      toast.success('¡Asistencia guardada!');
+      toast.success(result.cleared ? 'Asistencia desmarcada' : '¡Asistencia guardada!');
     },
     onError: () => toast.error('No se pudo registrar la asistencia.'),
   });
