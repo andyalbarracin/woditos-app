@@ -31,7 +31,7 @@ function formatRole(role: string | undefined): string {
 }
 
 export default function ProfilePage() {
-  const { user, profile } = useAuth();
+  const { user, profile, refreshUserData } = useAuth();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [showQR, setShowQR] = useState(false);
