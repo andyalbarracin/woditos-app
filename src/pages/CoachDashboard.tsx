@@ -470,11 +470,18 @@ export default function CoachDashboard() {
                       <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold">Asistencia</p>
                       {confirmed.map((r: any) => {
                         const att = s.attendance?.find((a: any) => a.user_id === r.user_id);
+                        const participantName = r.users?.profiles?.full_name || 'Sin nombre';
+
                         return (
                           <div key={r.id} className="flex items-center justify-between py-1.5">
-                            <span className="text-sm text-foreground">{r.user_id.slice(0, 8)}...</span>
+                            <div>
+                              <span className="text-sm text-foreground">{participantName}</span>
+                              {!r.users?.profiles?.full_name && (
+                                <p className="text-xs text-muted-foreground">{r.user_id.slice(0, 8)}...</p>
+                              )}
+                            </div>
                             <div className="flex gap-1">
-                              {['present', 'late', 'absent'].map(status => (
+                              {(['present', 'late', 'absent'] as const).map((status) => (
                                 <Button
                                   key={status}
                                   variant={att?.attendance_status === status ? 'default' : 'outline'}
@@ -483,7 +490,12 @@ export default function CoachDashboard() {
                                     status === 'present' ? 'bg-secondary text-secondary-foreground' :
                                     status === 'late' ? 'bg-accent text-accent-foreground' :
                                     'bg-destructive text-destructive-foreground' : ''}`}
-                                  onClick={() => markAttendance.mutate({ sessionId: s.id, userId: r.user_id, status })}
+                                  onClick={() => markAttendance.mutate({
+                                    sessionId: s.id,
+                                    userId: r.user_id,
+                                    status,
+                                    currentStatus: att?.attendance_status || null,
+                                  })}
                                 >
                                   {status === 'present' ? <Check size={12} /> : status === 'late' ? <Clock size={12} /> : <X size={12} />}
                                 </Button>
