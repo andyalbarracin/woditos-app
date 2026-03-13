@@ -137,7 +137,8 @@ export default function ProfilePage() {
         .eq('user_id', user!.id);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      await refreshUserData();
       queryClient.invalidateQueries({ queryKey: ['profile'] });
       setEditing(false);
       toast.success('Perfil actualizado');
