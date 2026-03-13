@@ -166,29 +166,45 @@ export default function AttendancePage() {
 
   // Toggle attendance: clicking same status removes it
   const toggleAttendance = async (userId: string, status: AttendanceStatus) => {
-    const current = attendees[userId]?.status;
-    if (current === status) {
-      // Unmark - delete attendance record
+    const previousStatus = attendees[userId]?.status || null;
+
+    if (previousStatus === status) {
       setAttendees(prev => ({ ...prev, [userId]: { ...prev[userId], status: null } }));
+
       const { error } = await supabase
         .from('attendance')
         .delete()
         .eq('session_id', selectedSessionId)
         .eq('user_id', userId);
-      if (error) toast.error('No se pudo desmarcar');
-      else queryClient.invalidateQueries({ queryKey: ['attendance-session', selectedSessionId] });
-    } else {
-      // Mark with new status
-      setAttendees(prev => ({ ...prev, [userId]: { ...prev[userId], status } }));
-      const { error } = await supabase.from('attendance').upsert({
-        session_id: selectedSessionId,
-        user_id: userId,
-        attendance_status: status,
-        checkin_time: status === 'present' ? new Date().toISOString() : null,
-      }, { onConflict: 'session_id,user_id' });
-      if (error) toast.error('No se pudo guardar');
-      else queryClient.invalidateQueries({ queryKey: ['attendance-session', selectedSessionId] });
+
+      if (error) {
+        setAttendees(prev => ({ ...prev, [userId]: { ...prev[userId], status: previousStatus } }));
+        toast.error('No se pudo desmarcar la asistencia');
+        return;
+      }
+
+      toast.success('Asistencia desmarcada');
+      queryClient.invalidateQueries({ queryKey: ['attendance-session', selectedSessionId] });
+      return;
     }
+
+    setAttendees(prev => ({ ...prev, [userId]: { ...prev[userId], status } }));
+
+    const { error } = await supabase.from('attendance').upsert({
+      session_id: selectedSessionId,
+      user_id: userId,
+      attendance_status: status,
+      checkin_time: status === 'present' ? new Date().toISOString() : null,
+    }, { onConflict: 'session_id,user_id' });
+
+    if (error) {
+      setAttendees(prev => ({ ...prev, [userId]: { ...prev[userId], status: previousStatus } }));
+      toast.error('No se pudo guardar la asistencia');
+      return;
+    }
+
+    toast.success('Asistencia guardada');
+    queryClient.invalidateQueries({ queryKey: ['attendance-session', selectedSessionId] });
   };
 
   const updateLocalNote = (userId: string, note: string) => {

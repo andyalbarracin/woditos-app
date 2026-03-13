@@ -18,6 +18,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, fullName: string) => Promise<void>;
   signOut: () => Promise<void>;
+  refreshUserData: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -33,8 +34,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       supabase.from('users').select('*').eq('id', userId).single(),
       supabase.from('profiles').select('*').eq('user_id', userId).single(),
     ]);
+
     if (userRes.data) setUser(userRes.data as User);
     if (profileRes.data) setProfile(profileRes.data as Profile);
+  };
+
+  const refreshUserData = async () => {
+    if (!session?.user?.id) return;
+    await fetchUserData(session.user.id);
   };
 
   useEffect(() => {
@@ -86,7 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, profile, isLoading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ session, user, profile, isLoading, signIn, signUp, signOut, refreshUserData }}>
       {children}
     </AuthContext.Provider>
   );
