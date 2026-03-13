@@ -76,7 +76,7 @@ export default function CoachDashboard() {
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
       const { data } = await supabase.from('sessions')
-        .select('*, groups(name), reservations(id, user_id, reservation_status), attendance(id, user_id, attendance_status)')
+        .select('*, groups(name), reservations(id, user_id, reservation_status, users!user_id(id, profiles(full_name, avatar_url))), attendance(id, user_id, attendance_status)')
         .gte('start_time', today.toISOString())
         .lt('start_time', tomorrow.toISOString())
         .order('start_time');
