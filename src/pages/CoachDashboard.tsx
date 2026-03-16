@@ -32,31 +32,7 @@ export default function CoachDashboard() {
   const queryClient = useQueryClient();
   const [showCreateSession, setShowCreateSession] = useState(false);
 
-  /** Estado del formulario de nueva sesión */
-  const [sessionForm, setSessionForm] = useState({
-    title: '',
-    session_type: '',        // texto libre — el coach escribe el tipo
-    session_date: '',        // fecha única (YYYY-MM-DD)
-    start_time: '',          // hora inicio (HH:mm) — input type="time" nativo
-    end_time: '',            // hora fin (HH:mm)
-    location: '',
-    capacity: '20',
-    notes: '',
-  });
-
-  /** ID del crew seleccionado para la sesión (puede ser uno existente o recién creado) */
   const [selectedGroup, setSelectedGroup] = useState<string>('');
-
-  /** Modo de crew: 'existing' | 'new' */
-  const [crewMode, setCrewMode] = useState<'existing' | 'new'>('existing');
-
-  /** Datos del nuevo crew a crear inline */
-  const [newCrewForm, setNewCrewForm] = useState({
-    name: '',
-    group_type: 'functional',
-    location: '',
-    capacity: '20',
-  });
 
   const { data: groups } = useQuery({
     queryKey: ['coach-groups'],
