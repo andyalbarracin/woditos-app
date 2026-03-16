@@ -240,37 +240,7 @@ export default function AttendancePage() {
     }
   };
 
-  const handleCreateSession = async () => {
-    if (!selectedGroupId) { toast.error('Elegí un crew'); return; }
-    if (!sessionForm.session_type) { toast.error('Elegí un tipo de sesión'); return; }
-
-    const dateStr = format(selectedDate, 'yyyy-MM-dd');
-    const startISO = `${dateStr}T${sessionForm.start_time}:00`;
-    const endISO = `${dateStr}T${sessionForm.end_time}:00`;
-
-    const { error } = await supabase.from('sessions').insert({
-      group_id: selectedGroupId,
-      coach_id: user?.id,
-      title: sanitizeText(sessionForm.title) || 'Sesión',
-      session_type: sessionForm.session_type,
-      start_time: startISO,
-      end_time: endISO,
-      location: sessionForm.location ? sanitizeText(sessionForm.location) : null,
-      capacity: parseInt(sessionForm.capacity) || 20,
-      notes: sessionForm.notes ? sanitizeText(sessionForm.notes) : null,
-    });
-
-    if (error) {
-      toast.error('No se pudo crear la sesión');
-    } else {
-      toast.success('¡Sesión creada!');
-      setShowCreateSession(false);
-      setSessionForm({ title: '', session_type: 'functional', start_time: '08:00', end_time: '09:00', location: '', capacity: '20', notes: '' });
-      setSelectedGroupId('');
-      queryClient.invalidateQueries({ queryKey: ['attendance-day-sessions'] });
-      queryClient.invalidateQueries({ queryKey: ['attendance-month-sessions'] });
-    }
-  };
+  // handleCreateSession is now handled by CreateSessionDialog component
 
   // Send message to attendees - creates notifications
   const handleCommunicate = async () => {
