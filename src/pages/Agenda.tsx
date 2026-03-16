@@ -1,8 +1,8 @@
 /**
  * Archivo: Agenda.tsx
  * Ruta: src/pages/Agenda.tsx
- * Última modificación: 2026-03-12
- * Descripción: Agenda semanal. Coaches pueden tomar sesiones.
+ * Última modificación: 2026-03-16
+ * Descripción: Agenda semanal. Coaches crean/toman sesiones.
  *   Members reservan/cancelan. Notifica al coach al reservar.
  */
 import { useState } from 'react';
@@ -11,10 +11,11 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { format, startOfWeek, addDays, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, MapPin, Users, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, MapPin, Users, Check, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
+import CreateSessionDialog from '@/components/CreateSessionDialog';
 
 const SESSION_COLORS: Record<string, string> = {
   running: 'border-l-secondary',
@@ -29,6 +30,7 @@ export default function Agenda() {
   const { user, profile } = useAuth();
   const queryClient = useQueryClient();
   const [weekOffset, setWeekOffset] = useState(0);
+  const [showCreateSession, setShowCreateSession] = useState(false);
 
   const weekStart = startOfWeek(addDays(new Date(), weekOffset * 7), { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
@@ -92,7 +94,6 @@ export default function Agenda() {
     onError: () => toast.error('No se pudo cancelar la reserva.'),
   });
 
-  // Coach claims an unassigned session
   const claimMutation = useMutation({
     mutationFn: async (sessionId: string) => {
       const { error } = await supabase.from('sessions')
@@ -111,7 +112,14 @@ export default function Agenda() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
-      <h1 className="font-display text-3xl font-extrabold text-foreground">Agenda</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="font-display text-3xl font-extrabold text-foreground">Agenda</h1>
+        {isCoach && (
+          <Button onClick={() => setShowCreateSession(true)} className="gradient-primary text-primary-foreground gap-2">
+            <Plus size={16} /> Nueva Sesión
+          </Button>
+        )}
+      </div>
 
       {/* Week Selector */}
       <div className="flex items-center gap-3">
@@ -216,11 +224,22 @@ export default function Agenda() {
             );
           })
         ) : (
-          <div className="bg-card border border-border rounded-xl p-8 text-center">
+          <div className="bg-card border border-border rounded-xl p-8 text-center space-y-3">
             <p className="text-muted-foreground">No hay sesiones este día</p>
+            {isCoach && (
+              <Button onClick={() => setShowCreateSession(true)} variant="outline" className="gap-2">
+                <Plus size={14} /> Crear sesión para este día
+              </Button>
+            )}
           </div>
         )}
       </div>
+
+      <CreateSessionDialog
+        open={showCreateSession}
+        onOpenChange={setShowCreateSession}
+        initialDate={selectedDay}
+      />
     </div>
   );
 }

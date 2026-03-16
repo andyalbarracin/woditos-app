@@ -17,15 +17,13 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Users, Calendar, TrendingUp, Plus, Check, X, Clock, UserCheck, BarChart3, Activity, ChevronDown, ChevronUp } from 'lucide-react';
+import { Users, Calendar, TrendingUp, Plus, Check, X, Clock, UserCheck, BarChart3, Activity } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import CreateSessionDialog from '@/components/CreateSessionDialog';
 
 const PIE_COLORS = ['hsl(165,100%,39%)', 'hsl(17,81%,52%)', 'hsl(45,100%,60%)', 'hsl(217,47%,55%)'];
 

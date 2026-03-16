@@ -1,13 +1,14 @@
 /**
  * Archivo: Dashboard.tsx
  * Ruta: src/pages/Dashboard.tsx
- * Última modificación: 2026-03-12
+ * Última modificación: 2026-03-16
  * Descripción: Dashboard diferenciado por rol.
  *   - Miembros ven sesiones confirmadas + disponibles para reservar
- *   - Coaches ven sus sesiones + analytics del mes
+ *   - Coaches ven sus sesiones + analytics del mes + crear sesión
  */
+import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { Calendar, Flame, TrendingUp, Users, ChevronRight, Check, ClipboardCheck, Dumbbell } from 'lucide-react';
+import { Calendar, Flame, TrendingUp, Users, ChevronRight, Check, ClipboardCheck, Dumbbell, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
@@ -16,6 +17,7 @@ import { es } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
+import CreateSessionDialog from '@/components/CreateSessionDialog';
 
 const SESSION_COLORS: Record<string, string> = {
   running: 'bg-secondary',
@@ -31,6 +33,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const isCoach = user?.role === 'coach' || user?.role === 'super_admin';
+  const [showCreateSession, setShowCreateSession] = useState(false);
 
   // All upcoming sessions with reservations
   const { data: upcomingSessions } = useQuery({
@@ -56,7 +59,6 @@ export default function Dashboard() {
     enabled: !!user?.id,
   });
 
-  // Coach-specific stats
   const { data: coachStats } = useQuery({
     queryKey: ['coach-dashboard-stats', user?.id],
     queryFn: async () => {
@@ -103,7 +105,6 @@ export default function Dashboard() {
     },
   });
 
-  // Book a session
   const bookMutation = useMutation({
     mutationFn: async (sessionId: string) => {
       const { error } = await supabase.from('reservations').insert({
@@ -113,7 +114,6 @@ export default function Dashboard() {
       });
       if (error) throw error;
 
-      // Notify the coach
       const session = upcomingSessions?.find((s: any) => s.id === sessionId);
       if (session?.coach_id && session.coach_id !== user!.id) {
         await supabase.from('notifications').insert({
@@ -131,7 +131,6 @@ export default function Dashboard() {
     onError: () => toast.error('No se pudo hacer la reserva'),
   });
 
-  // Cancel reservation
   const cancelMutation = useMutation({
     mutationFn: async (reservationId: string) => {
       const { error } = await supabase.from('reservations')
@@ -146,7 +145,6 @@ export default function Dashboard() {
     onError: () => toast.error('No se pudo cancelar'),
   });
 
-  // Coach: claim a session
   const claimMutation = useMutation({
     mutationFn: async (sessionId: string) => {
       const { error } = await supabase.from('sessions')
@@ -168,7 +166,6 @@ export default function Dashboard() {
     return 'Buenas noches';
   };
 
-  // Separate sessions for members
   const myReservedSessions = upcomingSessions?.filter((s: any) => {
     const confirmed = s.reservations?.filter((r: any) => r.reservation_status === 'confirmed') || [];
     return confirmed.some((r: any) => r.user_id === user?.id);
@@ -179,7 +176,6 @@ export default function Dashboard() {
     return !confirmed.some((r: any) => r.user_id === user?.id);
   }) || [];
 
-  // For coaches: my sessions vs unassigned
   const myCoachSessions = upcomingSessions?.filter((s: any) => s.coach_id === user?.id) || [];
   const unassignedSessions = upcomingSessions?.filter((s: any) => !s.coach_id) || [];
 
@@ -257,9 +253,12 @@ export default function Dashboard() {
                   </div>
                 );
               }) : (
-                <div className="bg-card border border-border rounded-xl p-8 text-center">
+                <div className="bg-card border border-border rounded-xl p-8 text-center space-y-3">
                   <Calendar size={32} className="mx-auto text-muted-foreground mb-3" />
                   <p className="text-muted-foreground">No tenés sesiones próximas asignadas</p>
+                  <Button onClick={() => setShowCreateSession(true)} variant="outline" className="gap-2">
+                    <Plus size={14} /> Crear nueva sesión
+                  </Button>
                 </div>
               )}
             </div>
@@ -396,6 +395,11 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      <CreateSessionDialog
+        open={showCreateSession}
+        onOpenChange={setShowCreateSession}
+      />
     </div>
   );
 }
