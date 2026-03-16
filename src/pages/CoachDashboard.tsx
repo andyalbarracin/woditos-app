@@ -17,15 +17,13 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Users, Calendar, TrendingUp, Plus, Check, X, Clock, UserCheck, BarChart3, Activity, ChevronDown, ChevronUp } from 'lucide-react';
+import { Users, Calendar, TrendingUp, Plus, Check, X, Clock, UserCheck, BarChart3, Activity } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import CreateSessionDialog from '@/components/CreateSessionDialog';
 
 const PIE_COLORS = ['hsl(165,100%,39%)', 'hsl(17,81%,52%)', 'hsl(45,100%,60%)', 'hsl(217,47%,55%)'];
 
@@ -34,31 +32,7 @@ export default function CoachDashboard() {
   const queryClient = useQueryClient();
   const [showCreateSession, setShowCreateSession] = useState(false);
 
-  /** Estado del formulario de nueva sesión */
-  const [sessionForm, setSessionForm] = useState({
-    title: '',
-    session_type: '',        // texto libre — el coach escribe el tipo
-    session_date: '',        // fecha única (YYYY-MM-DD)
-    start_time: '',          // hora inicio (HH:mm) — input type="time" nativo
-    end_time: '',            // hora fin (HH:mm)
-    location: '',
-    capacity: '20',
-    notes: '',
-  });
-
-  /** ID del crew seleccionado para la sesión (puede ser uno existente o recién creado) */
   const [selectedGroup, setSelectedGroup] = useState<string>('');
-
-  /** Modo de crew: 'existing' | 'new' */
-  const [crewMode, setCrewMode] = useState<'existing' | 'new'>('existing');
-
-  /** Datos del nuevo crew a crear inline */
-  const [newCrewForm, setNewCrewForm] = useState({
-    name: '',
-    group_type: 'functional',
-    location: '',
-    capacity: '20',
-  });
 
   const { data: groups } = useQuery({
     queryKey: ['coach-groups'],
@@ -145,64 +119,7 @@ export default function CoachDashboard() {
     return acc;
   }, []) || [];
 
-  /**
-   * Mutación para crear una nueva sesión.
-   * Si crewMode='new', primero crea el crew nuevo y luego lo usa como group_id.
-   * Combina session_date + start_time/end_time en timestamps ISO completos.
-   */
-  const createSession = useMutation({
-    mutationFn: async () => {
-      let groupId = selectedGroup;
-
-      // Si el coach quiere crear un crew nuevo inline
-      if (crewMode === 'new') {
-        if (!newCrewForm.name.trim()) throw new Error('El nombre del crew es obligatorio');
-        const { data: newGroup, error: groupError } = await supabase.from('groups').insert({
-          name: newCrewForm.name.trim(),
-          group_type: newCrewForm.group_type || 'functional',
-          location: newCrewForm.location || null,
-          capacity: parseInt(newCrewForm.capacity) || 20,
-          coach_id: user!.id,
-        }).select('id').single();
-        if (groupError) throw groupError;
-        groupId = newGroup.id;
-      }
-
-      if (!groupId) throw new Error('Selecciona o creá un crew');
-      if (!sessionForm.session_date) throw new Error('La fecha es obligatoria');
-      if (!sessionForm.start_time) throw new Error('La hora de inicio es obligatoria');
-
-      // Construir timestamps ISO combinando fecha + hora
-      const startISO = `${sessionForm.session_date}T${sessionForm.start_time || '08:00'}:00`;
-      const endISO = sessionForm.end_time
-        ? `${sessionForm.session_date}T${sessionForm.end_time}:00`
-        : `${sessionForm.session_date}T${sessionForm.start_time.split(':').map((v, i) => i === 0 ? String(Number(v) + 1).padStart(2, '0') : v).join(':')}:00`;
-
-      const { error } = await supabase.from('sessions').insert({
-        group_id: groupId,
-        coach_id: user!.id,
-        title: sessionForm.title || 'Sesión',
-        session_type: sessionForm.session_type || 'functional',
-        start_time: startISO,
-        end_time: endISO,
-        location: sessionForm.location || null,
-        capacity: parseInt(sessionForm.capacity) || 20,
-        notes: sessionForm.notes || null,
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['coach-today-sessions'] });
-      queryClient.invalidateQueries({ queryKey: ['coach-groups'] });
-      queryClient.invalidateQueries({ queryKey: ['attendance-all-sessions'] });
-      setShowCreateSession(false);
-      setSessionForm({ title: '', session_type: '', session_date: '', start_time: '', end_time: '', location: '', capacity: '20', notes: '' });
-      setCrewMode('existing');
-      setNewCrewForm({ name: '', group_type: 'functional', location: '', capacity: '20' });
-      toast.success('¡Sesión creada exitosamente!');
-    },
-    onError: (err: any) => toast.error('No se pudo crear la sesión. Verificá los datos ingresados.'),
-  });
+  // createSession is now handled by CreateSessionDialog component
 
   const markAttendance = useMutation({
     mutationFn: async ({
@@ -256,162 +173,10 @@ export default function CoachDashboard() {
           <h1 className="font-display text-3xl font-extrabold text-foreground">Coach Panel</h1>
           <p className="text-sm text-muted-foreground">Gestiona tus crews y sesiones</p>
         </div>
-        <Dialog open={showCreateSession} onOpenChange={setShowCreateSession}>
-          <DialogTrigger asChild>
-            <Button className="gradient-primary text-primary-foreground gap-2">
-              <Plus size={16} /> Nueva Sesión
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="bg-card border-border max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="font-display">Crear Sesión</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-
-              {/* ─── Crew: seleccionar existente o crear nuevo ─── */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label>Crew</Label>
-                  <button
-                    type="button"
-                    onClick={() => setCrewMode(m => m === 'existing' ? 'new' : 'existing')}
-                    className="text-xs text-primary font-medium hover:underline"
-                  >
-                    {crewMode === 'existing' ? '+ Crear nuevo crew' : 'Elegir crew existente'}
-                  </button>
-                </div>
-                {crewMode === 'existing' ? (
-                  <Select value={selectedGroup} onValueChange={setSelectedGroup}>
-                    <SelectTrigger className="bg-background border-border">
-                      <SelectValue placeholder="Seleccionar crew" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {groups?.map((g: any) => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <div className="space-y-2 p-3 border border-dashed border-primary/30 rounded-lg bg-primary/5">
-                    <Input
-                      placeholder="Nombre del nuevo crew"
-                      value={newCrewForm.name}
-                      onChange={e => setNewCrewForm(f => ({ ...f, name: e.target.value }))}
-                      className="bg-background border-border"
-                    />
-                    <div className="grid grid-cols-2 gap-2">
-                      <Input
-                        placeholder="Tipo (ej: functional)"
-                        value={newCrewForm.group_type}
-                        onChange={e => setNewCrewForm(f => ({ ...f, group_type: e.target.value }))}
-                        className="bg-background border-border text-sm"
-                      />
-                      <Input
-                        placeholder="Ubicación"
-                        value={newCrewForm.location}
-                        onChange={e => setNewCrewForm(f => ({ ...f, location: e.target.value }))}
-                        className="bg-background border-border text-sm"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Título */}
-              <div className="space-y-2">
-                <Label>Título</Label>
-                <Input
-                  placeholder="Ej: AMRAP 20min"
-                  value={sessionForm.title}
-                  onChange={e => setSessionForm(f => ({ ...f, title: e.target.value }))}
-                  className="bg-background border-border"
-                />
-              </div>
-
-              {/* Tipo de sesión: Select con valores válidos del constraint */}
-              <div className="space-y-2">
-                <Label>Tipo de sesión</Label>
-                <Select
-                  value={sessionForm.session_type}
-                  onValueChange={(v) => setSessionForm(f => ({ ...f, session_type: v }))}
-                >
-                  <SelectTrigger className="bg-background border-border">
-                    <SelectValue placeholder="Elegir tipo..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="running">Running</SelectItem>
-                    <SelectItem value="functional">Funcional</SelectItem>
-                    <SelectItem value="amrap">AMRAP</SelectItem>
-                    <SelectItem value="emom">EMOM</SelectItem>
-                    <SelectItem value="hiit">HIIT</SelectItem>
-                    <SelectItem value="technique">Técnica</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Fecha única */}
-              <div className="space-y-2">
-                <Label>Fecha</Label>
-                <Input
-                  type="date"
-                  value={sessionForm.session_date}
-                  onChange={e => setSessionForm(f => ({ ...f, session_date: e.target.value }))}
-                  className="bg-background border-border"
-                />
-              </div>
-
-              {/* Hora inicio + hora fin separadas — usa selector nativo del OS (rueda en iOS) */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label>Hora inicio</Label>
-                  <Input
-                    type="time"
-                    value={sessionForm.start_time}
-                    onChange={e => setSessionForm(f => ({ ...f, start_time: e.target.value }))}
-                    className="bg-background border-border"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Hora fin</Label>
-                  <Input
-                    type="time"
-                    value={sessionForm.end_time}
-                    onChange={e => setSessionForm(f => ({ ...f, end_time: e.target.value }))}
-                    className="bg-background border-border"
-                  />
-                </div>
-              </div>
-
-              {/* Ubicación + Capacidad */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label>Ubicación</Label>
-                  <Input
-                    placeholder="Ej: Palermo Rosedal"
-                    value={sessionForm.location}
-                    onChange={e => setSessionForm(f => ({ ...f, location: e.target.value }))}
-                    className="bg-background border-border"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Capacidad</Label>
-                  <Input
-                    type="number"
-                    value={sessionForm.capacity}
-                    onChange={e => setSessionForm(f => ({ ...f, capacity: e.target.value }))}
-                    className="bg-background border-border"
-                  />
-                </div>
-              </div>
-
-              <Button
-                onClick={() => createSession.mutate()}
-                disabled={createSession.isPending}
-                className="w-full gradient-primary text-primary-foreground"
-              >
-                {createSession.isPending ? 'Creando...' : 'Crear Sesión'}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <Button onClick={() => setShowCreateSession(true)} className="gradient-primary text-primary-foreground gap-2">
+          <Plus size={16} /> Nueva Sesión
+        </Button>
+        <CreateSessionDialog open={showCreateSession} onOpenChange={setShowCreateSession} />
       </div>
 
       {/* Summary Cards */}
