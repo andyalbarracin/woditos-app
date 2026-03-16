@@ -6,6 +6,7 @@
  */
 
 import { useState, useMemo } from 'react';
+import CreateSessionDialog from '@/components/CreateSessionDialog';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
