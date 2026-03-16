@@ -309,61 +309,18 @@ export default function AttendancePage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Dialog open={showCreateSession} onOpenChange={setShowCreateSession}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-1">
-                <Plus size={14} /> Crear sesión
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="bg-card border-border">
-              <DialogHeader>
-                <DialogTitle className="font-display">Nueva Sesión para {format(selectedDate, 'd MMM', { locale: es })}</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Crew</Label>
-                  <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
-                    <SelectTrigger className="bg-background border-border">
-                      <SelectValue placeholder="Elegir crew..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {groups?.map((g: any) => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Título</Label>
-                  <Input placeholder="Ej: AMRAP 20'" value={sessionForm.title} onChange={e => setSessionForm(f => ({ ...f, title: e.target.value }))} className="bg-background border-border" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Tipo</Label>
-                  <Select value={sessionForm.session_type} onValueChange={v => setSessionForm(f => ({ ...f, session_type: v }))}>
-                    <SelectTrigger className="bg-background border-border"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {SESSION_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label>Hora inicio</Label>
-                    <Input type="time" value={sessionForm.start_time} onChange={e => setSessionForm(f => ({ ...f, start_time: e.target.value }))} className="bg-background border-border" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Hora fin</Label>
-                    <Input type="time" value={sessionForm.end_time} onChange={e => setSessionForm(f => ({ ...f, end_time: e.target.value }))} className="bg-background border-border" />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Ubicación</Label>
-                  <Input placeholder="Opcional" value={sessionForm.location} onChange={e => setSessionForm(f => ({ ...f, location: e.target.value }))} className="bg-background border-border" />
-                </div>
-                <Button onClick={handleCreateSession} className="w-full gradient-primary text-primary-foreground">
-                  Crear sesión
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <Button variant="outline" size="sm" className="gap-1" onClick={() => setShowCreateSession(true)}>
+            <Plus size={14} /> Crear sesión
+          </Button>
+          <CreateSessionDialog
+            open={showCreateSession}
+            onOpenChange={setShowCreateSession}
+            initialDate={selectedDate}
+            onCreated={() => {
+              queryClient.invalidateQueries({ queryKey: ['attendance-day-sessions'] });
+              queryClient.invalidateQueries({ queryKey: ['attendance-month-sessions'] });
+            }}
+          />
         </div>
       </div>
 
