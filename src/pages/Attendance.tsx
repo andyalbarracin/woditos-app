@@ -76,16 +76,7 @@ export default function AttendancePage() {
   const [communicateMessage, setCommunicateMessage] = useState('');
   const [showQRScanner, setShowQRScanner] = useState(false);
 
-  const [sessionForm, setSessionForm] = useState({
-    title: '',
-    session_type: 'functional',
-    start_time: '08:00',
-    end_time: '09:00',
-    location: '',
-    capacity: '20',
-    notes: '',
-  });
-  const [selectedGroupId, setSelectedGroupId] = useState('');
+  // sessionForm moved to CreateSessionDialog component
 
   const { data: monthSessions } = useQuery({
     queryKey: ['attendance-month-sessions', selectedDate.getMonth(), selectedDate.getFullYear()],
