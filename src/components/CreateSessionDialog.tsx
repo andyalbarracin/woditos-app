@@ -254,13 +254,30 @@ export default function CreateSessionDialog({ open, onOpenChange, initialDate, o
 
           {/* Hora de inicio */}
           <div className="space-y-2">
-            <Label>Hora de inicio</Label>
-            <Input
-              type="time"
-              value={startTime}
-              onChange={e => setStartTime(e.target.value)}
-              className="bg-background border-border"
-            />
+            <Label>Hora de inicio (24hs)</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <Select value={startHour} onValueChange={setStartHour}>
+                <SelectTrigger className="bg-background border-border">
+                  <SelectValue placeholder="Hora" />
+                </SelectTrigger>
+                <SelectContent>
+                  {HOUR_OPTIONS.map((h) => (
+                    <SelectItem key={h} value={h}>{h} hs</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={startMinute} onValueChange={setStartMinute}>
+                <SelectTrigger className="bg-background border-border">
+                  <SelectValue placeholder="Min" />
+                </SelectTrigger>
+                <SelectContent>
+                  {MINUTE_OPTIONS.map((m) => (
+                    <SelectItem key={m} value={m}>{m} min</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <p className="text-xs text-muted-foreground">Inicio: {startTime} hs</p>
           </div>
 
           {/* Duración con botones +/- 15min */}
