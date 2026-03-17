@@ -112,6 +112,17 @@ Se solicitó una auditoría cruzada entre:
 - **Botón "Crear sesión" en Dashboard:** Cuando el coach no tiene sesiones próximas.
 - **Refactor:** CoachDashboard y Attendance ahora usan el componente compartido CreateSessionDialog, eliminando duplicación de código (~300 líneas menos).
 
+### Sesión 7 (2026-03-17)
+**Lo que se hizo:**
+- **Fix formato 24h real en modal de sesión:** se reemplazó el input nativo de hora por selectores de hora/minutos (00-23 / 00-15-30-45) para eliminar AM/PM en todos los dispositivos.
+- **Fix re-reserva en Agenda:** al volver a reservar una sesión cancelada, ahora se reactiva la reserva existente (`reservation_status = confirmed`, `cancelled_at = null`) en lugar de fallar por conflicto de registro previo.
+- **Fix Stories en negro + UX estilo Instagram:**
+  - viewer con contenedor **9:16**
+  - render de imagen/video según extensión
+  - eliminación de fallback externo
+  - pausa del avance automático al mantener presionado
+  - swipe horizontal para cambiar de usuario de story
+
 ---
 
 ## 🔐 CREDENCIALES DE ACCESO
