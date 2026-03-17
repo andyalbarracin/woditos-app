@@ -43,7 +43,10 @@ export default function StoriesBar() {
   const [viewingAuthorIndex, setViewingAuthorIndex] = useState(-1);
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
   const [progress, setProgress] = useState(0);
+  const [mediaError, setMediaError] = useState(false);
+  const [isHolding, setIsHolding] = useState(false);
   const progressRef = useRef<NodeJS.Timeout | null>(null);
+  const isHoldingRef = useRef(false);
 
   // Touch/swipe state
   const touchStartX = useRef(0);
