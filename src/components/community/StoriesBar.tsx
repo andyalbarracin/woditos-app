@@ -250,8 +250,13 @@ export default function StoriesBar() {
   const handleViewerTap = (e: React.MouseEvent) => {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const x = e.clientX - rect.left;
-    if (x < rect.width / 3) prevStory();
-    else nextStory();
+
+    if (x < rect.width / 2) {
+      prevStory();
+      return;
+    }
+
+    nextStory();
   };
 
   const currentAuthor = authorGroups[viewingAuthorIndex];
