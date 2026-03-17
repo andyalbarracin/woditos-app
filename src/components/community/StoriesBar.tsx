@@ -134,6 +134,9 @@ export default function StoriesBar() {
 
   const closeViewer = useCallback(() => {
     setViewingAuthorIndex(-1);
+    setMediaError(false);
+    setIsHolding(false);
+    isHoldingRef.current = false;
     if (progressRef.current) clearInterval(progressRef.current);
   }, []);
 
