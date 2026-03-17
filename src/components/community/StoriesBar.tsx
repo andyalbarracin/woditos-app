@@ -190,19 +190,30 @@ export default function StoriesBar() {
   useEffect(() => {
     if (viewingAuthorIndex < 0) return;
     if (progressRef.current) clearInterval(progressRef.current);
+
     const interval = 50;
-    const steps = STORY_DURATION / interval;
-    let step = 0;
+    const increment = (interval / STORY_DURATION) * 100;
+
     progressRef.current = setInterval(() => {
-      step++;
-      setProgress((step / steps) * 100);
-      if (step >= steps) {
-        clearInterval(progressRef.current!);
-        nextStory();
-      }
+      if (isHoldingRef.current) return;
+
+      setProgress((prev) => {
+        const next = prev + increment;
+
+        if (next >= 100) {
+          clearInterval(progressRef.current!);
+          setTimeout(() => nextStory(), 0);
+          return 100;
+        }
+
+        return next;
+      });
     }, interval);
-    return () => { if (progressRef.current) clearInterval(progressRef.current); };
-  }, [viewingAuthorIndex, currentStoryIndex]);
+
+    return () => {
+      if (progressRef.current) clearInterval(progressRef.current);
+    };
+  }, [viewingAuthorIndex, currentStoryIndex, nextStory]);
 
   /** Touch handlers for swipe */
   const handleTouchStart = (e: React.TouchEvent) => {
