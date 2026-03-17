@@ -67,8 +67,19 @@ export default function StoriesBar() {
   const uploadStory = useMutation({
     mutationFn: async (file: File) => {
       if (!user) throw new Error('No autenticado');
-      if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
-        throw new Error('Solo se permiten imágenes o videos');
+
+      const allowedTypes = [
+        'image/jpeg',
+        'image/png',
+        'image/webp',
+        'image/gif',
+        'video/mp4',
+        'video/webm',
+        'video/quicktime',
+      ];
+
+      if (!allowedTypes.includes(file.type.toLowerCase())) {
+        throw new Error('Formato no soportado. Usá JPG, PNG, WEBP, GIF, MP4 o WEBM.');
       }
       const ext = file.name.split('.').pop() || 'jpg';
       const path = `${user.id}/${Date.now()}.${ext}`;
