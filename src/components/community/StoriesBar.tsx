@@ -140,31 +140,51 @@ export default function StoriesBar() {
     if (progressRef.current) clearInterval(progressRef.current);
   }, []);
 
-  const nextStory = useCallback(() => {
-    const group = authorGroups[viewingAuthorIndex];
-    if (!group) return;
-    if (currentStoryIndex < group.stories.length - 1) {
-      setCurrentStoryIndex(i => i + 1);
-      setProgress(0);
-    } else if (viewingAuthorIndex < authorGroups.length - 1) {
+  const nextAuthor = useCallback(() => {
+    if (viewingAuthorIndex < authorGroups.length - 1) {
       setViewingAuthorIndex(i => i + 1);
       setCurrentStoryIndex(0);
       setProgress(0);
-    } else {
-      closeViewer();
+      setMediaError(false);
+      return;
     }
-  }, [viewingAuthorIndex, currentStoryIndex, authorGroups, closeViewer]);
+
+    closeViewer();
+  }, [viewingAuthorIndex, authorGroups.length, closeViewer]);
+
+  const prevAuthor = useCallback(() => {
+    if (viewingAuthorIndex > 0) {
+      setViewingAuthorIndex(i => i - 1);
+      setCurrentStoryIndex(0);
+      setProgress(0);
+      setMediaError(false);
+    }
+  }, [viewingAuthorIndex]);
+
+  const nextStory = useCallback(() => {
+    const group = authorGroups[viewingAuthorIndex];
+    if (!group) return;
+
+    if (currentStoryIndex < group.stories.length - 1) {
+      setCurrentStoryIndex(i => i + 1);
+      setProgress(0);
+      setMediaError(false);
+      return;
+    }
+
+    nextAuthor();
+  }, [viewingAuthorIndex, currentStoryIndex, authorGroups, nextAuthor]);
 
   const prevStory = useCallback(() => {
     if (currentStoryIndex > 0) {
       setCurrentStoryIndex(i => i - 1);
       setProgress(0);
-    } else if (viewingAuthorIndex > 0) {
-      setViewingAuthorIndex(i => i - 1);
-      setCurrentStoryIndex(0);
-      setProgress(0);
+      setMediaError(false);
+      return;
     }
-  }, [viewingAuthorIndex, currentStoryIndex]);
+
+    prevAuthor();
+  }, [currentStoryIndex, prevAuthor]);
 
   /** Auto-advance timer */
   useEffect(() => {
