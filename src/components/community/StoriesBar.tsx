@@ -269,7 +269,7 @@ export default function StoriesBar() {
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*,video/*"
+        accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime"
         capture="environment"
         className="hidden"
         onChange={handleFileChange}
