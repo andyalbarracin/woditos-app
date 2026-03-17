@@ -390,16 +390,31 @@ export default function StoriesBar() {
             </button>
           </div>
 
-          {/* Image */}
-          <div className="flex-1 flex items-center justify-center">
-            <img
-              src={currentStory.media_url}
-              alt="Story"
-              className="max-h-full max-w-full object-contain"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = `https://picsum.photos/seed/${currentStory.id}/400/700`;
-              }}
-            />
+          {/* Media (9:16) */}
+          <div className="flex-1 flex items-center justify-center px-3 pb-4 pt-16">
+            <div className="relative w-full max-w-[420px] aspect-[9/16] rounded-xl overflow-hidden bg-muted">
+              {mediaError ? (
+                <div className="absolute inset-0 flex items-center justify-center text-center p-4">
+                  <p className="text-sm text-muted-foreground">No se pudo cargar esta story.</p>
+                </div>
+              ) : currentStoryIsVideo ? (
+                <video
+                  src={currentStory.media_url}
+                  className="h-full w-full object-cover"
+                  autoPlay
+                  muted
+                  playsInline
+                  onError={() => setMediaError(true)}
+                />
+              ) : (
+                <img
+                  src={currentStory.media_url}
+                  alt="Story"
+                  className="h-full w-full object-cover"
+                  onError={() => setMediaError(true)}
+                />
+              )}
+            </div>
           </div>
 
           {/* Nav buttons (desktop) */}
