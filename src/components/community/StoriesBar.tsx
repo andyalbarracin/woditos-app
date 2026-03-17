@@ -43,7 +43,10 @@ export default function StoriesBar() {
   const [viewingAuthorIndex, setViewingAuthorIndex] = useState(-1);
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
   const [progress, setProgress] = useState(0);
+  const [mediaError, setMediaError] = useState(false);
+  const [isHolding, setIsHolding] = useState(false);
   const progressRef = useRef<NodeJS.Timeout | null>(null);
+  const isHoldingRef = useRef(false);
 
   // Touch/swipe state
   const touchStartX = useRef(0);
@@ -67,8 +70,19 @@ export default function StoriesBar() {
   const uploadStory = useMutation({
     mutationFn: async (file: File) => {
       if (!user) throw new Error('No autenticado');
-      if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
-        throw new Error('Solo se permiten imágenes o videos');
+
+      const allowedTypes = [
+        'image/jpeg',
+        'image/png',
+        'image/webp',
+        'image/gif',
+        'video/mp4',
+        'video/webm',
+        'video/quicktime',
+      ];
+
+      if (!allowedTypes.includes(file.type.toLowerCase())) {
+        throw new Error('Formato no soportado. Usá JPG, PNG, WEBP, GIF, MP4 o WEBM.');
       }
       const ext = file.name.split('.').pop() || 'jpg';
       const path = `${user.id}/${Date.now()}.${ext}`;
@@ -120,52 +134,100 @@ export default function StoriesBar() {
 
   const closeViewer = useCallback(() => {
     setViewingAuthorIndex(-1);
+    setMediaError(false);
+    setIsHolding(false);
+    isHoldingRef.current = false;
     if (progressRef.current) clearInterval(progressRef.current);
   }, []);
+
+  const nextAuthor = useCallback(() => {
+    if (viewingAuthorIndex < authorGroups.length - 1) {
+      setViewingAuthorIndex(i => i + 1);
+      setCurrentStoryIndex(0);
+      setProgress(0);
+      setMediaError(false);
+      return;
+    }
+
+    closeViewer();
+  }, [viewingAuthorIndex, authorGroups.length, closeViewer]);
+
+  const prevAuthor = useCallback(() => {
+    if (viewingAuthorIndex > 0) {
+      setViewingAuthorIndex(i => i - 1);
+      setCurrentStoryIndex(0);
+      setProgress(0);
+      setMediaError(false);
+    }
+  }, [viewingAuthorIndex]);
 
   const nextStory = useCallback(() => {
     const group = authorGroups[viewingAuthorIndex];
     if (!group) return;
+
     if (currentStoryIndex < group.stories.length - 1) {
       setCurrentStoryIndex(i => i + 1);
       setProgress(0);
-    } else if (viewingAuthorIndex < authorGroups.length - 1) {
-      setViewingAuthorIndex(i => i + 1);
-      setCurrentStoryIndex(0);
-      setProgress(0);
-    } else {
-      closeViewer();
+      setMediaError(false);
+      return;
     }
-  }, [viewingAuthorIndex, currentStoryIndex, authorGroups, closeViewer]);
+
+    nextAuthor();
+  }, [viewingAuthorIndex, currentStoryIndex, authorGroups, nextAuthor]);
 
   const prevStory = useCallback(() => {
     if (currentStoryIndex > 0) {
       setCurrentStoryIndex(i => i - 1);
       setProgress(0);
-    } else if (viewingAuthorIndex > 0) {
-      setViewingAuthorIndex(i => i - 1);
-      setCurrentStoryIndex(0);
-      setProgress(0);
+      setMediaError(false);
+      return;
     }
-  }, [viewingAuthorIndex, currentStoryIndex]);
+
+    prevAuthor();
+  }, [currentStoryIndex, prevAuthor]);
 
   /** Auto-advance timer */
   useEffect(() => {
     if (viewingAuthorIndex < 0) return;
     if (progressRef.current) clearInterval(progressRef.current);
+
     const interval = 50;
-    const steps = STORY_DURATION / interval;
-    let step = 0;
+    const increment = (interval / STORY_DURATION) * 100;
+
     progressRef.current = setInterval(() => {
-      step++;
-      setProgress((step / steps) * 100);
-      if (step >= steps) {
-        clearInterval(progressRef.current!);
-        nextStory();
-      }
+      if (isHoldingRef.current) return;
+
+      setProgress((prev) => {
+        const next = prev + increment;
+
+        if (next >= 100) {
+          clearInterval(progressRef.current!);
+          setTimeout(() => nextStory(), 0);
+          return 100;
+        }
+
+        return next;
+      });
     }, interval);
-    return () => { if (progressRef.current) clearInterval(progressRef.current); };
+
+    return () => {
+      if (progressRef.current) clearInterval(progressRef.current);
+    };
+  }, [viewingAuthorIndex, currentStoryIndex, nextStory]);
+
+  useEffect(() => {
+    setMediaError(false);
   }, [viewingAuthorIndex, currentStoryIndex]);
+
+  const handleHoldStart = () => {
+    setIsHolding(true);
+    isHoldingRef.current = true;
+  };
+
+  const handleHoldEnd = () => {
+    setIsHolding(false);
+    isHoldingRef.current = false;
+  };
 
   /** Touch handlers for swipe */
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -176,10 +238,11 @@ export default function StoriesBar() {
   const handleTouchEnd = (e: React.TouchEvent) => {
     const dx = e.changedTouches[0].clientX - touchStartX.current;
     const dy = e.changedTouches[0].clientY - touchStartY.current;
-    // Only horizontal swipes (ignore vertical scrolling)
+
+    // Swipe: cambia de usuario (story owner)
     if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
-      if (dx < 0) nextStory();
-      else prevStory();
+      if (dx < 0) nextAuthor();
+      else prevAuthor();
     }
   };
 
@@ -187,19 +250,26 @@ export default function StoriesBar() {
   const handleViewerTap = (e: React.MouseEvent) => {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const x = e.clientX - rect.left;
-    if (x < rect.width / 3) prevStory();
-    else nextStory();
+
+    if (x < rect.width / 2) {
+      prevStory();
+      return;
+    }
+
+    nextStory();
   };
 
   const currentAuthor = authorGroups[viewingAuthorIndex];
   const currentStory = currentAuthor?.stories[currentStoryIndex];
+
+  const currentStoryIsVideo = !!currentStory?.media_url && /\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(currentStory.media_url);
 
   return (
     <>
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*,video/*"
+        accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime"
         capture="environment"
         className="hidden"
         onChange={handleFileChange}
@@ -272,8 +342,17 @@ export default function StoriesBar() {
         <div
           className="fixed inset-0 z-50 bg-black flex flex-col select-none"
           onClick={handleViewerTap}
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
+          onMouseDown={handleHoldStart}
+          onMouseUp={handleHoldEnd}
+          onMouseLeave={handleHoldEnd}
+          onTouchStart={(e) => {
+            handleHoldStart();
+            handleTouchStart(e);
+          }}
+          onTouchEnd={(e) => {
+            handleHoldEnd();
+            handleTouchEnd(e);
+          }}
         >
           {/* Progress bars */}
           <div className="absolute top-0 left-0 right-0 flex gap-1 p-3 z-10">
@@ -311,16 +390,31 @@ export default function StoriesBar() {
             </button>
           </div>
 
-          {/* Image */}
-          <div className="flex-1 flex items-center justify-center">
-            <img
-              src={currentStory.media_url}
-              alt="Story"
-              className="max-h-full max-w-full object-contain"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = `https://picsum.photos/seed/${currentStory.id}/400/700`;
-              }}
-            />
+          {/* Media (9:16) */}
+          <div className="flex-1 flex items-center justify-center px-3 pb-4 pt-16">
+            <div className="relative w-full max-w-[420px] aspect-[9/16] rounded-xl overflow-hidden bg-muted">
+              {mediaError ? (
+                <div className="absolute inset-0 flex items-center justify-center text-center p-4">
+                  <p className="text-sm text-muted-foreground">No se pudo cargar esta story.</p>
+                </div>
+              ) : currentStoryIsVideo ? (
+                <video
+                  src={currentStory.media_url}
+                  className="h-full w-full object-cover"
+                  autoPlay
+                  muted
+                  playsInline
+                  onError={() => setMediaError(true)}
+                />
+              ) : (
+                <img
+                  src={currentStory.media_url}
+                  alt="Story"
+                  className="h-full w-full object-cover"
+                  onError={() => setMediaError(true)}
+                />
+              )}
+            </div>
           </div>
 
           {/* Nav buttons (desktop) */}

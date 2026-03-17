@@ -55,12 +55,33 @@ export default function Agenda() {
 
   const bookMutation = useMutation({
     mutationFn: async (sessionId: string) => {
-      const { error } = await supabase.from('reservations').insert({
-        session_id: sessionId,
-        user_id: user!.id,
-        reservation_status: 'confirmed',
-      });
-      if (error) throw error;
+      const { data: existingReservation, error: existingError } = await supabase
+        .from('reservations')
+        .select('id')
+        .eq('session_id', sessionId)
+        .eq('user_id', user!.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existingError) throw existingError;
+
+      if (existingReservation?.id) {
+        const { error: updateError } = await supabase
+          .from('reservations')
+          .update({ reservation_status: 'confirmed', cancelled_at: null })
+          .eq('id', existingReservation.id);
+
+        if (updateError) throw updateError;
+      } else {
+        const { error: insertError } = await supabase.from('reservations').insert({
+          session_id: sessionId,
+          user_id: user!.id,
+          reservation_status: 'confirmed',
+        });
+
+        if (insertError) throw insertError;
+      }
 
       // Notify coach
       const session = sessions?.find((s: any) => s.id === sessionId);
