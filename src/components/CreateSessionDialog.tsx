@@ -135,7 +135,8 @@ export default function CreateSessionDialog({ open, onOpenChange, initialDate, o
       // Reset
       setTitle('');
       setSessionType('');
-      setStartTime('08:00');
+      setStartHour('08');
+      setStartMinute('00');
       setDurationMinutes(60);
       setLocation('');
       setCapacity('20');
