@@ -41,6 +41,9 @@ interface CreateSessionDialogProps {
   onCreated?: () => void;
 }
 
+const HOUR_OPTIONS = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
+const MINUTE_OPTIONS = ['00', '15', '30', '45'];
+
 export default function CreateSessionDialog({ open, onOpenChange, initialDate, onCreated }: CreateSessionDialogProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -48,7 +51,8 @@ export default function CreateSessionDialog({ open, onOpenChange, initialDate, o
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(initialDate || new Date());
   const [title, setTitle] = useState('');
   const [sessionType, setSessionType] = useState('');
-  const [startTime, setStartTime] = useState('08:00');
+  const [startHour, setStartHour] = useState('08');
+  const [startMinute, setStartMinute] = useState('00');
   const [durationMinutes, setDurationMinutes] = useState(60);
   const [location, setLocation] = useState('');
   const [capacity, setCapacity] = useState('20');
@@ -66,6 +70,8 @@ export default function CreateSessionDialog({ open, onOpenChange, initialDate, o
       return data || [];
     },
   });
+
+  const startTime = `${startHour}:${startMinute}`;
 
   // Calculate end time from start + duration
   const getEndTime = () => {
