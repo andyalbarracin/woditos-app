@@ -215,6 +215,20 @@ export default function StoriesBar() {
     };
   }, [viewingAuthorIndex, currentStoryIndex, nextStory]);
 
+  useEffect(() => {
+    setMediaError(false);
+  }, [viewingAuthorIndex, currentStoryIndex]);
+
+  const handleHoldStart = () => {
+    setIsHolding(true);
+    isHoldingRef.current = true;
+  };
+
+  const handleHoldEnd = () => {
+    setIsHolding(false);
+    isHoldingRef.current = false;
+  };
+
   /** Touch handlers for swipe */
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
