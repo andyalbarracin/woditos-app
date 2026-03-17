@@ -342,8 +342,17 @@ export default function StoriesBar() {
         <div
           className="fixed inset-0 z-50 bg-black flex flex-col select-none"
           onClick={handleViewerTap}
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
+          onMouseDown={handleHoldStart}
+          onMouseUp={handleHoldEnd}
+          onMouseLeave={handleHoldEnd}
+          onTouchStart={(e) => {
+            handleHoldStart();
+            handleTouchStart(e);
+          }}
+          onTouchEnd={(e) => {
+            handleHoldEnd();
+            handleTouchEnd(e);
+          }}
         >
           {/* Progress bars */}
           <div className="absolute top-0 left-0 right-0 flex gap-1 p-3 z-10">
