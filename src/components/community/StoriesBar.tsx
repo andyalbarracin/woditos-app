@@ -238,10 +238,11 @@ export default function StoriesBar() {
   const handleTouchEnd = (e: React.TouchEvent) => {
     const dx = e.changedTouches[0].clientX - touchStartX.current;
     const dy = e.changedTouches[0].clientY - touchStartY.current;
-    // Only horizontal swipes (ignore vertical scrolling)
+
+    // Swipe: cambia de usuario (story owner)
     if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
-      if (dx < 0) nextStory();
-      else prevStory();
+      if (dx < 0) nextAuthor();
+      else prevAuthor();
     }
   };
 
