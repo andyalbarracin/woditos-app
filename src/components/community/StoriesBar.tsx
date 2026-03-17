@@ -262,6 +262,8 @@ export default function StoriesBar() {
   const currentAuthor = authorGroups[viewingAuthorIndex];
   const currentStory = currentAuthor?.stories[currentStoryIndex];
 
+  const currentStoryIsVideo = !!currentStory?.media_url && /\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(currentStory.media_url);
+
   return (
     <>
       <input
