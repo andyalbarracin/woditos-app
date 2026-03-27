@@ -8,7 +8,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { lovable } from '@/integrations/lovable/index';
+import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -51,21 +51,22 @@ export default function Login() {
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    setGoogleLoading(true);
-    try {
-      const result = await lovable.auth.signInWithOAuth('google', {
-        redirect_uri: window.location.origin,
-      });
-      if (result?.error) {
-        toast.error('Error al iniciar con Google');
-      }
-    } catch (err: any) {
-      toast.error(err.message || 'Error con Google');
-    } finally {
-      setGoogleLoading(false);
-    }
-  };
+ const handleGoogleSignIn = async () => {
+  setGoogleLoading(true);
+  try {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin,
+      },
+    });
+    if (error) toast.error('Error al iniciar con Google');
+  } catch (err: any) {
+    toast.error(err.message || 'Error con Google');
+  } finally {
+    setGoogleLoading(false);
+  }
+};
 
   return (
     <div className="flex min-h-screen">

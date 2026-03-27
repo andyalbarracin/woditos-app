@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      coach_invites: {
+        Row: {
+          id: string
+          token: string
+          created_by: string
+          used_by: string | null
+          email_hint: string | null
+          status: string
+          expires_at: string
+          created_at: string | null
+          used_at: string | null
+        }
+        Insert: {
+          id?: string
+          token?: string
+          created_by: string
+          used_by?: string | null
+          email_hint?: string | null
+          status?: string
+          expires_at?: string
+          created_at?: string | null
+          used_at?: string | null
+        }
+        Update: {
+          id?: string
+          token?: string
+          created_by?: string
+          used_by?: string | null
+          email_hint?: string | null
+          status?: string
+          expires_at?: string
+          created_at?: string | null
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_invites_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_invites_used_by_fkey"
+            columns: ["used_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       achievements: {
         Row: {
           achievement_type: string
@@ -734,6 +785,10 @@ export type Database = {
       get_member_stats: { Args: { p_user_id: string }; Returns: Json }
       get_my_role: { Args: never; Returns: string }
       is_member_of_group: { Args: { p_group_id: string }; Returns: boolean }
+      use_coach_invite: {
+        Args: { p_token: string; p_user_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never

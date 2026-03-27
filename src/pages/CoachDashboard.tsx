@@ -1,15 +1,12 @@
 /**
  * Archivo: CoachDashboard.tsx
  * Ruta: src/pages/CoachDashboard.tsx
- * Última modificación: 2026-03-09
+ * Última modificación: 2026-03-26
  * Descripción: Panel exclusivo para coaches y super_admin.
  *   - Resumen diario de sesiones
  *   - Gestión de miembros por crew
  *   - Analytics de asistencia y sesiones
- *   - Formulario mejorado para crear sesiones:
- *       * Crear nuevo crew inline sin salir del form
- *       * Tipo de sesión como texto libre
- *       * Fecha única (date) + hora de inicio y fin separadas (time input nativo)
+ *   - Tab de invitaciones de coach (solo super_admin)
  */
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -17,13 +14,14 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Users, Calendar, TrendingUp, Plus, Check, X, Clock, UserCheck, BarChart3, Activity } from 'lucide-react';
+import { Users, Calendar, TrendingUp, Plus, Check, X, Clock, UserCheck, BarChart3, Activity, Link } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import CreateSessionDialog from '@/components/CreateSessionDialog';
+import InviteCoach from '@/components/InviteCoach';
 
 const PIE_COLORS = ['hsl(165,100%,39%)', 'hsl(17,81%,52%)', 'hsl(45,100%,60%)', 'hsl(217,47%,55%)'];
 
@@ -31,8 +29,9 @@ export default function CoachDashboard() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [showCreateSession, setShowCreateSession] = useState(false);
-
   const [selectedGroup, setSelectedGroup] = useState<string>('');
+
+  const isSuperAdmin = user?.role === 'super_admin';
 
   const { data: groups } = useQuery({
     queryKey: ['coach-groups'],
@@ -70,7 +69,6 @@ export default function CoachDashboard() {
     },
   });
 
-  // Analytics data
   const { data: allSessions } = useQuery({
     queryKey: ['coach-all-sessions'],
     queryFn: async () => {
@@ -92,7 +90,6 @@ export default function CoachDashboard() {
     },
   });
 
-  // Build analytics charts data
   const sessionsByType = allSessions?.reduce((acc: any[], s: any) => {
     const existing = acc.find(x => x.tipo === s.session_type);
     if (existing) existing.cantidad++;
@@ -119,37 +116,23 @@ export default function CoachDashboard() {
     return acc;
   }, []) || [];
 
-  // createSession is now handled by CreateSessionDialog component
-
   const markAttendance = useMutation({
     mutationFn: async ({
-      sessionId,
-      userId,
-      status,
-      currentStatus,
+      sessionId, userId, status, currentStatus,
     }: {
-      sessionId: string;
-      userId: string;
-      status: 'present' | 'late' | 'absent';
-      currentStatus?: string | null;
+      sessionId: string; userId: string;
+      status: 'present' | 'late' | 'absent'; currentStatus?: string | null;
     }) => {
       if (currentStatus === status) {
-        const { error } = await supabase
-          .from('attendance')
-          .delete()
-          .eq('session_id', sessionId)
-          .eq('user_id', userId);
+        const { error } = await supabase.from('attendance').delete()
+          .eq('session_id', sessionId).eq('user_id', userId);
         if (error) throw error;
         return { cleared: true };
       }
-
       const { error } = await supabase.from('attendance').upsert({
-        session_id: sessionId,
-        user_id: userId,
-        attendance_status: status,
+        session_id: sessionId, user_id: userId, attendance_status: status,
         checkin_time: status === 'present' ? new Date().toISOString() : null,
       }, { onConflict: 'session_id,user_id' });
-
       if (error) throw error;
       return { cleared: false };
     },
@@ -209,6 +192,13 @@ export default function CoachDashboard() {
           <TabsTrigger value="analytics" className="gap-2 data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">
             <BarChart3 size={16} /> Analytics
           </TabsTrigger>
+
+          {/* Tab de invitaciones — solo visible para super_admin */}
+          {isSuperAdmin && (
+            <TabsTrigger value="invites" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <Link size={16} /> Invitar Coach
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="today" className="mt-4 space-y-4">
@@ -236,7 +226,6 @@ export default function CoachDashboard() {
                       {confirmed.map((r: any) => {
                         const att = s.attendance?.find((a: any) => a.user_id === r.user_id);
                         const participantName = r.users?.profiles?.full_name || 'Sin nombre';
-
                         return (
                           <div key={r.id} className="flex items-center justify-between py-1.5">
                             <div>
@@ -256,9 +245,7 @@ export default function CoachDashboard() {
                                     status === 'late' ? 'bg-accent text-accent-foreground' :
                                     'bg-destructive text-destructive-foreground' : ''}`}
                                   onClick={() => markAttendance.mutate({
-                                    sessionId: s.id,
-                                    userId: r.user_id,
-                                    status,
+                                    sessionId: s.id, userId: r.user_id, status,
                                     currentStatus: att?.attendance_status || null,
                                   })}
                                 >
@@ -285,7 +272,9 @@ export default function CoachDashboard() {
         <TabsContent value="members" className="mt-4">
           <div className="mb-4">
             <Select value={selectedGroup} onValueChange={setSelectedGroup}>
-              <SelectTrigger className="w-64 bg-card border-border"><SelectValue placeholder="Filtrar por crew" /></SelectTrigger>
+              <SelectTrigger className="w-64 bg-card border-border">
+                <SelectValue placeholder="Filtrar por crew" />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos los crews</SelectItem>
                 {groups?.map((g: any) => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
@@ -306,25 +295,25 @@ export default function CoachDashboard() {
                   members.map((m: any) => {
                     const mp = m.users?.profiles;
                     return (
-                    <tr key={m.id} className="border-b border-border last:border-0 hover:bg-muted/50">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">
-                            {mp?.full_name?.slice(0, 2).toUpperCase() || '?'}
+                      <tr key={m.id} className="border-b border-border last:border-0 hover:bg-muted/50">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">
+                              {mp?.full_name?.slice(0, 2).toUpperCase() || '?'}
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-foreground">{mp?.full_name || 'Sin nombre'}</p>
+                              <p className="text-xs text-muted-foreground">{m.users?.email}</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-sm font-medium text-foreground">{mp?.full_name || 'Sin nombre'}</p>
-                            <p className="text-xs text-muted-foreground">{m.users?.email}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-xs capitalize text-muted-foreground">{mp?.experience_level || '-'}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-xs capitalize text-secondary">{m.membership_status}</span>
-                      </td>
-                    </tr>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-xs capitalize text-muted-foreground">{mp?.experience_level || '-'}</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-xs capitalize text-secondary">{m.membership_status}</span>
+                        </td>
+                      </tr>
                     );
                   })
                 ) : (
@@ -338,7 +327,6 @@ export default function CoachDashboard() {
         </TabsContent>
 
         <TabsContent value="analytics" className="mt-4 space-y-6">
-          {/* Sessions by Type */}
           <div className="bg-card border border-border rounded-xl p-5">
             <h3 className="font-display font-bold text-foreground mb-4 flex items-center gap-2">
               <Activity size={18} className="text-primary" /> Sesiones por Tipo (30 días)
@@ -356,15 +344,14 @@ export default function CoachDashboard() {
               <p className="text-muted-foreground text-center py-8">Sin datos aún</p>
             )}
           </div>
-
-          {/* Attendance Pie */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-card border border-border rounded-xl p-5">
               <h3 className="font-display font-bold text-foreground mb-4">Distribución de Asistencia</h3>
               {attendancePie.length > 0 ? (
                 <ResponsiveContainer width="100%" height={220}>
                   <PieChart>
-                    <Pie data={attendancePie} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                    <Pie data={attendancePie} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80}
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
                       {attendancePie.map((_: any, i: number) => (
                         <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                       ))}
@@ -376,7 +363,6 @@ export default function CoachDashboard() {
                 <p className="text-muted-foreground text-center py-8">Sin datos aún</p>
               )}
             </div>
-
             <div className="bg-card border border-border rounded-xl p-5">
               <h3 className="font-display font-bold text-foreground mb-4">Actividad Semanal</h3>
               {weeklyData.length > 0 ? (
@@ -395,6 +381,14 @@ export default function CoachDashboard() {
             </div>
           </div>
         </TabsContent>
+
+        {/* Tab de invitaciones — solo renderiza si es super_admin */}
+        {isSuperAdmin && (
+          <TabsContent value="invites" className="mt-4">
+            <InviteCoach />
+          </TabsContent>
+        )}
+
       </Tabs>
     </div>
   );
