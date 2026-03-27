@@ -38,7 +38,7 @@ function formatRole(role: string | undefined): string {
 }
 
 export default function AppLayout() {
-  const { profile, user, signOut } = useAuth();
+  const { profile, user, signOut, clubMembership } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
@@ -150,24 +150,61 @@ export default function AppLayout() {
       <main className="flex-1 flex flex-col overflow-hidden">
 
         {/* Header desktop */}
-        <header className="hidden md:flex items-center justify-between px-6 py-3 border-b border-border bg-card/50">
-          <NextSessionBanner />
-          <div className="flex items-center gap-2">
+        <header className="hidden md:flex items-center px-6 py-3 border-b border-border bg-card/50">
+          {/* Izquierda: próxima sesión */}
+          <div className="flex-1 flex items-center">
+            <NextSessionBanner />
+          </div>
+
+          {/* Centro: badge del club */}
+          <div className="flex items-center justify-center">
+            {clubMembership ? (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-card text-sm">
+                <div className="w-2 h-2 rounded-full bg-primary" />
+                <span className="font-medium text-foreground max-w-[160px] truncate">
+                  {clubMembership.club.name}
+                </span>
+                {clubMembership.club.plan !== 'free' && (
+                  <span className="text-xs text-muted-foreground">
+                    · {clubMembership.club.plan === 'pro_plus' ? 'Pro+' : 'Pro'}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <div className="w-32" />
+            )}
+          </div>
+
+          {/* Derecha: notificaciones */}
+          <div className="flex-1 flex items-center justify-end">
             <NotificationsBell />
           </div>
         </header>
 
         {/* Header móvil */}
-        <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-border bg-sidebar">
-          <div className="flex items-center gap-2">
-            <img src={woditosLogo} alt="Woditos" className="h-8" />
-            <span className="font-display font-bold text-foreground">Woditos</span>
+        <header className="md:hidden flex items-center px-4 py-3 border-b border-border bg-sidebar">
+        {/* Izquierda: logo */}
+        <div className="flex items-center gap-2 flex-1">
+          <img src={woditosLogo} alt="Woditos" className="h-8" />
+          <span className="font-display font-bold text-foreground">Woditos</span>
+        </div>
+
+        {/* Centro: badge del club */}
+        {clubMembership && (
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md border border-border bg-card/80 text-xs mx-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+            <span className="font-medium text-foreground max-w-[90px] truncate">
+              {clubMembership.club.name}
+            </span>
           </div>
-          <div className="flex items-center gap-2">
-            <NextSessionBanner />
-            <NotificationsBell />
-          </div>
-        </header>
+        )}
+
+        {/* Derecha: próxima sesión + campana */}
+        <div className="flex items-center gap-2">
+          <NextSessionBanner />
+          <NotificationsBell />
+        </div>
+      </header>
 
         {/* Área de contenido con scroll */}
         <div className="flex-1 overflow-y-auto p-4 md:p-8">

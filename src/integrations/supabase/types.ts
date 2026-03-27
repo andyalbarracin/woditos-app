@@ -14,6 +14,117 @@ export type Database = {
   }
   public: {
     Tables: {
+      session_feedback: {
+      Row: {
+        id: string
+        session_id: string
+        user_id: string
+        rating: number
+        discomforts: string[] | null
+        note: string | null
+        created_at: string | null
+      }
+      Insert: {
+        id?: string
+        session_id: string
+        user_id: string
+        rating: number
+        discomforts?: string[] | null
+        note?: string | null
+        created_at?: string | null
+      }
+      Update: {
+        id?: string
+        session_id?: string
+        user_id?: string
+        rating?: number
+        discomforts?: string[] | null
+        note?: string | null
+        created_at?: string | null
+      }
+      Relationships: []
+    }
+      clubs: {
+        Row: {
+          id: string
+          name: string
+          slug: string
+          description: string | null
+          join_code: string
+          avatar_url: string | null
+          plan: string
+          owner_id: string
+          status: string
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          slug: string
+          description?: string | null
+          join_code?: string
+          avatar_url?: string | null
+          plan?: string
+          owner_id: string
+          status?: string
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          slug?: string
+          description?: string | null
+          join_code?: string
+          avatar_url?: string | null
+          plan?: string
+          owner_id?: string
+          status?: string
+          created_at?: string | null
+        }
+        Relationships: []
+      }
+      club_memberships: {
+        Row: {
+          id: string
+          club_id: string
+          user_id: string
+          role: string
+          status: string
+          joined_at: string | null
+        }
+        Insert: {
+          id?: string
+          club_id: string
+          user_id: string
+          role?: string
+          status?: string
+          joined_at?: string | null
+        }
+        Update: {
+          id?: string
+          club_id?: string
+          user_id?: string
+          role?: string
+          status?: string
+          joined_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "club_memberships_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_memberships_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coach_invites: {
         Row: {
           id: string

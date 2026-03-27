@@ -1,10 +1,11 @@
 /**
  * Archivo: Dashboard.tsx
  * Ruta: src/pages/Dashboard.tsx
- * Última modificación: 2026-03-16
+ * Última modificación: 2026-03-26
  * Descripción: Dashboard diferenciado por rol.
  *   - Miembros ven sesiones confirmadas + disponibles para reservar
  *   - Coaches ven sus sesiones + analytics del mes + crear sesión
+ *   - Botón "Tomar" cambia a "Asignada" con tooltip tras ser clickeado
  */
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
@@ -17,6 +18,7 @@ import { es } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import CreateSessionDialog from '@/components/CreateSessionDialog';
 
 const SESSION_COLORS: Record<string, string> = {
@@ -34,8 +36,8 @@ export default function Dashboard() {
   const queryClient = useQueryClient();
   const isCoach = user?.role === 'coach' || user?.role === 'super_admin';
   const [showCreateSession, setShowCreateSession] = useState(false);
+  const [claimingSessionId, setClaimingSessionId] = useState<string | null>(null);
 
-  // All upcoming sessions with reservations
   const { data: upcomingSessions } = useQuery({
     queryKey: ['upcoming-sessions-dashboard'],
     queryFn: async () => {
@@ -64,7 +66,7 @@ export default function Dashboard() {
     queryFn: async () => {
       const now = new Date();
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-      
+
       const { count: sessionsThisMonth } = await supabase
         .from('sessions')
         .select('id', { count: 'exact', head: true })
@@ -147,6 +149,7 @@ export default function Dashboard() {
 
   const claimMutation = useMutation({
     mutationFn: async (sessionId: string) => {
+      setClaimingSessionId(sessionId);
       const { error } = await supabase.from('sessions')
         .update({ coach_id: user!.id })
         .eq('id', sessionId);
@@ -156,7 +159,10 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ['upcoming-sessions-dashboard'] });
       toast.success('Sesión asignada a vos');
     },
-    onError: () => toast.error('No se pudo asignar la sesión'),
+    onError: () => {
+      setClaimingSessionId(null);
+      toast.error('No se pudo asignar la sesión');
+    },
   });
 
   const greeting = () => {
@@ -193,10 +199,10 @@ export default function Dashboard() {
       {isCoach ? (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
-            { icon: Users,          label: 'Alumnos este mes', value: `${coachStats?.uniqueStudents || 0}`, color: 'text-primary' },
+            { icon: Users,          label: 'Alumnos este mes', value: `${coachStats?.uniqueStudents || 0}`,    color: 'text-primary' },
             { icon: Calendar,       label: 'Sesiones/mes',     value: `${coachStats?.sessionsThisMonth || 0}`, color: 'text-secondary' },
             { icon: ClipboardCheck, label: 'Asistencia',       value: `${stats?.attendance_percentage || 0}%`, color: 'text-accent' },
-            { icon: Dumbbell,       label: 'Mis sesiones',     value: `${myCoachSessions.length}`, color: 'text-info' },
+            { icon: Dumbbell,       label: 'Mis sesiones',     value: `${myCoachSessions.length}`,             color: 'text-info' },
           ].map(({ icon: Icon, label, value, color }) => (
             <div key={label} className="bg-card border border-border rounded-xl p-4 space-y-2">
               <Icon size={18} className={color} />
@@ -209,9 +215,9 @@ export default function Dashboard() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
             { icon: Flame,      label: 'Racha',      value: `${stats?.current_streak || 0} días`, color: 'text-primary' },
-            { icon: Calendar,   label: 'Sesiones',   value: `${stats?.total_sessions || 0}`, color: 'text-secondary' },
+            { icon: Calendar,   label: 'Sesiones',   value: `${stats?.total_sessions || 0}`,       color: 'text-secondary' },
             { icon: TrendingUp, label: 'Asistencia', value: `${stats?.attendance_percentage || 0}%`, color: 'text-accent' },
-            { icon: Users,      label: 'Presentes',  value: `${stats?.present_sessions || 0}`, color: 'text-info' },
+            { icon: Users,      label: 'Presentes',  value: `${stats?.present_sessions || 0}`,     color: 'text-info' },
           ].map(({ icon: Icon, label, value, color }) => (
             <div key={label} className="bg-card border border-border rounded-xl p-4 space-y-2">
               <Icon size={18} className={color} />
@@ -229,7 +235,10 @@ export default function Dashboard() {
           <div>
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-display text-xl font-bold text-foreground">Mis Próximas Sesiones</h2>
-              <button onClick={() => navigate('/agenda')} className="text-primary text-sm font-medium flex items-center gap-1 hover:underline">
+              <button
+                onClick={() => navigate('/agenda')}
+                className="text-primary text-sm font-medium flex items-center gap-1 hover:underline"
+              >
                 Ver todas <ChevronRight size={14} />
               </button>
             </div>
@@ -237,7 +246,16 @@ export default function Dashboard() {
               {myCoachSessions.length > 0 ? myCoachSessions.slice(0, 5).map((s: any) => {
                 const confirmed = s.reservations?.filter((r: any) => r.reservation_status === 'confirmed') || [];
                 return (
-                  <div key={s.id} onClick={() => navigate('/asistencia')} className="bg-card border border-border rounded-xl p-4 flex items-center gap-4 hover:border-primary/30 transition-colors cursor-pointer">
+                  <div
+                    key={s.id}
+                    onClick={() => navigate('/asistencia', {
+                      state: {
+                        preselectedDate: new Date(s.start_time).toISOString(),
+                        preselectedSessionId: s.id,
+                      }
+                    })}
+                    className="bg-card border border-border rounded-xl p-4 flex items-center gap-4 hover:border-primary/30 transition-colors cursor-pointer"
+                  >
                     <div className={`w-1.5 h-12 rounded-full ${SESSION_COLORS[s.session_type] || 'bg-primary'}`} />
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-foreground truncate">{s.title}</p>
@@ -248,7 +266,9 @@ export default function Dashboard() {
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge variant="outline" className="text-xs">{confirmed.length}/{s.capacity}</Badge>
-                      <span className="text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-muted text-muted-foreground">{s.session_type}</span>
+                      <span className="text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-muted text-muted-foreground">
+                        {s.session_type}
+                      </span>
                     </div>
                   </div>
                 );
@@ -267,23 +287,57 @@ export default function Dashboard() {
           {/* Unassigned sessions */}
           {unassignedSessions.length > 0 && (
             <div>
-              <h2 className="font-display text-xl font-bold text-foreground mb-4">Sesiones sin coach asignado</h2>
+              <h2 className="font-display text-xl font-bold text-foreground mb-4">
+                Sesiones sin coach asignado
+              </h2>
               <div className="space-y-3">
-                {unassignedSessions.slice(0, 3).map((s: any) => (
-                  <div key={s.id} className="bg-card border border-dashed border-border rounded-xl p-4 flex items-center gap-4">
-                    <div className={`w-1.5 h-12 rounded-full ${SESSION_COLORS[s.session_type] || 'bg-primary'}`} />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-foreground truncate">{s.title}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {format(new Date(s.start_time), "EEEE d MMM · HH:mm", { locale: es })}
-                        {s.groups?.name && ` · ${s.groups.name}`}
-                      </p>
+                {unassignedSessions.slice(0, 3).map((s: any) => {
+                  const isThisOne = claimingSessionId === s.id;
+                  const justClaimed = isThisOne && !claimMutation.isPending;
+
+                  return (
+                    <div
+                      key={s.id}
+                      className="bg-card border border-dashed border-border rounded-xl p-4 flex items-center gap-4"
+                    >
+                      <div className={`w-1.5 h-12 rounded-full ${SESSION_COLORS[s.session_type] || 'bg-primary'}`} />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-foreground truncate">{s.title}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {format(new Date(s.start_time), "EEEE d MMM · HH:mm", { locale: es })}
+                          {s.groups?.name && ` · ${s.groups.name}`}
+                        </p>
+                      </div>
+
+                      {justClaimed ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              size="sm"
+                              disabled
+                              className="bg-secondary/20 text-secondary border border-secondary/40 gap-1.5 cursor-default"
+                              variant="outline"
+                            >
+                              <Check size={13} /> Asignada
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="left">
+                            Asignada a {profile?.full_name || 'vos'}
+                          </TooltipContent>
+                        </Tooltip>
+                      ) : (
+                        <Button
+                          size="sm"
+                          onClick={() => claimMutation.mutate(s.id)}
+                          disabled={claimMutation.isPending}
+                          className="gradient-primary text-primary-foreground"
+                        >
+                          {claimMutation.isPending && isThisOne ? 'Asignando...' : 'Tomar'}
+                        </Button>
+                      )}
                     </div>
-                    <Button size="sm" onClick={() => claimMutation.mutate(s.id)} disabled={claimMutation.isPending} className="gradient-primary text-primary-foreground">
-                      Tomar
-                    </Button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -294,15 +348,23 @@ export default function Dashboard() {
           <div>
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-display text-xl font-bold text-foreground">Mis Sesiones Confirmadas</h2>
-              <button onClick={() => navigate('/agenda')} className="text-primary text-sm font-medium flex items-center gap-1 hover:underline">
+              <button
+                onClick={() => navigate('/agenda')}
+                className="text-primary text-sm font-medium flex items-center gap-1 hover:underline"
+              >
                 Ver todas <ChevronRight size={14} />
               </button>
             </div>
             <div className="space-y-3">
               {myReservedSessions.length > 0 ? myReservedSessions.slice(0, 5).map((s: any) => {
-                const userReservation = s.reservations?.find((r: any) => r.user_id === user?.id && r.reservation_status === 'confirmed');
+                const userReservation = s.reservations?.find(
+                  (r: any) => r.user_id === user?.id && r.reservation_status === 'confirmed'
+                );
                 return (
-                  <div key={s.id} className="bg-card border border-secondary/30 rounded-xl p-4 flex items-center gap-4">
+                  <div
+                    key={s.id}
+                    className="bg-card border border-secondary/30 rounded-xl p-4 flex items-center gap-4"
+                  >
                     <div className={`w-1.5 h-12 rounded-full ${SESSION_COLORS[s.session_type] || 'bg-primary'}`} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
@@ -316,7 +378,13 @@ export default function Dashboard() {
                         {s.groups?.name && ` · ${s.groups.name}`}
                       </p>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => userReservation && cancelMutation.mutate(userReservation.id)} disabled={cancelMutation.isPending} className="border-destructive/50 text-destructive hover:bg-destructive/10 text-xs">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => userReservation && cancelMutation.mutate(userReservation.id)}
+                      disabled={cancelMutation.isPending}
+                      className="border-destructive/50 text-destructive hover:bg-destructive/10 text-xs"
+                    >
                       Cancelar
                     </Button>
                   </div>
@@ -341,7 +409,10 @@ export default function Dashboard() {
                   const isFull = confirmed.length >= s.capacity;
                   const spots = s.capacity - confirmed.length;
                   return (
-                    <div key={s.id} className="bg-card border border-border rounded-xl p-4 flex items-center gap-4">
+                    <div
+                      key={s.id}
+                      className="bg-card border border-border rounded-xl p-4 flex items-center gap-4"
+                    >
                       <div className={`w-1.5 h-12 rounded-full ${SESSION_COLORS[s.session_type] || 'bg-primary'}`} />
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-foreground truncate">{s.title}</p>
@@ -351,7 +422,12 @@ export default function Dashboard() {
                           {!isFull && ` · ${spots} lugares`}
                         </p>
                       </div>
-                      <Button size="sm" onClick={() => bookMutation.mutate(s.id)} disabled={isFull || bookMutation.isPending} className={isFull ? '' : 'gradient-primary text-primary-foreground'}>
+                      <Button
+                        size="sm"
+                        onClick={() => bookMutation.mutate(s.id)}
+                        disabled={isFull || bookMutation.isPending}
+                        className={isFull ? '' : 'gradient-primary text-primary-foreground'}
+                      >
                         {isFull ? 'Lleno' : 'Reservar'}
                       </Button>
                     </div>
@@ -367,7 +443,10 @@ export default function Dashboard() {
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-display text-xl font-bold text-foreground">Actividad Reciente</h2>
-          <button onClick={() => navigate('/comunidad')} className="text-primary text-sm font-medium flex items-center gap-1 hover:underline">
+          <button
+            onClick={() => navigate('/comunidad')}
+            className="text-primary text-sm font-medium flex items-center gap-1 hover:underline"
+          >
             Ver más <ChevronRight size={14} />
           </button>
         </div>
@@ -381,7 +460,9 @@ export default function Dashboard() {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-foreground">{p.users?.profiles?.full_name}</p>
-                    <p className="text-xs text-muted-foreground">{format(new Date(p.created_at), "d MMM · HH:mm", { locale: es })}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {format(new Date(p.created_at), "d MMM · HH:mm", { locale: es })}
+                    </p>
                   </div>
                 </div>
                 <p className="text-sm text-foreground/80">{p.content_text}</p>

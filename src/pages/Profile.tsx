@@ -1,9 +1,10 @@
 /**
  * Archivo: Profile.tsx
  * Ruta: src/pages/Profile.tsx
- * Última modificación: 2026-03-12
- * Descripción: Perfil de usuario con foto, stats, logros.
+ * Última modificación: 2026-03-27
+ * Descripción: Perfil de usuario con foto, stats, logros e insights del miembro.
  *   Coach ve analytics en vez de objetivos.
+ *   Miembro ve cards de actividad semanal/mensual, partner, coach favorito y frase motivadora.
  *   Permite cambiar foto de perfil.
  */
 
@@ -28,6 +29,16 @@ function formatRole(role: string | undefined): string {
   if (!role) return 'Miembro';
   if (role === 'super_admin') return 'Coach';
   return role.charAt(0).toUpperCase() + role.slice(1);
+}
+
+function getMotivationalPhrase(streak: number, weekCount: number): string {
+  if (streak >= 14) return '🔥 Sos imparable. 14 días seguidos — esto ya es un estilo de vida.';
+  if (streak >= 7)  return '💪 Una semana entera sin parar. El hábito ya está instalado.';
+  if (streak >= 3)  return '⚡ Tres días seguidos — estás en racha. No pares ahora.';
+  if (weekCount >= 3) return '🌟 Tres sesiones esta semana — tu cuerpo te lo va a agradecer.';
+  if (weekCount >= 2) return '👊 Dos sesiones esta semana, vas bien encaminado.';
+  if (weekCount === 1) return '✅ Arrancaste la semana — el primer paso siempre es el más importante.';
+  return '🎯 Esta semana es tu oportunidad. Tu crew te espera.';
 }
 
 export default function ProfilePage() {
@@ -70,15 +81,13 @@ export default function ProfilePage() {
     queryFn: async () => {
       const now = new Date();
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-      
-      // Sessions this month
+
       const { count: sessionsThisMonth } = await supabase
         .from('sessions')
         .select('id', { count: 'exact', head: true })
         .eq('coach_id', user!.id)
         .gte('start_time', monthStart);
 
-      // Unique attendees this month
       const { data: sessionIds } = await supabase
         .from('sessions')
         .select('id')
@@ -97,18 +106,16 @@ export default function ProfilePage() {
         uniqueStudents = uniqueIds.size;
       }
 
-      // Total groups
       const { count: totalGroups } = await supabase
         .from('groups')
         .select('id', { count: 'exact', head: true })
         .eq('coach_id', user!.id);
 
-      // Attendance rate this month
       const { data: monthAttendance } = await supabase
         .from('attendance')
         .select('attendance_status, session_id')
         .in('session_id', (sessionIds || []).map(s => s.id));
-      
+
       const totalRecords = monthAttendance?.length || 0;
       const presentRecords = monthAttendance?.filter(a => a.attendance_status === 'present' || a.attendance_status === 'late').length || 0;
       const attendanceRate = totalRecords > 0 ? Math.round((presentRecords / totalRecords) * 100) : 0;
@@ -121,6 +128,137 @@ export default function ProfilePage() {
       };
     },
     enabled: !!user?.id && isCoach,
+  });
+
+  // Insights del miembro — estadísticas ricas
+  const { data: insights } = useQuery({
+    queryKey: ['member-insights', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+
+      const now = new Date();
+
+      // Semana actual: lunes a domingo
+      const dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1;
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - dayOfWeek);
+      weekStart.setHours(0, 0, 0, 0);
+
+      const lastWeekStart = new Date(weekStart);
+      lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+      const lastWeekEnd = new Date(weekStart);
+
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      // 1. Sesiones esta semana
+      const { data: thisWeekAtt } = await supabase
+        .from('attendance')
+        .select('session_id, sessions!inner(start_time)')
+        .eq('user_id', user.id)
+        .eq('attendance_status', 'present')
+        .gte('sessions.start_time', weekStart.toISOString());
+
+      // 2. Sesiones semana anterior
+      const { data: lastWeekAtt } = await supabase
+        .from('attendance')
+        .select('session_id, sessions!inner(start_time)')
+        .eq('user_id', user.id)
+        .eq('attendance_status', 'present')
+        .gte('sessions.start_time', lastWeekStart.toISOString())
+        .lt('sessions.start_time', lastWeekEnd.toISOString());
+
+      // 3. Asistencia este mes: reservas vs presencias
+      const { data: monthReservations } = await supabase
+        .from('reservations')
+        .select('id, sessions!inner(start_time)')
+        .eq('user_id', user.id)
+        .eq('reservation_status', 'confirmed')
+        .gte('sessions.start_time', monthStart.toISOString());
+
+      const { data: monthPresent } = await supabase
+        .from('attendance')
+        .select('session_id, sessions!inner(start_time)')
+        .eq('user_id', user.id)
+        .eq('attendance_status', 'present')
+        .gte('sessions.start_time', monthStart.toISOString());
+
+      // 4. Tipo de sesión favorito
+      const { data: sessionTypes } = await supabase
+        .from('attendance')
+        .select('sessions!inner(session_type, start_time)')
+        .eq('user_id', user.id)
+        .eq('attendance_status', 'present')
+        .gte('sessions.start_time', monthStart.toISOString());
+
+      const typeCounts: Record<string, number> = {};
+      sessionTypes?.forEach((a: any) => {
+        const t = a.sessions?.session_type;
+        if (t) typeCounts[t] = (typeCounts[t] || 0) + 1;
+      });
+      const favoriteType = Object.entries(typeCounts).sort((a, b) => b[1] - a[1])[0];
+
+      // 5. Con quién compartís más sesiones este mes
+      const sessionIds = monthPresent?.map((a: any) => a.session_id) || [];
+      let topPartner: { name: string; count: number } | null = null;
+
+      if (sessionIds.length > 0) {
+        const { data: sharedAttendance } = await supabase
+          .from('attendance')
+          .select('user_id, session_id, profiles!inner(full_name)')
+          .in('session_id', sessionIds)
+          .eq('attendance_status', 'present')
+          .neq('user_id', user.id);
+
+        const partnerCounts: Record<string, { name: string; count: number }> = {};
+        sharedAttendance?.forEach((a: any) => {
+          const name = a.profiles?.full_name || 'Alguien';
+          if (!partnerCounts[a.user_id]) partnerCounts[a.user_id] = { name, count: 0 };
+          partnerCounts[a.user_id].count++;
+        });
+        const top = Object.values(partnerCounts).sort((a, b) => b.count - a.count)[0];
+        if (top && top.count >= 2) topPartner = top;
+      }
+
+      // 6. Coach favorito este mes
+      let topCoach: { name: string; count: number } | null = null;
+      if (sessionIds.length > 0) {
+        const { data: coachSessions } = await supabase
+          .from('sessions')
+          .select('coach_id, profiles!coach_id(full_name)')
+          .in('id', sessionIds)
+          .not('coach_id', 'is', null);
+
+        const coachCounts: Record<string, { name: string; count: number }> = {};
+        coachSessions?.forEach((s: any) => {
+          const name = s.profiles?.full_name || 'Tu coach';
+          if (!coachCounts[s.coach_id]) coachCounts[s.coach_id] = { name, count: 0 };
+          coachCounts[s.coach_id].count++;
+        });
+        const topC = Object.values(coachCounts).sort((a, b) => b.count - a.count)[0];
+        if (topC) topCoach = topC;
+      }
+
+      const thisWeekCount = thisWeekAtt?.length || 0;
+      const lastWeekCount = lastWeekAtt?.length || 0;
+      const monthReservCount = monthReservations?.length || 0;
+      const monthPresentCount = monthPresent?.length || 0;
+      const attendancePct = monthReservCount > 0
+        ? Math.round((monthPresentCount / monthReservCount) * 100)
+        : null;
+
+      return {
+        thisWeekCount,
+        lastWeekCount,
+        weekDiff: thisWeekCount - lastWeekCount,
+        monthReservCount,
+        monthPresentCount,
+        attendancePct,
+        favoriteType: favoriteType ? { type: favoriteType[0], count: favoriteType[1] } : null,
+        topPartner,
+        topCoach,
+      };
+    },
+    enabled: !!user?.id && !isCoach,
   });
 
   const updateProfile = useMutation({
@@ -154,8 +292,8 @@ export default function ProfilePage() {
       toast.error('Solo se permiten archivos de imagen');
       return;
     }
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error('La imagen no puede superar 2MB');
+    if (file.size > 20 * 1024 * 1024) {
+      toast.error('La imagen no puede superar 20MB');
       return;
     }
 
@@ -201,10 +339,10 @@ export default function ProfilePage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 animate-fade-in">
+
       {/* Header */}
       <div className="bg-card border border-border rounded-xl p-6">
         <div className="flex items-center gap-4 mb-4">
-          {/* Avatar with upload */}
           <div className="relative group">
             <Avatar className="h-20 w-20">
               {profile?.avatar_url && <AvatarImage src={profile.avatar_url} />}
@@ -238,7 +376,19 @@ export default function ProfilePage() {
           </div>
 
           <div className="flex flex-col gap-1">
-            <Button variant="ghost" size="icon" onClick={() => { setEditing(!editing); setForm({ full_name: profile?.full_name || '', goals: profile?.goals || '', emergency_contact: profile?.emergency_contact || '' }); }} className="text-muted-foreground">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                setEditing(!editing);
+                setForm({
+                  full_name: profile?.full_name || '',
+                  goals: profile?.goals || '',
+                  emergency_contact: profile?.emergency_contact || '',
+                });
+              }}
+              className="text-muted-foreground"
+            >
               {editing ? <X size={18} /> : <Edit2 size={18} />}
             </Button>
             <Button variant="ghost" size="icon" onClick={() => setShowQR(true)} className="text-muted-foreground">
@@ -251,19 +401,38 @@ export default function ProfilePage() {
           <div className="space-y-4 pt-4 border-t border-border">
             <div className="space-y-2">
               <Label>Nombre</Label>
-              <Input value={form.full_name} onChange={(e) => setForm(f => ({ ...f, full_name: e.target.value }))} className="bg-background border-border" />
+              <Input
+                value={form.full_name}
+                onChange={(e) => setForm(f => ({ ...f, full_name: e.target.value }))}
+                className="bg-background border-border"
+              />
             </div>
             {!isCoach && (
               <div className="space-y-2">
                 <Label>Mis objetivos</Label>
-                <Textarea value={form.goals} onChange={(e) => setForm(f => ({ ...f, goals: e.target.value }))} className="bg-background border-border" placeholder="Ej: Correr mi primer 10K en menos de 50 min" rows={3} />
+                <Textarea
+                  value={form.goals}
+                  onChange={(e) => setForm(f => ({ ...f, goals: e.target.value }))}
+                  className="bg-background border-border"
+                  placeholder="Ej: Correr mi primer 10K en menos de 50 min"
+                  rows={3}
+                />
               </div>
             )}
             <div className="space-y-2">
               <Label>Contacto de emergencia</Label>
-              <Input value={form.emergency_contact} onChange={(e) => setForm(f => ({ ...f, emergency_contact: e.target.value }))} className="bg-background border-border" placeholder="Nombre y teléfono" />
+              <Input
+                value={form.emergency_contact}
+                onChange={(e) => setForm(f => ({ ...f, emergency_contact: e.target.value }))}
+                className="bg-background border-border"
+                placeholder="Nombre y teléfono"
+              />
             </div>
-            <Button onClick={() => updateProfile.mutate()} disabled={updateProfile.isPending} className="gradient-primary text-primary-foreground gap-2">
+            <Button
+              onClick={() => updateProfile.mutate()}
+              disabled={updateProfile.isPending}
+              className="gradient-primary text-primary-foreground gap-2"
+            >
               <Save size={14} /> Guardar cambios
             </Button>
           </div>
@@ -272,13 +441,12 @@ export default function ProfilePage() {
 
       {/* Stats */}
       {isCoach ? (
-        /* Coach Analytics */
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
-            { icon: Users,         label: 'Alumnos',     value: `${coachStats?.uniqueStudents || 0}`, color: 'text-primary' },
-            { icon: Calendar,      label: 'Sesiones/mes', value: `${coachStats?.sessionsThisMonth || 0}`, color: 'text-secondary' },
-            { icon: ClipboardCheck,label: 'Asistencia',   value: `${coachStats?.attendanceRate || 0}%`, color: 'text-accent' },
-            { icon: TrendingUp,    label: 'Crews',        value: `${coachStats?.totalGroups || 0}`, color: 'text-info' },
+            { icon: Users,          label: 'Alumnos',      value: `${coachStats?.uniqueStudents || 0}`,    color: 'text-primary' },
+            { icon: Calendar,       label: 'Sesiones/mes', value: `${coachStats?.sessionsThisMonth || 0}`, color: 'text-secondary' },
+            { icon: ClipboardCheck, label: 'Asistencia',   value: `${coachStats?.attendanceRate || 0}%`,  color: 'text-accent' },
+            { icon: TrendingUp,     label: 'Crews',        value: `${coachStats?.totalGroups || 0}`,      color: 'text-info' },
           ].map(({ icon: Icon, label, value, color }) => (
             <div key={label} className="bg-card border border-border rounded-xl p-4 text-center">
               <Icon size={20} className={`mx-auto ${color} mb-1`} />
@@ -288,17 +456,18 @@ export default function ProfilePage() {
           ))}
         </div>
       ) : (
-        /* Member Stats */
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
-            { icon: Flame,     label: 'Racha',       value: `${stats?.current_streak || 0}`, unit: 'días', color: 'text-primary' },
-            { icon: Calendar,  label: 'Total',        value: `${stats?.total_sessions || 0}`, unit: 'sesiones', color: 'text-secondary' },
-            { icon: TrendingUp,label: 'Asistencia',   value: `${stats?.attendance_percentage || 0}`, unit: '%', color: 'text-accent' },
-            { icon: Trophy,    label: 'Logros',       value: `${achievements?.length || 0}`, unit: '', color: 'text-info' },
+            { icon: Flame,      label: 'Racha',      value: `${stats?.current_streak || 0}`,         unit: 'días',     color: 'text-primary' },
+            { icon: Calendar,   label: 'Total',      value: `${stats?.total_sessions || 0}`,         unit: 'sesiones', color: 'text-secondary' },
+            { icon: TrendingUp, label: 'Asistencia', value: `${stats?.attendance_percentage || 0}`,  unit: '%',        color: 'text-accent' },
+            { icon: Trophy,     label: 'Logros',     value: `${achievements?.length || 0}`,          unit: '',         color: 'text-info' },
           ].map(({ icon: Icon, label, value, unit, color }) => (
             <div key={label} className="bg-card border border-border rounded-xl p-4 text-center">
               <Icon size={20} className={`mx-auto ${color} mb-1`} />
-              <p className="text-xl font-display font-bold text-foreground">{value}<span className="text-sm font-normal">{unit}</span></p>
+              <p className="text-xl font-display font-bold text-foreground">
+                {value}<span className="text-sm font-normal">{unit}</span>
+              </p>
               <p className="text-xs text-muted-foreground uppercase tracking-wider mt-0.5">{label}</p>
             </div>
           ))}
@@ -310,6 +479,100 @@ export default function ProfilePage() {
         <div className="bg-card border border-border rounded-xl p-5">
           <h3 className="font-display font-bold text-foreground mb-2">🎯 Mis Objetivos</h3>
           <p className="text-sm text-foreground/80 leading-relaxed">{profile.goals}</p>
+        </div>
+      )}
+
+      {/* Insights del miembro */}
+      {!isCoach && insights && (
+        <div className="space-y-3">
+          <h3 className="font-display text-lg font-bold text-foreground">📊 Tu actividad</h3>
+
+          {/* Fila 1: Esta semana + Asistencia mes */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-card border border-border rounded-xl p-4">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1">Esta semana</p>
+              <p className="text-3xl font-display font-extrabold text-foreground">
+                {insights.thisWeekCount}
+                <span className="text-sm font-normal text-muted-foreground ml-1">sesiones</span>
+              </p>
+              {insights.weekDiff !== 0 ? (
+                <p className={`text-xs mt-1 font-medium ${insights.weekDiff > 0 ? 'text-secondary' : 'text-destructive'}`}>
+                  {insights.weekDiff > 0 ? `+${insights.weekDiff}` : insights.weekDiff} vs semana ant.
+                </p>
+              ) : (
+                <p className="text-xs mt-1 text-muted-foreground">igual que la semana pasada</p>
+              )}
+            </div>
+
+            <div className="bg-card border border-border rounded-xl p-4">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1">Este mes</p>
+              {insights.attendancePct !== null ? (
+                <>
+                  <p className="text-3xl font-display font-extrabold text-foreground">
+                    {insights.attendancePct}
+                    <span className="text-sm font-normal text-muted-foreground">%</span>
+                  </p>
+                  <p className="text-xs mt-1 text-muted-foreground">
+                    {insights.monthPresentCount} de {insights.monthReservCount} reservas
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground mt-2">Sin reservas aún</p>
+              )}
+            </div>
+          </div>
+
+          {/* Tipo favorito */}
+          {insights.favoriteType && (
+            <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-4">
+              <div className="text-3xl">🏃</div>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold">Tu sesión favorita</p>
+                <p className="font-display font-bold text-foreground capitalize mt-0.5">
+                  {insights.favoriteType.type}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {insights.favoriteType.count} {insights.favoriteType.count === 1 ? 'vez' : 'veces'} este mes
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Fila 2: Partner + Coach */}
+          {(insights.topPartner || insights.topCoach) && (
+            <div className="grid grid-cols-2 gap-3">
+              {insights.topPartner && (
+                <div className="bg-card border border-border rounded-xl p-4">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1">Tu compañero/a</p>
+                  <p className="font-display font-bold text-foreground text-sm mt-1 truncate">
+                    {insights.topPartner.name}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {insights.topPartner.count} sesiones juntos 👋
+                  </p>
+                </div>
+              )}
+
+              {insights.topCoach && (
+                <div className="bg-card border border-border rounded-xl p-4">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1">Tu coach este mes</p>
+                  <p className="font-display font-bold text-foreground text-sm mt-1 truncate">
+                    {insights.topCoach.name}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {insights.topCoach.count} {insights.topCoach.count === 1 ? 'clase' : 'clases'}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Frase motivadora */}
+          <div className="bg-primary/10 border border-primary/20 rounded-xl p-4">
+            <p className="text-sm text-foreground leading-relaxed">
+              {getMotivationalPhrase(stats?.current_streak || 0, insights.thisWeekCount)}
+            </p>
+          </div>
         </div>
       )}
 
@@ -340,9 +603,13 @@ export default function ProfilePage() {
       {/* QR Dialog */}
       <Dialog open={showQR} onOpenChange={setShowQR}>
         <DialogContent className="bg-card border-border max-w-xs text-center">
-          <DialogHeader><DialogTitle className="font-display">Mi QR Personal</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle className="font-display">Mi QR Personal</DialogTitle>
+          </DialogHeader>
           <div className="flex flex-col items-center gap-4 py-2">
-            <p className="text-sm text-muted-foreground">Mostrá este QR a tu coach para registro rápido de asistencia</p>
+            <p className="text-sm text-muted-foreground">
+              Mostrá este QR a tu coach para registro rápido de asistencia
+            </p>
             <div className="bg-white p-4 rounded-xl">
               <QRCodeSVG value={`woditos://member/${user?.id}`} size={200} level="M" includeMargin={false} />
             </div>
@@ -350,6 +617,7 @@ export default function ProfilePage() {
           </div>
         </DialogContent>
       </Dialog>
+
     </div>
   );
 }

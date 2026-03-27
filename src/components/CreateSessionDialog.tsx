@@ -1,12 +1,13 @@
 /**
  * Archivo: CreateSessionDialog.tsx
  * Ruta: src/components/CreateSessionDialog.tsx
- * Última modificación: 2026-03-16
+ * Última modificación: 2026-03-27
  * Descripción: Modal reutilizable para crear sesiones.
  *   - Calendar date picker (react-day-picker)
  *   - Hora inicio con input time 24h
  *   - Duración con botones +/- 15 minutos
  *   - Muestra "hasta las XXhs"
+ *   - Asigna club_id del coach al crear la sesión
  */
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -45,7 +46,7 @@ const HOUR_OPTIONS = Array.from({ length: 24 }, (_, i) => i.toString().padStart(
 const MINUTE_OPTIONS = ['00', '15', '30', '45'];
 
 export default function CreateSessionDialog({ open, onOpenChange, initialDate, onCreated }: CreateSessionDialogProps) {
-  const { user } = useAuth();
+  const { user, clubMembership } = useAuth();
   const queryClient = useQueryClient();
 
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(initialDate || new Date());
@@ -73,7 +74,6 @@ export default function CreateSessionDialog({ open, onOpenChange, initialDate, o
 
   const startTime = `${startHour}:${startMinute}`;
 
-  // Calculate end time from start + duration
   const getEndTime = () => {
     try {
       const baseDate = parse(startTime, 'HH:mm', new Date());
@@ -88,14 +88,12 @@ export default function CreateSessionDialog({ open, onOpenChange, initialDate, o
 
   const handleCreate = async () => {
     if (!selectedDate) { toast.error('Elegí una fecha'); return; }
-    if (!startTime) { toast.error('Elegí una hora de inicio'); return; }
     if (!sessionType) { toast.error('Elegí un tipo de sesión'); return; }
 
     setCreating(true);
 
     let groupId = selectedGroupId;
 
-    // Create new crew if needed
     if (crewMode === 'new') {
       if (!newCrewName.trim()) { toast.error('Ingresá el nombre del crew'); setCreating(false); return; }
       const { data: newGroup, error: groupError } = await supabase.from('groups').insert({
@@ -104,6 +102,7 @@ export default function CreateSessionDialog({ open, onOpenChange, initialDate, o
         location: newCrewLocation || null,
         capacity: parseInt(capacity) || 20,
         coach_id: user!.id,
+        club_id: clubMembership?.club_id || null,
       }).select('id').single();
       if (groupError) { toast.error('No se pudo crear el crew'); setCreating(false); return; }
       groupId = newGroup.id;
@@ -118,6 +117,7 @@ export default function CreateSessionDialog({ open, onOpenChange, initialDate, o
     const { error } = await supabase.from('sessions').insert({
       group_id: groupId,
       coach_id: user!.id,
+      club_id: clubMembership?.club_id || null,
       title: sanitizeText(title) || 'Sesión',
       session_type: sessionType,
       start_time: startISO,
@@ -129,10 +129,9 @@ export default function CreateSessionDialog({ open, onOpenChange, initialDate, o
     setCreating(false);
 
     if (error) {
-      toast.error('No se pudo crear la sesión');
+      toast.error('No se pudo crear la sesión: ' + error.message);
     } else {
       toast.success('¡Sesión creada!');
-      // Reset
       setTitle('');
       setSessionType('');
       setStartHour('08');
@@ -144,12 +143,13 @@ export default function CreateSessionDialog({ open, onOpenChange, initialDate, o
       setCrewMode('existing');
       setNewCrewName('');
       onOpenChange(false);
-      // Invalidate all session-related queries
       queryClient.invalidateQueries({ queryKey: ['sessions-week'] });
       queryClient.invalidateQueries({ queryKey: ['coach-today-sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['coach-day-sessions'] });
       queryClient.invalidateQueries({ queryKey: ['upcoming-sessions-dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['attendance-day-sessions'] });
       queryClient.invalidateQueries({ queryKey: ['attendance-month-sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['coach-month-sessions'] });
       queryClient.invalidateQueries({ queryKey: ['coach-groups'] });
       onCreated?.();
     }
@@ -214,7 +214,7 @@ export default function CreateSessionDialog({ open, onOpenChange, initialDate, o
             </Select>
           </div>
 
-          {/* Fecha - Calendar picker */}
+          {/* Fecha */}
           <div className="space-y-2">
             <Label>Fecha</Label>
             <div className="bg-background border border-border rounded-lg p-1">
@@ -280,7 +280,7 @@ export default function CreateSessionDialog({ open, onOpenChange, initialDate, o
             <p className="text-xs text-muted-foreground">Inicio: {startTime} hs</p>
           </div>
 
-          {/* Duración con botones +/- 15min */}
+          {/* Duración */}
           <div className="space-y-2">
             <Label>Duración</Label>
             <div className="flex items-center gap-3">
