@@ -127,5 +127,17 @@ function App() {
     </QueryClientProvider>
   );
 }
-
+<div style={{
+  position: "fixed",
+  bottom: "12px",
+  right: "12px",
+  zIndex: 99999,
+  background: "red",
+  color: "white",
+  padding: "8px 12px",
+  borderRadius: "8px",
+  fontWeight: "bold"
+}}>
+  TEST NEW BUILD
+</div>
 export default App;
