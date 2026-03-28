@@ -21,6 +21,8 @@ import Dashboard from '@/pages/Dashboard';
 import Agenda from '@/pages/Agenda';
 import Community from '@/pages/Community';
 import Library from '@/pages/Library';
+import ExerciseDetail from '@/pages/ExerciseDetail';
+import FoodDetail from '@/pages/FoodDetail';
 import Profile from '@/pages/Profile';
 import CoachDashboard from '@/pages/CoachDashboard';
 import Attendance from '@/pages/Attendance';
@@ -39,10 +41,6 @@ const queryClient = new QueryClient({
   },
 });
 
-/**
- * Guard para rutas protegidas.
- * Redirige a /login si no hay sesión activa.
- */
 function ProtectedRoute() {
   const { session, isLoading } = useAuth();
   if (isLoading) {
@@ -56,10 +54,6 @@ function ProtectedRoute() {
   return <Outlet />;
 }
 
-/**
- * Guard para rutas de Coach (coach + super_admin).
- * Redirige al inicio si el usuario no tiene rol adecuado.
- */
 function CoachRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
   if (isLoading) return null;
@@ -68,10 +62,6 @@ function CoachRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-/**
- * Detecta sesiones terminadas sin feedback y muestra el modal.
- * Debe estar DENTRO de AuthProvider para poder acceder al usuario.
- */
 function AppWithFeedback() {
   const { user } = useAuth();
   const { pending, dismiss } = useSessionFeedback();
@@ -99,8 +89,6 @@ function App() {
             <TooltipProvider>
               <Toaster />
               <Sonner />
-
-              {/* Modal global de feedback post-sesión — dentro de AuthProvider */}
               <AppWithFeedback />
 
               <Routes>
@@ -114,12 +102,17 @@ function App() {
                     <Route path="/" element={<Navigate to="/inicio" replace />} />
                     <Route path="/inicio" element={<Dashboard />} />
                     <Route path="/agenda" element={<Agenda />} />
-                    <Route path="/crew" element={<Community />} />
+
+                    {/* Crew — usa /comunidad para coincidir con AppLayout nav */}
+                    <Route path="/comunidad" element={<Community />} />
+
+                    {/* Biblioteca + detalle de ejercicio y alimento */}
                     <Route path="/biblioteca" element={<Library />} />
+                    <Route path="/biblioteca/ejercicio/:id" element={<ExerciseDetail />} />
+                    <Route path="/biblioteca/nutricion/:id" element={<FoodDetail />} />
+
                     <Route path="/perfil" element={<Profile />} />
                     <Route path="/asistencia" element={<Attendance />} />
-
-                    {/* Ruta exclusiva para coaches y super_admin */}
                     <Route path="/coach" element={<CoachRoute><CoachDashboard /></CoachRoute>} />
                   </Route>
                 </Route>
