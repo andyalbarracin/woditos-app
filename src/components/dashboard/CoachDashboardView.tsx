@@ -93,11 +93,12 @@ export default function CoachDashboardView({ stats }: CoachDashboardViewProps) {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['my-coach-sessions'] });
-      queryClient.invalidateQueries({ queryKey: ['unassigned-sessions'] });
-      queryClient.invalidateQueries({ queryKey: ['next-session'] });
-      toast.success('Sesión asignada a vos');
-    },
+    setClaimingSessionId(null); // ← agregá esta línea
+    queryClient.invalidateQueries({ queryKey: ['my-coach-sessions'] });
+    queryClient.invalidateQueries({ queryKey: ['unassigned-sessions'] });
+    queryClient.invalidateQueries({ queryKey: ['next-session'] });
+    toast.success('Sesión asignada a vos');
+  },
     onError: () => { setClaimingSessionId(null); toast.error('No se pudo asignar la sesión'); },
   });
 
