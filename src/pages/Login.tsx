@@ -1,10 +1,8 @@
 /**
  * Archivo: Login.tsx
  * Ruta: src/pages/Login.tsx
- * Última modificación: 2026-03-11
- * Descripción: Página de inicio de sesión con validación Zod.
+ * Última modificación: 2026-03-28
  */
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -29,7 +27,6 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
-
     const result = loginSchema.safeParse({ email, password });
     if (!result.success) {
       const fieldErrors: Record<string, string> = {};
@@ -39,7 +36,6 @@ export default function Login() {
       setErrors(fieldErrors);
       return;
     }
-
     setLoading(true);
     try {
       await signIn(result.data.email, result.data.password);
@@ -51,22 +47,20 @@ export default function Login() {
     }
   };
 
- const handleGoogleSignIn = async () => {
-  setGoogleLoading(true);
-  try {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin,
-      },
-    });
-    if (error) toast.error('Error al iniciar con Google');
-  } catch (err: any) {
-    toast.error(err.message || 'Error con Google');
-  } finally {
-    setGoogleLoading(false);
-  }
-};
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin },
+      });
+      if (error) toast.error('Error al iniciar con Google');
+    } catch (err: any) {
+      toast.error(err.message || 'Error con Google');
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
 
   return (
     <div className="flex min-h-screen">
@@ -84,8 +78,9 @@ export default function Login() {
         </div>
       </div>
 
-      {/* Columna derecha: formulario */}
-      <div className="flex-1 flex items-center justify-center p-6 lg:p-12">
+      {/* Columna derecha: formulario — flex column para que el footer quede abajo */}
+      <div className="flex-1 flex flex-col items-center justify-center p-6 lg:p-12">
+        {/* Contenedor principal del formulario */}
         <div className="w-full max-w-sm space-y-8">
           <div className="text-center">
             <img src={woditosLogo} alt="Woditos" className="h-16 mx-auto mb-6" />
@@ -121,33 +116,20 @@ export default function Login() {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="tu@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                maxLength={255}
-                className="bg-card border-border"
-              />
+              <Input id="email" type="email" placeholder="tu@email.com" value={email}
+                onChange={(e) => setEmail(e.target.value)} required maxLength={255}
+                className="bg-card border-border" />
               {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Contraseña</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                maxLength={128}
-                className="bg-card border-border"
-              />
+              <Input id="password" type="password" placeholder="••••••••" value={password}
+                onChange={(e) => setPassword(e.target.value)} required maxLength={128}
+                className="bg-card border-border" />
               {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
             </div>
-            <Button type="submit" className="w-full gradient-primary text-primary-foreground font-semibold" disabled={loading}>
+            <Button type="submit" className="w-full gradient-primary text-primary-foreground font-semibold"
+              disabled={loading}>
               {loading ? 'Entrando...' : 'Entrar'}
             </Button>
           </form>
@@ -165,10 +147,12 @@ export default function Login() {
               Regístrate
             </button>
           </p>
+
+          {/* Footer DENTRO del contenedor, al final del flujo */}
+          <p className="text-center text-xs text-muted-foreground pb-2">
+            © 2026 Woditos. Todos los derechos reservados.
+          </p>
         </div>
-        <p className="text-center text-xs text-muted-foreground">
-          © 2026 Woditos. Todos los derechos reservados.
-        </p>
       </div>
     </div>
   );
