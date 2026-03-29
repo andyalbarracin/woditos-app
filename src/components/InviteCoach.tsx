@@ -1,13 +1,10 @@
 /**
  * Archivo: InviteCoach.tsx
  * Ruta: src/components/InviteCoach.tsx
- * Última modificación: 2026-03-26
- * Descripción: Componente para que el super_admin genere links
- *   de invitación a rol coach con expiración configurable.
- *   Muestra las invitaciones activas y permite revocarlas.
- *   Solo visible para usuarios con rol super_admin.
+ * Última modificación: 2026-03-28
+ * Descripción: Cualquier coach puede generar links de invitación para su club.
+ *   El link invita al nuevo coach al club del coach que lo genera.
  */
-
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -21,35 +18,44 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 const STATUS_CONFIG = {
-  pending:  { label: 'Activa',   icon: Clock,        color: 'text-yellow-500' },
-  used:     { label: 'Usada',    icon: CheckCircle,  color: 'text-green-500'  },
-  expired:  { label: 'Expirada', icon: XCircle,      color: 'text-muted-foreground' },
-  revoked:  { label: 'Revocada', icon: XCircle,      color: 'text-destructive' },
+  pending: { label: 'Activa',   icon: Clock,       color: 'text-yellow-500' },
+  used:    { label: 'Usada',    icon: CheckCircle, color: 'text-green-500' },
+  expired: { label: 'Expirada', icon: XCircle,     color: 'text-muted-foreground' },
+  revoked: { label: 'Revocada', icon: XCircle,     color: 'text-destructive' },
 };
 
 export default function InviteCoach() {
-  const { user } = useAuth();
+  const { user, clubMembership } = useAuth();
   const queryClient = useQueryClient();
   const [emailHint, setEmailHint] = useState('');
   const [days, setDays] = useState(7);
 
-  // Solo super_admin puede usar este componente
-  if (user?.role !== 'super_admin') return null;
+  // Disponible para coaches y super_admin
+  const isCoach = user?.role === 'coach' || user?.role === 'super_admin';
+  if (!isCoach) return null;
+
+  const clubId = clubMembership?.club_id;
+  const clubName = clubMembership?.club?.name;
 
   const { data: invites } = useQuery({
-    queryKey: ['coach-invites'],
+    queryKey: ['coach-invites', user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('coach_invites')
         .select('*')
+        .eq('created_by', user!.id)
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data || [];
     },
+    enabled: !!user?.id,
   });
 
   const createInvite = useMutation({
     mutationFn: async () => {
+      if (!clubId) {
+        throw new Error('No estás asociado a ningún club.');
+      }
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + days);
 
@@ -57,6 +63,7 @@ export default function InviteCoach() {
         .from('coach_invites')
         .insert({
           created_by: user!.id,
+          club_id: clubId,
           email_hint: emailHint.trim() || null,
           expires_at: expiresAt.toISOString(),
           status: 'pending',
@@ -74,7 +81,7 @@ export default function InviteCoach() {
       navigator.clipboard.writeText(link);
       toast.success('Link generado y copiado al portapapeles.');
     },
-    onError: () => toast.error('No se pudo generar el link.'),
+    onError: (err: any) => toast.error(err.message || 'No se pudo generar el link.'),
   });
 
   const revokeInvite = useMutation({
@@ -100,7 +107,14 @@ export default function InviteCoach() {
   return (
     <div className="space-y-6">
 
-      {/* Formulario de creación */}
+      {/* Info del club */}
+      {clubName && (
+        <div className="bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 text-sm text-foreground">
+          Las invitaciones generadas acá son para unirse a <span className="font-semibold">{clubName}</span> como coach.
+        </div>
+      )}
+
+      {/* Formulario */}
       <div className="bg-card border border-border rounded-xl p-5 space-y-4">
         <div className="flex items-center gap-2">
           <Link size={18} className="text-primary" />
@@ -118,9 +132,7 @@ export default function InviteCoach() {
               onChange={e => setEmailHint(e.target.value)}
               className="bg-background border-border"
             />
-            <p className="text-xs text-muted-foreground">
-              Se pre-completa en el formulario de registro.
-            </p>
+            <p className="text-xs text-muted-foreground">Se pre-completa en el formulario de registro.</p>
           </div>
 
           <div className="space-y-2">
@@ -142,32 +154,32 @@ export default function InviteCoach() {
 
         <Button
           onClick={() => createInvite.mutate()}
-          disabled={createInvite.isPending}
+          disabled={createInvite.isPending || !clubId}
           className="gradient-primary text-primary-foreground gap-2"
         >
           <Link size={14} />
           {createInvite.isPending ? 'Generando...' : 'Generar link de invitación'}
         </Button>
+
+        {!clubId && (
+          <p className="text-xs text-destructive">No estás asociado a ningún club todavía.</p>
+        )}
       </div>
 
-      {/* Lista de invitaciones */}
+      {/* Lista */}
       {invites && invites.length > 0 && (
         <div className="bg-card border border-border rounded-xl overflow-hidden">
           <div className="px-5 py-3 border-b border-border">
-            <h3 className="font-display font-bold text-foreground text-sm">
-              Invitaciones enviadas
-            </h3>
+            <h3 className="font-display font-bold text-foreground text-sm">Invitaciones enviadas</h3>
           </div>
           <div className="divide-y divide-border">
             {invites.map((inv: any) => {
               const config = STATUS_CONFIG[inv.status as keyof typeof STATUS_CONFIG];
               const StatusIcon = config.icon;
               const isActive = inv.status === 'pending' && new Date(inv.expires_at) > new Date();
-
               return (
                 <div key={inv.id} className="flex items-center gap-3 px-5 py-3">
                   <StatusIcon size={16} className={config.color} />
-
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground truncate">
                       {inv.email_hint || 'Sin email sugerido'}
@@ -177,28 +189,19 @@ export default function InviteCoach() {
                       {' · '}{config.label}
                     </p>
                   </div>
-
                   <div className="flex items-center gap-1 shrink-0">
                     {isActive && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
+                      <Button variant="ghost" size="icon"
                         className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                        onClick={() => copyLink(inv.token)}
-                        title="Copiar link"
-                      >
+                        onClick={() => copyLink(inv.token)} title="Copiar link">
                         <Copy size={14} />
                       </Button>
                     )}
                     {inv.status === 'pending' && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
+                      <Button variant="ghost" size="icon"
                         className="h-8 w-8 text-muted-foreground hover:text-destructive"
                         onClick={() => revokeInvite.mutate(inv.id)}
-                        disabled={revokeInvite.isPending}
-                        title="Revocar invitación"
-                      >
+                        disabled={revokeInvite.isPending} title="Revocar">
                         <Trash2 size={14} />
                       </Button>
                     )}

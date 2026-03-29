@@ -1,11 +1,10 @@
 /**
  * Archivo: Register.tsx
  * Ruta: src/pages/Register.tsx
- * Última modificación: 2026-03-27
- * Descripción: Registro en 2 pasos para coaches (crear club) y 1 paso para miembros.
- *   - Coach: datos personales → crear club → cuenta lista
- *   - Miembro: datos personales → (opcional) código de club para unirse
- *   - Con ?invite=TOKEN: flujo de coach con token de invitación
+ * Última modificación: 2026-03-28
+ * Descripción: Registro en 3 pasos. Coaches pueden crear club nuevo o unirse
+ *   con token de invitación. Miembros pueden ingresar código de club.
+ *   Todos los coaches pueden invitar coaches a su club.
  */
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -31,7 +30,8 @@ export default function Register() {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [clubName, setClubName] = useState('');
-  const [joinCode, setJoinCode] = useState('');
+  const [joinCode, setJoinCode] = useState('');     // miembros: código de club
+  const [inviteCode, setInviteCode] = useState(''); // coaches: token de invitación manual
   const [loading, setLoading] = useState(false);
   const [tokenValid, setTokenValid] = useState<boolean | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -39,36 +39,36 @@ export default function Register() {
   const { signUp } = useAuth();
   const navigate = useNavigate();
 
-  // Si hay token, pre-seleccionamos coach y validamos
+  // Si hay token en URL, pre-seleccionamos coach y validamos
   useEffect(() => {
     if (!inviteToken) return;
     setRole('coach');
+    setInviteCode(inviteToken);
     setStep('account');
-
-    const validateToken = async () => {
-      const { data, error } = await supabase
-        .from('coach_invites')
-        .select('status, expires_at, email_hint')
-        .eq('token', inviteToken)
-        .single();
-
-      if (error || !data || data.status !== 'pending') {
-        setTokenValid(false);
-        toast.error('Este link de invitación es inválido o ya fue utilizado.');
-        return;
-      }
-      if (new Date(data.expires_at) < new Date()) {
-        setTokenValid(false);
-        toast.error('Este link de invitación expiró.');
-        return;
-      }
-      setTokenValid(true);
-      if (data.email_hint) setEmail(data.email_hint);
-      toast.success('Invitación válida. Completá tu registro como Coach.');
-    };
-
-    validateToken();
+    validateInviteToken(inviteToken);
   }, [inviteToken]);
+
+  const validateInviteToken = async (token: string) => {
+    const { data, error } = await supabase
+      .from('coach_invites')
+      .select('status, expires_at, email_hint')
+      .eq('token', token)
+      .single();
+
+    if (error || !data || data.status !== 'pending') {
+      setTokenValid(false);
+      toast.error('Este link de invitación es inválido o ya fue utilizado.');
+      return;
+    }
+    if (new Date(data.expires_at) < new Date()) {
+      setTokenValid(false);
+      toast.error('Este link de invitación expiró.');
+      return;
+    }
+    setTokenValid(true);
+    if (data.email_hint) setEmail(data.email_hint);
+    toast.success('Invitación válida. Completá tu registro como Coach.');
+  };
 
   const handleRoleSelect = (selected: 'member' | 'coach') => {
     setRole(selected);
@@ -94,13 +94,19 @@ export default function Register() {
       return;
     }
 
-    // Coaches sin invite token van al paso de crear club
-    if (role === 'coach' && !inviteToken) {
+    // Validar token manual si el coach ingresó uno
+    if (role === 'coach' && inviteCode.trim() && !inviteToken) {
+      await validateInviteToken(inviteCode.trim());
+      if (tokenValid === false) return;
+    }
+
+    // Coach sin token va a crear su propio club
+    if (role === 'coach' && !inviteCode.trim()) {
       setStep('club');
       return;
     }
 
-    // Miembros y coaches con token van directo a registrarse
+    // Coach con token o miembro van directo a registrarse
     await doRegister();
   };
 
@@ -116,24 +122,50 @@ export default function Register() {
   const doRegister = async () => {
     setLoading(true);
     try {
-      await signUp(email, password, fullName);
+      // Intentar crear la cuenta en Supabase Auth
+      try {
+        await signUp(email, password, fullName);
+      } catch (authErr: any) {
+        // Mensajes de error específicos para errores de Auth
+        const msg = authErr?.message || '';
+        if (msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('already been registered')) {
+          toast.error('Este email ya tiene una cuenta. ¿Querés iniciar sesión?');
+        } else if (msg.toLowerCase().includes('invalid') && msg.toLowerCase().includes('email')) {
+          toast.error('El email ingresado no es válido. Revisalo e intentá de nuevo.');
+          setStep('account'); // Volver al paso de cuenta para que pueda corregirlo
+        } else {
+          toast.error(msg || 'Error al crear la cuenta');
+        }
+        setLoading(false);
+        return;
+      }
+
+      // Esperar a que el usuario esté disponible
       await new Promise(res => setTimeout(res, 1500));
 
       const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) throw new Error('No se pudo obtener el usuario creado.');
+      if (!authUser) {
+        toast.error('Hubo un problema al obtener tu cuenta. Intentá iniciar sesión.');
+        setLoading(false);
+        navigate('/login');
+        return;
+      }
 
-      if (inviteToken && tokenValid) {
+      const tokenToUse = inviteCode.trim() || inviteToken;
+
+      if (tokenToUse && tokenValid) {
         // Usar token de invitación → asigna rol coach en club existente
         const { data: rpcResult } = await supabase.rpc('use_coach_invite', {
-          p_token: inviteToken,
+          p_token: tokenToUse,
           p_user_id: authUser.id,
         });
         const result = rpcResult as { success: boolean; error?: string } | null;
         if (!result?.success) {
-  toast.error(result?.error || 'No se pudo activar la invitación.');
+          toast.error(result?.error || 'No se pudo activar la invitación.');
         } else {
           toast.success('¡Cuenta Coach creada! Bienvenido al club.');
         }
+
       } else if (role === 'coach' && clubName.trim()) {
         // Crear club nuevo
         const slug = clubName.trim()
@@ -141,7 +173,6 @@ export default function Register() {
           .replace(/\s+/g, '-')
           .replace(/[^a-z0-9-]/g, '')
           .slice(0, 50);
-
         const uniqueSlug = `${slug}-${Date.now().toString(36)}`;
 
         const { data: newClub, error: clubError } = await supabase
@@ -150,31 +181,24 @@ export default function Register() {
             name: clubName.trim(),
             slug: uniqueSlug,
             owner_id: authUser.id,
-            plan: 'pro', // todos arrancan con pro en el MVP
+            plan: 'pro',
           })
           .select()
           .single();
 
         if (clubError) throw clubError;
 
-        // Actualizar rol del usuario a club_admin
-        await supabase
-          .from('users')
-          .update({ role: 'club_admin' })
-          .eq('id', authUser.id);
-
-        // Crear club_membership como club_admin
-        await supabase
-          .from('club_memberships')
-          .insert({
-            club_id: newClub.id,
-            user_id: authUser.id,
-            role: 'club_admin',
-          });
+        await supabase.from('users').update({ role: 'club_admin' }).eq('id', authUser.id);
+        await supabase.from('club_memberships').insert({
+          club_id: newClub.id,
+          user_id: authUser.id,
+          role: 'club_admin',
+        });
 
         toast.success(`¡Club "${clubName}" creado! Bienvenido a Woditos.`);
+
       } else if (role === 'member' && joinCode.trim()) {
-        // Unirse a un club con código
+        // Miembro se une con código
         const { data: club } = await supabase
           .from('clubs')
           .select('id, name')
@@ -183,17 +207,16 @@ export default function Register() {
           .single();
 
         if (club) {
-          await supabase
-            .from('club_memberships')
-            .insert({
-              club_id: club.id,
-              user_id: authUser.id,
-              role: 'member',
-            });
+          await supabase.from('club_memberships').insert({
+            club_id: club.id,
+            user_id: authUser.id,
+            role: 'member',
+          });
           toast.success(`¡Te uniste a "${club.name}"!`);
         } else {
           toast.error('Código de club inválido. Podés unirte más tarde desde tu perfil.');
         }
+
       } else {
         toast.success('¡Cuenta creada! Revisá tu email para confirmar.');
       }
@@ -207,7 +230,7 @@ export default function Register() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-6 gradient-surface relative">
+    <div className="flex min-h-screen items-center justify-center p-6 gradient-surface">
       <div className="w-full max-w-sm space-y-8">
 
         <div className="text-center">
@@ -216,7 +239,7 @@ export default function Register() {
           <p className="text-muted-foreground mt-2">Únete a la comunidad Woditos</p>
         </div>
 
-        {/* Banner de invitación */}
+        {/* Banner invitación válida */}
         {inviteToken && tokenValid === true && (
           <div className="flex items-center gap-3 bg-primary/10 border border-primary/30 rounded-xl p-4">
             <ShieldCheck size={20} className="text-primary shrink-0" />
@@ -247,14 +270,13 @@ export default function Register() {
                 <p className="font-semibold text-sm text-foreground">Miembro</p>
                 <p className="text-xs text-muted-foreground mt-1">Me sumo a un club existente</p>
               </button>
-
               <button
                 onClick={() => handleRoleSelect('coach')}
                 className="p-5 rounded-xl border-2 border-border bg-card text-left transition-all hover:border-primary/50 hover:bg-primary/5"
               >
                 <Dumbbell size={24} className="text-primary mb-3" />
                 <p className="font-semibold text-sm text-foreground">Coach</p>
-                <p className="text-xs text-muted-foreground mt-1">Creo y gestiono mi propio club</p>
+                <p className="text-xs text-muted-foreground mt-1">Creo mi club o me uno a uno</p>
               </button>
             </div>
           </div>
@@ -298,10 +320,12 @@ export default function Register() {
               {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
             </div>
 
-            {/* Campo opcional de código de club para miembros */}
+            {/* Código de club para miembros */}
             {role === 'member' && (
               <div className="space-y-2">
-                <Label htmlFor="joinCode">Código de club <span className="text-muted-foreground">(opcional)</span></Label>
+                <Label htmlFor="joinCode">
+                  Código de club <span className="text-muted-foreground">(opcional)</span>
+                </Label>
                 <Input id="joinCode" placeholder="Ej: ABC123" value={joinCode}
                   onChange={e => setJoinCode(e.target.value.toUpperCase())} maxLength={6}
                   className="bg-card border-border font-mono tracking-widest" />
@@ -309,18 +333,33 @@ export default function Register() {
               </div>
             )}
 
+            {/* Token de invitación para coaches (si no viene por URL) */}
+            {role === 'coach' && !inviteToken && (
+              <div className="space-y-2">
+                <Label htmlFor="inviteCode">
+                  Token de invitación <span className="text-muted-foreground">(opcional)</span>
+                </Label>
+                <Input id="inviteCode" placeholder="Si tenés un código de coach" value={inviteCode}
+                  onChange={e => setInviteCode(e.target.value.trim())}
+                  className="bg-card border-border font-mono" />
+                <p className="text-xs text-muted-foreground">
+                  Si tenés un token, te unís directamente al club. Si no, creás el tuyo.
+                </p>
+              </div>
+            )}
+
             <Button type="submit"
               className="w-full gradient-primary text-primary-foreground font-semibold gap-2"
               disabled={loading || (inviteToken !== null && tokenValid === false)}>
-              {role === 'coach' && !inviteToken
-                ? <><span>Siguiente</span><ArrowRight size={14} /></>
+              {role === 'coach' && !inviteCode.trim() && !inviteToken
+                ? <><span>Siguiente: Crear club</span><ArrowRight size={14} /></>
                 : loading ? 'Creando cuenta...' : 'Crear cuenta'
               }
             </Button>
           </form>
         )}
 
-        {/* PASO 3: Crear Club (solo coaches sin invite token) */}
+        {/* PASO 3: Crear Club */}
         {step === 'club' && (
           <form onSubmit={handleClubSubmit} className="space-y-5">
             <div>
@@ -330,7 +369,6 @@ export default function Register() {
                 Se generará automáticamente un código para que tus miembros se unan.
               </p>
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="clubName">Nombre del club</Label>
               <Input id="clubName" placeholder="Ej: Crew Palermo Runners" value={clubName}
@@ -340,7 +378,6 @@ export default function Register() {
                 Puede ser el nombre de tu plaza, tu barrio, o simplemente tu nombre.
               </p>
             </div>
-
             <div className="flex gap-3">
               <Button type="button" variant="outline" onClick={() => setStep('account')}
                 className="flex-1" disabled={loading}>
@@ -361,11 +398,12 @@ export default function Register() {
             Iniciá sesión
           </button>
         </p>
-      </div>
 
-      <footer className="absolute bottom-4 left-0 right-0 text-center text-xs text-muted-foreground">
-        © 2026 Woditos. Todos los derechos reservados.
-      </footer>
+        {/* Footer dentro del flujo, no absoluto */}
+        <p className="text-center text-xs text-muted-foreground">
+          © 2026 Woditos. Todos los derechos reservados.
+        </p>
+      </div>
     </div>
   );
 }

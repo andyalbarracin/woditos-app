@@ -33,7 +33,7 @@ export default function CoachDashboard() {
   const [selectedGroup, setSelectedGroup] = useState<string>('');
   const [selectedDay, setSelectedDay] = useState<Date>(new Date());
 
-  const isSuperAdmin = user?.role === 'super_admin';
+const isCoach = user?.role === 'coach' || user?.role === 'super_admin';
 
   const { data: groups } = useQuery({
     queryKey: ['coach-groups'],
@@ -216,7 +216,7 @@ export default function CoachDashboard() {
           <TabsTrigger value="analytics" className="gap-2 data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">
             <BarChart3 size={16} /> Analytics
           </TabsTrigger>
-          {isSuperAdmin && (
+          {isCoach && (
             <TabsTrigger value="invites" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <Link size={16} /> Invitar Coach
             </TabsTrigger>
@@ -456,7 +456,7 @@ export default function CoachDashboard() {
           </div>
         </TabsContent>
 
-        {isSuperAdmin && (
+        {isCoach && (
           <TabsContent value="invites" className="mt-4">
             <InviteCoach />
           </TabsContent>
