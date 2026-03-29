@@ -82,7 +82,7 @@ export default function AppLayout() {
         </div>
 
         {/* Nav items */}
-        <nav className="flex-1 px-2 py-3 space-y-1">
+        <nav className="flex-1 px-1 py-3 space-y-0.5">
           {navItems.map(({ to, icon: Icon, label }) => (
             collapsed ? (
               <Tooltip key={to} delayDuration={0}>
@@ -149,7 +149,7 @@ export default function AppLayout() {
                     key={to}
                     to={to}
                     className={({ isActive }) =>
-                      `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                      `flex items-center justify-center h-12 w-12 mx-auto rounded-xl transition-all my-0.5 ${
                         isActive
                           ? 'bg-primary/15 text-primary'
                           : 'text-muted-foreground hover:text-foreground hover:bg-muted'
@@ -184,7 +184,7 @@ export default function AppLayout() {
               <TooltipTrigger asChild>
                 <button
                   onClick={toggleTheme}
-                  className="flex items-center justify-center h-10 w-10 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+                  className="flex items-center justify-center h-12 w-12 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
                 >
                   {theme === 'dark' ? <Moon size={16} /> : <Sun size={16} />}
                 </button>

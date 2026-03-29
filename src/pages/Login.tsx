@@ -166,10 +166,10 @@ export default function Login() {
             </button>
           </p>
         </div>
+        <p className="text-center text-xs text-muted-foreground">
+          © 2026 Woditos. Todos los derechos reservados.
+        </p>
       </div>
-      <p className="text-center text-xs text-muted-foreground pt-4">
-        © 2026 Woditos. Todos los derechos reservados.
-      </p>
     </div>
   );
 }
