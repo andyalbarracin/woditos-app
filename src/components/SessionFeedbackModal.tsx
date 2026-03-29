@@ -1,12 +1,10 @@
 /**
  * Archivo: SessionFeedbackModal.tsx
  * Ruta: src/components/SessionFeedbackModal.tsx
- * Última modificación: 2026-03-27
+ * Última modificación: 2026-03-28
  * Descripción: Modal de feedback post-sesión para miembros.
- *   - Selector de emoji 1–5 (satisfacción)
- *   - Si rating < 3 muestra opciones de incomodidad con íconos
- *   - Nota opcional de texto libre
- *   - Guarda en session_feedback y marca notificación como leída
+ *   - Al enviar: elimina la notificación (no vuelve a aparecer)
+ *   - Al omitir: marca como leída (puede reabrirse desde campana)
  */
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -35,12 +33,12 @@ const EMOJIS = [
 ];
 
 const DISCOMFORTS = [
-  { key: 'legs',        emoji: '🦵', label: 'Piernas' },
-  { key: 'body',        emoji: '💪', label: 'Cuerpo' },
-  { key: 'weather',     emoji: '🌧️', label: 'Clima' },
-  { key: 'shoes',       emoji: '👟', label: 'Zapatillas' },
-  { key: 'vibe',        emoji: '😶', label: 'Ambiente' },
-  { key: 'crew',        emoji: '👥', label: 'Crew' },
+  { key: 'legs',    emoji: '🦵', label: 'Piernas' },
+  { key: 'body',    emoji: '💪', label: 'Cuerpo' },
+  { key: 'weather', emoji: '🌧️', label: 'Clima' },
+  { key: 'shoes',   emoji: '👟', label: 'Zapatillas' },
+  { key: 'vibe',    emoji: '😶', label: 'Ambiente' },
+  { key: 'crew',    emoji: '👥', label: 'Crew' },
 ];
 
 export default function SessionFeedbackModal({
@@ -55,11 +53,7 @@ export default function SessionFeedbackModal({
 
   const handleRating = (r: number) => {
     setRating(r);
-    if (r < 3) {
-      setStep('discomfort');
-    } else {
-      setStep('note');
-    }
+    setStep(r < 3 ? 'discomfort' : 'note');
   };
 
   const toggleDiscomfort = (key: string) => {
@@ -72,13 +66,14 @@ export default function SessionFeedbackModal({
     if (!rating || !user?.id) return;
     setSaving(true);
 
-    const { error } = await supabase.from('session_feedback').insert({
+    // Intentar insertar. Si ya existe (UNIQUE constraint), actualizar.
+    const { error } = await supabase.from('session_feedback').upsert({
       session_id: sessionId,
       user_id: user.id,
       rating,
       discomforts: selectedDiscomforts.length > 0 ? selectedDiscomforts : [],
       note: note.trim() || null,
-    });
+    }, { onConflict: 'session_id,user_id' });
 
     if (error) {
       toast.error('No se pudo guardar el feedback');
@@ -86,12 +81,9 @@ export default function SessionFeedbackModal({
       return;
     }
 
-    // Marcar notificación como leída si existe
+    // Eliminar la notificación — ya no debe volver a aparecer
     if (notificationId) {
-      await supabase
-        .from('notifications')
-        .update({ is_read: true })
-        .eq('id', notificationId);
+      await supabase.from('notifications').delete().eq('id', notificationId);
     }
 
     setSaving(false);
@@ -99,12 +91,10 @@ export default function SessionFeedbackModal({
     onClose();
   };
 
+  // Al omitir: solo marcar como leída (puede reabrirse desde campana)
   const handleSkip = async () => {
     if (notificationId) {
-      await supabase
-        .from('notifications')
-        .update({ is_read: true })
-        .eq('id', notificationId);
+      await supabase.from('notifications').update({ is_read: true }).eq('id', notificationId);
     }
     onClose();
   };
@@ -119,7 +109,6 @@ export default function SessionFeedbackModal({
         </DialogHeader>
 
         <div className="space-y-5 py-2">
-          {/* Info de la sesión */}
           <div className="text-center">
             <p className="font-semibold text-foreground">{sessionTitle}</p>
             {sessionLocation && (
@@ -127,7 +116,7 @@ export default function SessionFeedbackModal({
             )}
           </div>
 
-          {/* Step 1: Rating de emojis */}
+          {/* Step 1: Rating */}
           <div>
             <p className="text-sm text-center text-muted-foreground mb-3">
               Calificá tu experiencia en la sesión
@@ -152,7 +141,7 @@ export default function SessionFeedbackModal({
             </div>
           </div>
 
-          {/* Step 2: Incomodidades (solo si rating < 3) */}
+          {/* Step 2: Incomodidades */}
           {step === 'discomfort' && rating !== null && rating < 3 && (
             <div className="animate-fade-in">
               <p className="text-sm text-center text-muted-foreground mb-3">
@@ -204,29 +193,20 @@ export default function SessionFeedbackModal({
           {/* Botones */}
           {rating !== null && step !== 'discomfort' && (
             <div className="flex gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleSkip}
-                className="flex-1 text-muted-foreground"
-              >
+              <Button variant="ghost" size="sm" onClick={handleSkip}
+                className="flex-1 text-muted-foreground">
                 Omitir
               </Button>
-              <Button
-                onClick={handleSubmit}
-                disabled={saving}
-                className="flex-1 gradient-primary text-primary-foreground"
-              >
+              <Button onClick={handleSubmit} disabled={saving}
+                className="flex-1 gradient-primary text-primary-foreground">
                 {saving ? 'Guardando...' : `Enviar ${selectedEmoji?.emoji || ''}`}
               </Button>
             </div>
           )}
 
           {rating === null && (
-            <button
-              onClick={handleSkip}
-              className="w-full text-xs text-muted-foreground hover:text-foreground text-center"
-            >
+            <button onClick={handleSkip}
+              className="w-full text-xs text-muted-foreground hover:text-foreground text-center">
               Omitir por ahora
             </button>
           )}

@@ -1,9 +1,8 @@
 /**
  * Archivo: Agenda.tsx
  * Ruta: src/pages/Agenda.tsx
- * Última modificación: 2026-03-16
- * Descripción: Agenda semanal. Coaches crean/toman sesiones.
- *   Members reservan/cancelan. Notifica al coach al reservar.
+ * Última modificación: 2026-03-28
+ * Descripción: Agenda semanal. Sesiones pasadas muestran "Cerrada" para miembros.
  */
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -17,7 +16,6 @@ import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import CreateSessionDialog from '@/components/CreateSessionDialog';
 import { useNavigate } from 'react-router-dom';
-
 
 const SESSION_COLORS: Record<string, string> = {
   running: 'border-l-secondary',
@@ -69,23 +67,19 @@ export default function Agenda() {
       if (existingError) throw existingError;
 
       if (existingReservation?.id) {
-        const { error: updateError } = await supabase
-          .from('reservations')
+        const { error } = await supabase.from('reservations')
           .update({ reservation_status: 'confirmed', cancelled_at: null })
           .eq('id', existingReservation.id);
-
-        if (updateError) throw updateError;
+        if (error) throw error;
       } else {
-        const { error: insertError } = await supabase.from('reservations').insert({
+        const { error } = await supabase.from('reservations').insert({
           session_id: sessionId,
           user_id: user!.id,
           reservation_status: 'confirmed',
         });
-
-        if (insertError) throw insertError;
+        if (error) throw error;
       }
 
-      // Notify coach
       const session = sessions?.find((s: any) => s.id === sessionId);
       if (session?.coach_id && session.coach_id !== user!.id) {
         await supabase.from('notifications').insert({
@@ -98,6 +92,7 @@ export default function Agenda() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sessions-week'] });
+      queryClient.invalidateQueries({ queryKey: ['next-session'] });
       toast.success('¡Reserva confirmada!');
     },
     onError: () => toast.error('No se pudo hacer la reserva. Intentá de nuevo.'),
@@ -112,6 +107,7 @@ export default function Agenda() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sessions-week'] });
+      queryClient.invalidateQueries({ queryKey: ['next-session'] });
       toast.success('Reserva cancelada');
     },
     onError: () => toast.error('No se pudo cancelar la reserva.'),
@@ -120,12 +116,12 @@ export default function Agenda() {
   const claimMutation = useMutation({
     mutationFn: async (sessionId: string) => {
       const { error } = await supabase.from('sessions')
-        .update({ coach_id: user!.id })
-        .eq('id', sessionId);
+        .update({ coach_id: user!.id }).eq('id', sessionId);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sessions-week'] });
+      queryClient.invalidateQueries({ queryKey: ['next-session'] });
       toast.success('Sesión asignada a vos');
     },
     onError: () => toast.error('No se pudo asignar la sesión'),
@@ -138,15 +134,18 @@ export default function Agenda() {
       <div className="flex items-center justify-between">
         <h1 className="font-display text-3xl font-extrabold text-foreground">Agenda</h1>
         {isCoach && (
-          <Button onClick={() => setShowCreateSession(true)} className="gradient-primary text-primary-foreground gap-2">
+          <Button onClick={() => setShowCreateSession(true)}
+            className="gradient-primary text-primary-foreground gap-2">
             <Plus size={16} /> Nueva Sesión
           </Button>
         )}
       </div>
 
-      {/* Week Selector */}
+      {/* Selector de semana */}
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => setWeekOffset(w => w - 1)}><ChevronLeft size={18} /></Button>
+        <Button variant="ghost" size="icon" onClick={() => setWeekOffset(w => w - 1)}>
+          <ChevronLeft size={18} />
+        </Button>
         <div className="flex-1 grid grid-cols-7 gap-1">
           {weekDays.map((day) => {
             const isToday = isSameDay(day, new Date());
@@ -164,19 +163,23 @@ export default function Agenda() {
               >
                 <span className="text-xs uppercase">{format(day, 'EEE', { locale: es })}</span>
                 <span className="font-bold text-lg">{format(day, 'd')}</span>
-                {hasSessions && !isSelected && <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1" />}
+                {hasSessions && !isSelected && (
+                  <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1" />
+                )}
               </button>
             );
           })}
         </div>
-        <Button variant="ghost" size="icon" onClick={() => setWeekOffset(w => w + 1)}><ChevronRight size={18} /></Button>
+        <Button variant="ghost" size="icon" onClick={() => setWeekOffset(w => w + 1)}>
+          <ChevronRight size={18} />
+        </Button>
       </div>
 
       <h2 className="font-display text-lg font-bold text-foreground capitalize">
         {format(selectedDay, "EEEE d 'de' MMMM", { locale: es })}
       </h2>
 
-      {/* Sessions */}
+      {/* Sesiones */}
       <div className="space-y-3">
         {isLoading ? (
           Array.from({ length: 3 }).map((_, i) => (
@@ -184,15 +187,23 @@ export default function Agenda() {
           ))
         ) : daySessions.length > 0 ? (
           daySessions.map((s: any) => {
-            const confirmedReservations = s.reservations?.filter((r: any) => r.reservation_status === 'confirmed') || [];
+            const confirmedReservations = s.reservations?.filter(
+              (r: any) => r.reservation_status === 'confirmed'
+            ) || [];
             const userReservation = confirmedReservations.find((r: any) => r.user_id === user?.id);
             const isFull = confirmedReservations.length >= s.capacity;
+            const isPast = new Date(s.end_time) < new Date(); // ← sesión ya terminó
             const spots = s.capacity - confirmedReservations.length;
             const isMySession = s.coach_id === user?.id;
             const isUnassigned = !s.coach_id;
 
             return (
-              <div key={s.id} className={`bg-card border border-border rounded-xl p-4 border-l-4 ${SESSION_COLORS[s.session_type] || 'border-l-primary'}`}>
+              <div
+                key={s.id}
+                className={`bg-card border border-border rounded-xl p-4 border-l-4 ${
+                  SESSION_COLORS[s.session_type] || 'border-l-primary'
+                } ${isPast ? 'opacity-60' : ''}`}
+              >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -208,37 +219,75 @@ export default function Agenda() {
                         </Badge>
                       )}
                       {isCoach && isMySession && (
-                        <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/30">Tu sesión</Badge>
+                        <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/30">
+                          Tu sesión
+                        </Badge>
+                      )}
+                      {isPast && (
+                        <Badge variant="outline" className="text-xs text-muted-foreground border-border">
+                          Finalizada
+                        </Badge>
                       )}
                     </div>
                     <p className="font-semibold text-foreground">{s.title}</p>
                     <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
-                      {s.location && <span className="flex items-center gap-1"><MapPin size={12} /> {s.location}</span>}
+                      {s.location && (
+                        <span className="flex items-center gap-1">
+                          <MapPin size={12} /> {s.location}
+                        </span>
+                      )}
                       <span className={`flex items-center gap-1 ${isFull ? 'text-destructive' : ''}`}>
                         <Users size={12} /> {confirmedReservations.length}/{s.capacity}
-                        {!isFull && ` · ${spots} disponibles`}
+                        {!isFull && !isPast && ` · ${spots} disponibles`}
                       </span>
                       {s.groups?.name && <span>{s.groups.name}</span>}
                     </div>
                   </div>
+
+                  {/* Botones según rol y estado */}
                   <div>
                     {isCoach ? (
                       isUnassigned ? (
-                        <Button size="sm" onClick={() => claimMutation.mutate(s.id)} disabled={claimMutation.isPending} className="gradient-primary text-primary-foreground">
+                        <Button size="sm"
+                          onClick={() => claimMutation.mutate(s.id)}
+                          disabled={claimMutation.isPending}
+                          className="gradient-primary text-primary-foreground">
                           Tomar
                         </Button>
                       ) : isMySession ? (
-                        <span className="text-xs font-medium text-muted-foreground px-2 py-1 bg-muted rounded-md">Coach</span>
+                        <span className="text-xs font-medium text-muted-foreground px-2 py-1 bg-muted rounded-md">
+                          Coach
+                        </span>
                       ) : (
                         <span className="text-xs text-muted-foreground">Otro coach</span>
                       )
                     ) : userReservation ? (
-                      <Button variant="outline" size="sm" onClick={() => cancelMutation.mutate(userReservation.id)} disabled={cancelMutation.isPending} className="border-secondary text-secondary hover:bg-secondary/10">
-                        Cancelar
-                      </Button>
+                      // Si ya reservó y la sesión pasó: no mostrar botón cancelar
+                      isPast ? (
+                        <span className="text-xs text-muted-foreground px-2 py-1 bg-muted rounded-md">
+                          Completada
+                        </span>
+                      ) : (
+                        <Button variant="outline" size="sm"
+                          onClick={() => cancelMutation.mutate(userReservation.id)}
+                          disabled={cancelMutation.isPending}
+                          className="border-secondary text-secondary hover:bg-secondary/10">
+                          Cancelar
+                        </Button>
+                      )
                     ) : (
-                      <Button size="sm" onClick={() => bookMutation.mutate(s.id)} disabled={isFull || bookMutation.isPending} className="gradient-primary text-primary-foreground">
-                        {isFull ? 'Lleno' : 'Reservar'}
+                      // No reservó — mostrar estado según si pasó o no
+                      <Button size="sm"
+                        disabled={isFull || isPast || bookMutation.isPending}
+                        onClick={() => !isFull && !isPast && bookMutation.mutate(s.id)}
+                        className={
+                          isPast
+                            ? 'bg-muted text-muted-foreground cursor-default'
+                            : isFull
+                              ? 'opacity-50 cursor-default'
+                              : 'gradient-primary text-primary-foreground'
+                        }>
+                        {isPast ? 'Cerrada' : isFull ? 'Lleno' : 'Reservar'}
                       </Button>
                     )}
                   </div>
