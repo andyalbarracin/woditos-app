@@ -1,7 +1,9 @@
 /**
  * Archivo: AppLayout.tsx
  * Ruta: src/components/layout/AppLayout.tsx
- * Última modificación: 2026-03-28
+ * Última modificación: 2026-03-29
+ * Descripción: Layout principal de la app. Sidebar desktop colapsable con iconos
+ *   centrados, nav móvil inferior, header con NextSessionBanner y NotificationsBell.
  */
 import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
@@ -51,101 +53,137 @@ export default function AppLayout() {
     navigate('/login');
   };
 
-  // Clases compartidas para ítems colapsados y expandidos
+  /* ── Clases para ítems de navegación ─────────────────────────── */
   const collapsedItem = (isActive: boolean) =>
-    `flex items-center justify-center rounded-xl transition-all
+    `flex items-center justify-center rounded-xl transition-colors
      ${isActive ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`;
 
   const expandedItem = (isActive: boolean) =>
     `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium w-full transition-all
      ${isActive ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`;
 
+  /* ── SIDEBAR_W: 72px | PAD: 14px cada lado | ITEM: 44px ─────── */
+  /* ── Cambiar PAD para mover iconos: +valor = más al centro ───── */
+  const COLLAPSED_PAD = 26;
+
   return (
     <div className="flex h-screen bg-background overflow-hidden">
 
-      {/* ─── SIDEBAR DESKTOP ─────────────────────────────────────────── */}
-      <aside style={{ width: collapsed ? '72px' : '256px' }}
-        className="hidden md:flex flex-col border-r border-border bg-card transition-all duration-200 ease-in-out overflow-hidden shrink-0">
-
-        {/* Logo + toggle */}
-        <div className="flex items-center border-b border-border h-14 shrink-0 px-3"
-          style={{ justifyContent: collapsed ? 'center' : 'space-between' }}>
+      {/* ─── SIDEBAR DESKTOP ─────────────────────────────────────── */}
+      <aside
+        style={{ width: collapsed ? 72 : 256 }}
+        className="hidden md:flex flex-col border-r border-border bg-card transition-all duration-200 ease-in-out overflow-hidden shrink-0"
+      >
+        {/* ── Logo + toggle ──────────────────────────────────────── */}
+        <div
+          className="flex items-center border-b border-border h-14 shrink-0"
+          style={collapsed
+            ? { justifyContent: 'center' }
+            : { justifyContent: 'space-between', paddingLeft: 12, paddingRight: 12 }
+          }
+        >
           {!collapsed && (
             <div className="flex items-center gap-2 overflow-hidden">
               <img src={woditosLogo} alt="Woditos" className="h-7 shrink-0" />
               <span className="font-display font-bold text-foreground truncate">Woditos</span>
             </div>
           )}
-          <button onClick={() => setCollapsed(c => !c)}
-            className="flex items-center justify-center h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all shrink-0">
+          <button
+            onClick={() => setCollapsed(c => !c)}
+            className="flex items-center justify-center h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all shrink-0"
+          >
             <Menu size={20} />
           </button>
         </div>
 
-        {/* Navegación */}
-        <nav className="flex-1 py-2 space-y-1 overflow-hidden"
-          style={{ padding: collapsed ? '8px 6px' : '8px 10px' }}>
+        {/* ── Navegación ─────────────────────────────────────────── */}
+        {/* LÍNEA CLAVE: paddingLeft/paddingRight controlan el centrado */}
+        <nav
+          className="flex-1 overflow-hidden"
+          style={collapsed
+            ? { paddingTop: 12, paddingBottom: 8, paddingLeft: COLLAPSED_PAD, paddingRight: COLLAPSED_PAD }
+            : { padding: '8px 10px' }
+          }
+        >
+          <div className="flex flex-col gap-1">
+            {navItems.map(({ to, icon: Icon, label, end }) =>
+              collapsed ? (
+                <Tooltip key={to} delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <NavLink
+                      to={to}
+                      end={end}
+                      className={({ isActive }) => collapsedItem(isActive)}
+                      style={{ display: 'flex', height: 44 }}
+                    >
+                      <Icon size={22} />
+                    </NavLink>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" sideOffset={6}>{label}</TooltipContent>
+                </Tooltip>
+              ) : (
+                <NavLink
+                  key={to}
+                  to={to}
+                  end={end}
+                  className={({ isActive }) => expandedItem(isActive)}
+                >
+                  <Icon size={18} />
+                  <span>{label}</span>
+                </NavLink>
+              )
+            )}
 
-          {navItems.map(({ to, icon: Icon, label, end }) =>
-            collapsed ? (
-              <Tooltip key={to} delayDuration={0}>
-                <TooltipTrigger asChild>
-                  <NavLink to={to} end={end}
-                    className={({ isActive }) => collapsedItem(isActive)}
-                    style={{ display: 'flex', height: '52px', width: '100%' }}>
-                    <Icon size={24} />
-                  </NavLink>
-                </TooltipTrigger>
-                <TooltipContent side="right">{label}</TooltipContent>
-              </Tooltip>
-            ) : (
-              <NavLink key={to} to={to} end={end}
-                className={({ isActive }) => expandedItem(isActive)}>
-                <Icon size={18} />
-                <span>{label}</span>
-              </NavLink>
-            )
-          )}
-
-          {isCoach && (
-            <>
-              <div className="border-t border-border my-1" />
-              {coachItems.map(({ to, icon: Icon, label, end }) =>
-                collapsed ? (
-                  <Tooltip key={to} delayDuration={0}>
-                    <TooltipTrigger asChild>
-                      <NavLink to={to} end={end}
-                        className={({ isActive }) => collapsedItem(isActive)}
-                        style={{ display: 'flex', height: '52px', width: '100%' }}>
-                        <Icon size={24} />
-                      </NavLink>
-                    </TooltipTrigger>
-                    <TooltipContent side="right">{label}</TooltipContent>
-                  </Tooltip>
-                ) : (
-                  <NavLink key={to} to={to} end={end}
-                    className={({ isActive }) => expandedItem(isActive)}>
-                    <Icon size={18} />
-                    <span>{label}</span>
-                  </NavLink>
-                )
-              )}
-            </>
-          )}
+            {isCoach && (
+              <>
+                <div className="border-t border-border" style={{ margin: collapsed ? '6px 0' : '4px 0' }} />
+                {coachItems.map(({ to, icon: Icon, label, end }) =>
+                  collapsed ? (
+                    <Tooltip key={to} delayDuration={0}>
+                      <TooltipTrigger asChild>
+                        <NavLink
+                          to={to}
+                          end={end}
+                          className={({ isActive }) => collapsedItem(isActive)}
+                          style={{ display: 'flex', height: 44 }}
+                        >
+                          <Icon size={22} />
+                        </NavLink>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" sideOffset={6}>{label}</TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    <NavLink
+                      key={to}
+                      to={to}
+                      end={end}
+                      className={({ isActive }) => expandedItem(isActive)}
+                    >
+                      <Icon size={18} />
+                      <span>{label}</span>
+                    </NavLink>
+                  )
+                )}
+              </>
+            )}
+          </div>
         </nav>
 
-        {/* Theme toggle */}
+        {/* ── Theme toggle ───────────────────────────────────────── */}
         {collapsed ? (
-          <div className="border-t border-border shrink-0" style={{ padding: '8px 6px' }}>
+          <div className="border-t border-border shrink-0"
+            style={{ display: 'flex', justifyContent: 'center', paddingTop: 8, paddingBottom: 8 }}>
             <Tooltip delayDuration={0}>
               <TooltipTrigger asChild>
-                <button onClick={toggleTheme}
+                <button
+                  onClick={toggleTheme}
                   className="flex items-center justify-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
-                  style={{ height: '52px', width: '100%' }}>
-                  {theme === 'dark' ? <Moon size={24} /> : <Sun size={24} />}
+                  style={{ height: 44, width: 44 }}
+                >
+                  {theme === 'dark' ? <Moon size={22} /> : <Sun size={22} />}
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="right">
+              <TooltipContent side="right" sideOffset={6}>
                 {theme === 'dark' ? 'Modo oscuro' : 'Modo claro'}
               </TooltipContent>
             </Tooltip>
@@ -162,29 +200,31 @@ export default function AppLayout() {
           </div>
         )}
 
-        {/* Perfil + logout */}
+        {/* ── Perfil + logout ────────────────────────────────────── */}
         {collapsed ? (
-          <div className="border-t border-border flex flex-col items-center gap-1 shrink-0"
-            style={{ padding: '10px 6px' }}>
+          <div className="border-t border-border shrink-0"
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, paddingTop: 12, paddingBottom: 12 }}>
             <Tooltip delayDuration={0}>
               <TooltipTrigger asChild>
-                <Avatar className="h-10 w-10 cursor-pointer" onClick={() => navigate('/perfil')}>
+                <Avatar className="h-9 w-9 cursor-pointer" onClick={() => navigate('/perfil')}>
                   {profile?.avatar_url && <AvatarImage src={profile.avatar_url} />}
                   <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
                     {profile?.full_name?.slice(0, 2).toUpperCase() || '?'}
                   </AvatarFallback>
                 </Avatar>
               </TooltipTrigger>
-              <TooltipContent side="right">{profile?.full_name}</TooltipContent>
+              <TooltipContent side="right" sideOffset={6}>{profile?.full_name}</TooltipContent>
             </Tooltip>
             <Tooltip delayDuration={0}>
               <TooltipTrigger asChild>
-                <button onClick={handleSignOut}
-                  className="flex items-center justify-center h-9 w-9 rounded-lg text-muted-foreground hover:text-destructive hover:bg-muted transition-all">
+                <button
+                  onClick={handleSignOut}
+                  className="flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-destructive hover:bg-muted transition-all"
+                >
                   <LogOut size={18} />
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="right">Cerrar sesión</TooltipContent>
+              <TooltipContent side="right" sideOffset={6}>Cerrar sesión</TooltipContent>
             </Tooltip>
           </div>
         ) : (
@@ -197,11 +237,19 @@ export default function AppLayout() {
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">{profile?.full_name || 'Usuario'}</p>
-                <p className="text-xs text-muted-foreground truncate">{formatRole(user?.role)}</p>
+                <p className="text-sm font-medium text-foreground truncate">
+                  {profile?.full_name || 'Usuario'}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {formatRole(user?.role)}
+                </p>
               </div>
-              <Button variant="ghost" size="icon" onClick={handleSignOut}
-                className="text-muted-foreground hover:text-destructive shrink-0">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleSignOut}
+                className="text-muted-foreground hover:text-destructive shrink-0"
+              >
                 <LogOut size={16} />
               </Button>
             </div>
@@ -209,7 +257,7 @@ export default function AppLayout() {
         )}
       </aside>
 
-      {/* ─── CONTENIDO PRINCIPAL ─────────────────────────────────────── */}
+      {/* ─── CONTENIDO PRINCIPAL ─────────────────────────────────── */}
       <main className="flex-1 flex flex-col overflow-hidden">
 
         {/* Header desktop */}
@@ -272,23 +320,29 @@ export default function AppLayout() {
         {/* Nav móvil inferior */}
         <nav className="md:hidden flex items-center justify-around border-t border-border bg-card py-2 shrink-0">
           {navItems.map(({ to, icon: Icon, label, end }) => (
-            <NavLink key={to} to={to} end={end}
+            <NavLink
+              key={to}
+              to={to}
+              end={end}
               className={({ isActive }) =>
                 `flex flex-col items-center gap-1 py-1 px-2 text-xs font-medium transition-all ${
                   isActive ? 'text-primary' : 'text-muted-foreground'
                 }`
-              }>
+              }
+            >
               <Icon size={20} />
               {label}
             </NavLink>
           ))}
           {isCoach && (
-            <NavLink to="/coach"
+            <NavLink
+              to="/coach"
               className={({ isActive }) =>
                 `flex flex-col items-center gap-1 py-1 px-2 text-xs font-medium transition-all ${
                   isActive ? 'text-secondary' : 'text-muted-foreground'
                 }`
-              }>
+              }
+            >
               <Dumbbell size={20} />
               Coach
             </NavLink>
