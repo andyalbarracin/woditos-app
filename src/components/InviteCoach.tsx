@@ -109,8 +109,34 @@ export default function InviteCoach() {
 
       {/* Info del club */}
       {clubName && (
-        <div className="bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 text-sm text-foreground">
-          Las invitaciones generadas acá son para unirse a <span className="font-semibold">{clubName}</span> como coach.
+        <div className="bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 space-y-3">
+          <p className="text-sm text-foreground">
+            Las invitaciones generadas acá son para unirse a <span className="font-semibold">{clubName}</span> como coach.
+          </p>
+          {clubMembership?.club?.join_code && (
+            <div className="flex items-center justify-between bg-card border border-border rounded-lg px-4 py-3">
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold">Código para miembros</p>
+                <p className="text-2xl font-mono font-bold text-primary tracking-widest mt-0.5">
+                  {clubMembership.club.join_code}
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => {
+                  navigator.clipboard.writeText(clubMembership.club.join_code);
+                  toast.success('Código copiado');
+                }}
+              >
+                <Copy size={14} /> Copiar
+              </Button>
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Compartí este código con tus alumnos para que se unan al club al registrarse.
+          </p>
         </div>
       )}
 

@@ -1,9 +1,10 @@
 /**
  * Archivo: App.tsx
  * Ruta: src/App.tsx
- * Última modificación: 2026-03-29
- * Descripción: Punto de entrada de la app. Define rutas, providers y
- *              el componente AppWithFeedback que muestra el modal post-sesión.
+ * Última modificación: 2026-03-30
+ * Descripción: Punto de entrada de la app. Define rutas, providers,
+ *   OnboardingGuard (redirige a /onboarding si no tiene club) y
+ *   AppWithFeedback (modal post-sesión).
  */
 import { Toaster } from '@/components/ui/toaster';
 import { Toaster as Sonner } from '@/components/ui/sonner';
@@ -18,6 +19,7 @@ import AppLayout from '@/components/layout/AppLayout';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import ResetPassword from '@/pages/ResetPassword';
+import Onboarding from '@/pages/Onboarding';
 import Dashboard from '@/pages/Dashboard';
 import Agenda from '@/pages/Agenda';
 import Community from '@/pages/Community';
@@ -52,6 +54,27 @@ function ProtectedRoute() {
     );
   }
   if (!session) return <Navigate to="/login" replace />;
+  return <Outlet />;
+}
+
+/**
+ * OnboardingGuard — se ubica entre ProtectedRoute y AppLayout.
+ * Si el usuario está autenticado pero no tiene clubMembership,
+ * lo redirige a /onboarding para completar su perfil.
+ */
+function OnboardingGuard() {
+  const { user, clubMembership } = useAuth();
+
+  /* user es null mientras fetchUserData todavía corre */
+  if (!user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!clubMembership) return <Navigate to="/onboarding" replace />;
   return <Outlet />;
 }
 
@@ -100,22 +123,23 @@ function App() {
 
                 {/* Rutas protegidas */}
                 <Route element={<ProtectedRoute />}>
-                  <Route element={<AppLayout />}>
-                    <Route path="/" element={<Navigate to="/inicio" replace />} />
-                    <Route path="/inicio" element={<Dashboard />} />
-                    <Route path="/agenda" element={<Agenda />} />
+                  {/* Onboarding — accesible SIN club (fuera de OnboardingGuard) */}
+                  <Route path="/onboarding" element={<Onboarding />} />
 
-                    {/* Crew — usa /comunidad para coincidir con AppLayout nav */}
-                    <Route path="/comunidad" element={<Community />} />
-
-                    {/* Biblioteca + detalle de ejercicio y alimento */}
-                    <Route path="/biblioteca" element={<Library />} />
-                    <Route path="/biblioteca/ejercicio/:id" element={<ExerciseDetail />} />
-                    <Route path="/biblioteca/nutricion/:id" element={<FoodDetail />} />
-
-                    <Route path="/perfil" element={<Profile />} />
-                    <Route path="/asistencia" element={<Attendance />} />
-                    <Route path="/coach" element={<CoachRoute><CoachDashboard /></CoachRoute>} />
+                  {/* App principal — requiere club */}
+                  <Route element={<OnboardingGuard />}>
+                    <Route element={<AppLayout />}>
+                      <Route path="/" element={<Navigate to="/inicio" replace />} />
+                      <Route path="/inicio" element={<Dashboard />} />
+                      <Route path="/agenda" element={<Agenda />} />
+                      <Route path="/comunidad" element={<Community />} />
+                      <Route path="/biblioteca" element={<Library />} />
+                      <Route path="/biblioteca/ejercicio/:id" element={<ExerciseDetail />} />
+                      <Route path="/biblioteca/nutricion/:id" element={<FoodDetail />} />
+                      <Route path="/perfil" element={<Profile />} />
+                      <Route path="/asistencia" element={<Attendance />} />
+                      <Route path="/coach" element={<CoachRoute><CoachDashboard /></CoachRoute>} />
+                    </Route>
                   </Route>
                 </Route>
 
