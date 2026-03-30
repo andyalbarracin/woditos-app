@@ -40,7 +40,7 @@ const coachItems = [
 
 function formatRole(role: string | undefined): string {
   if (!role) return 'Miembro';
-  if (role === 'super_admin') return 'Coach';
+  if (role === 'super_admin' || role === 'club_admin') return 'Coach';
   return role.charAt(0).toUpperCase() + role.slice(1);
 }
 

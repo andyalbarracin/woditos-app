@@ -81,8 +81,7 @@ function OnboardingGuard() {
 function CoachRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
   if (isLoading) return null;
-  const isCoach = user?.role === 'coach' || user?.role === 'super_admin';
-  if (!isCoach) return <Navigate to="/inicio" replace />;
+  const isCoach = user?.role === 'coach' || user?.role === 'super_admin';  if (!isCoach) return <Navigate to="/inicio" replace />;
   return <>{children}</>;
 }
 

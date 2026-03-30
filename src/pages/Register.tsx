@@ -188,7 +188,7 @@ export default function Register() {
 
         if (clubError) throw clubError;
 
-        await supabase.from('users').update({ role: 'club_admin' }).eq('id', authUser.id);
+        await supabase.from('users').update({ role: 'coach' }).eq('id', authUser.id);
         await supabase.from('club_memberships').insert({
         club_id: newClub.id, user_id: authUser.id, role: 'club_admin', status: 'active',        });
 
