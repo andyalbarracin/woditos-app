@@ -1,8 +1,9 @@
 /**
  * Archivo: Agenda.tsx
  * Ruta: src/pages/Agenda.tsx
- * Última modificación: 2026-03-28
+ * Última modificación: 2026-03-29
  * Descripción: Agenda semanal. Sesiones pasadas muestran "Cerrada" para miembros.
+ *   Todas las mutations invalidan queries cross-component (dashboard, banner, coach panel).
  */
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -15,7 +16,6 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import CreateSessionDialog from '@/components/CreateSessionDialog';
-import { useNavigate } from 'react-router-dom';
 
 const SESSION_COLORS: Record<string, string> = {
   running: 'border-l-secondary',
@@ -52,6 +52,18 @@ export default function Agenda() {
       return data || [];
     },
   });
+
+  /* ── Invalidar todas las queries que dependen de sesiones ────── */
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: ['sessions-week'] });
+    queryClient.invalidateQueries({ queryKey: ['next-session'] });
+    queryClient.invalidateQueries({ queryKey: ['my-coach-sessions'] });
+    queryClient.invalidateQueries({ queryKey: ['unassigned-sessions'] });
+    queryClient.invalidateQueries({ queryKey: ['upcoming-sessions-dashboard'] });
+    queryClient.invalidateQueries({ queryKey: ['coach-day-sessions'] });
+    queryClient.invalidateQueries({ queryKey: ['coach-month-sessions'] });
+    queryClient.invalidateQueries({ queryKey: ['coach-dashboard-stats'] });
+  };
 
   const bookMutation = useMutation({
     mutationFn: async (sessionId: string) => {
@@ -91,8 +103,7 @@ export default function Agenda() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sessions-week'] });
-      queryClient.invalidateQueries({ queryKey: ['next-session'] });
+      invalidateAll();
       toast.success('¡Reserva confirmada!');
     },
     onError: () => toast.error('No se pudo hacer la reserva. Intentá de nuevo.'),
@@ -106,8 +117,7 @@ export default function Agenda() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sessions-week'] });
-      queryClient.invalidateQueries({ queryKey: ['next-session'] });
+      invalidateAll();
       toast.success('Reserva cancelada');
     },
     onError: () => toast.error('No se pudo cancelar la reserva.'),
@@ -120,8 +130,7 @@ export default function Agenda() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sessions-week'] });
-      queryClient.invalidateQueries({ queryKey: ['next-session'] });
+      invalidateAll();
       toast.success('Sesión asignada a vos');
     },
     onError: () => toast.error('No se pudo asignar la sesión'),
@@ -192,7 +201,7 @@ export default function Agenda() {
             ) || [];
             const userReservation = confirmedReservations.find((r: any) => r.user_id === user?.id);
             const isFull = confirmedReservations.length >= s.capacity;
-            const isPast = new Date(s.end_time) < new Date(); // ← sesión ya terminó
+            const isPast = new Date(s.end_time) < new Date();
             const spots = s.capacity - confirmedReservations.length;
             const isMySession = s.coach_id === user?.id;
             const isUnassigned = !s.coach_id;
@@ -262,7 +271,6 @@ export default function Agenda() {
                         <span className="text-xs text-muted-foreground">Otro coach</span>
                       )
                     ) : userReservation ? (
-                      // Si ya reservó y la sesión pasó: no mostrar botón cancelar
                       isPast ? (
                         <span className="text-xs text-muted-foreground px-2 py-1 bg-muted rounded-md">
                           Completada
@@ -276,7 +284,6 @@ export default function Agenda() {
                         </Button>
                       )
                     ) : (
-                      // No reservó — mostrar estado según si pasó o no
                       <Button size="sm"
                         disabled={isFull || isPast || bookMutation.isPending}
                         onClick={() => !isFull && !isPast && bookMutation.mutate(s.id)}

@@ -1,11 +1,11 @@
 /**
  * Archivo: CreateSessionDialog.tsx
  * Ruta: src/components/CreateSessionDialog.tsx
- * Última modificación: 2026-03-28
+ * Última modificación: 2026-03-29
  * Descripción: Modal reutilizable para crear sesiones.
  *   - Valida que la sesión no sea en el pasado
  *   - Calendar date picker, hora 24h, duración +/- 15min
- *   - Asigna club_id del coach al crear
+ *   - Asigna club_id y created_by del coach al crear
  */
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -85,7 +85,6 @@ export default function CreateSessionDialog({ open, onOpenChange, initialDate, o
     if (!selectedDate)  { toast.error('Elegí una fecha'); return; }
     if (!sessionType)   { toast.error('Elegí un tipo de sesión'); return; }
 
-    // Validar que no sea en el pasado
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
     const sessionDateTime = new Date(`${dateStr}T${startTime}:00`);
     if (sessionDateTime <= new Date()) {
@@ -119,6 +118,7 @@ export default function CreateSessionDialog({ open, onOpenChange, initialDate, o
     const { error } = await supabase.from('sessions').insert({
       group_id:     groupId,
       coach_id:     user!.id,
+      created_by:   user!.id,
       club_id:      clubMembership?.club_id || null,
       title:        sanitizeText(title) || 'Sesión',
       session_type: sessionType,
@@ -152,7 +152,6 @@ export default function CreateSessionDialog({ open, onOpenChange, initialDate, o
     }
   };
 
-  // Deshabilitar fechas pasadas en el calendario
   const disabledDays = { before: new Date() };
 
   return (
@@ -215,7 +214,7 @@ export default function CreateSessionDialog({ open, onOpenChange, initialDate, o
             </Select>
           </div>
 
-          {/* Fecha — días pasados deshabilitados */}
+          {/* Fecha */}
           <div className="space-y-2">
             <Label>Fecha</Label>
             <div className="bg-background border border-border rounded-lg p-1">

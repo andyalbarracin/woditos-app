@@ -1,7 +1,9 @@
 /**
  * Archivo: Login.tsx
  * Ruta: src/pages/Login.tsx
- * Última modificación: 2026-03-28
+ * Última modificación: 2026-03-29
+ * Descripción: Página de login con email/password, Google OAuth,
+ *   y link a recuperación de contraseña.
  */
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -119,7 +121,16 @@ export default function Login() {
                 {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Contraseña</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password">Contraseña</Label>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/reset-password')}
+                    className="text-xs text-primary hover:underline font-medium"
+                  >
+                    ¿Olvidaste tu contraseña?
+                  </button>
+                </div>
                 <Input id="password" type="password" placeholder="••••••••" value={password}
                   onChange={(e) => setPassword(e.target.value)} required maxLength={128}
                   className="bg-card border-border" />

@@ -201,3 +201,168 @@ Integración de pagos: RevenueCat (pendiente).
 ---
 
 *LOG mantenido manualmente. Actualizar al inicio/fin de cada sesión de trabajo.*
+
+# WODITOS — LOG DE AVANCES
+> Última actualización: 2026-03-28
+
+---
+
+## ✅ ESTADO ACTUAL — TODO LO IMPLEMENTADO
+
+### Base de Datos
+
+| Tabla | Estado |
+|-------|--------|
+| `users` | ✅ Con 6 usuarios (Andy + 5 dummies) |
+| `profiles` | ✅ Con avatares, goals, join_date |
+| `clubs` | ✅ Club "Crew Woditos" + sistema multi-club |
+| `club_memberships` | ✅ Todos los usuarios asignados al club inicial |
+| `groups` | ✅ 3+ grupos (Palermo Runners, Funcional Belgrano, Costanera Sur) |
+| `group_memberships` | ✅ |
+| `sessions` | ✅ 10+ sesiones con club_id asignado |
+| `reservations` | ✅ |
+| `attendance` | ✅ UNIQUE(session_id, user_id) |
+| `posts` | ✅ 6+ posts dummy |
+| `comments` | ✅ |
+| `reactions` | ✅ |
+| `stories` | ✅ |
+| `notifications` | ✅ RLS con policy separada para coaches |
+| `achievements` | ✅ |
+| `coach_notes` | ✅ |
+| `exercise_wiki` | ✅ 23 ejercicios |
+| `food_wiki` | ✅ 15 alimentos |
+| `push_subscriptions` | ✅ |
+| `coach_invites` | ✅ Con columna `club_id`, RLS permite coaches |
+| `session_feedback` | ✅ UNIQUE(session_id, user_id), RLS completo |
+
+### SQL aplicado (acumulado)
+```sql
+-- Políticas RLS notifications
+CREATE POLICY "notifications_insert_for_others" ON public.notifications
+  FOR INSERT WITH CHECK (get_my_role() = ANY(ARRAY['super_admin','coach','club_admin']));
+
+-- session_feedback tabla
+CREATE TABLE public.session_feedback (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id uuid NOT NULL REFERENCES public.sessions(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  rating smallint NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  discomforts text[] DEFAULT '{}',
+  note text,
+  created_at timestamptz DEFAULT now(),
+  UNIQUE(session_id, user_id)
+);
+ALTER TABLE public.session_feedback ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "feedback_insert_own" ON public.session_feedback FOR INSERT WITH CHECK (user_id = auth.uid());
+CREATE POLICY "feedback_select_own" ON public.session_feedback FOR SELECT USING (user_id = auth.uid() OR get_my_role() = ANY(ARRAY['super_admin','coach','club_admin']));
+CREATE POLICY "feedback_update_own" ON public.session_feedback FOR UPDATE USING (user_id = auth.uid());
+
+-- coach_invites: permitir a coaches
+DROP POLICY IF EXISTS "coach_invites_insert" ON public.coach_invites;
+CREATE POLICY "coach_invites_insert" ON public.coach_invites FOR INSERT WITH CHECK (get_my_role() = ANY(ARRAY['super_admin','coach','club_admin']));
+DROP POLICY IF EXISTS "coach_invites_select" ON public.coach_invites;
+CREATE POLICY "coach_invites_select" ON public.coach_invites FOR SELECT USING (created_by = auth.uid() OR get_my_role() = 'super_admin');
+
+-- club_id en coach_invites (si no existe)
+ALTER TABLE public.coach_invites ADD COLUMN IF NOT EXISTS club_id uuid REFERENCES public.clubs(id);
+
+-- sessions RLS (actualización sin coach del mismo club)
+-- (aplicado en sesiones anteriores)
+
+-- attendance RLS delete para coaches
+-- (aplicado en sesiones anteriores)
+```
+
+---
+
+## 🗓️ HISTORIAL DE SESIONES
+
+### Sesiones 1-7 (hasta 2026-03-17)
+Ver log anterior. Resumen: estructura base, stories, biblioteca, asistencia, QR, OAuth, usuarios dummy, validación Zod, CreateSessionDialog, formato 24h, re-reserva fix.
+
+### Sesión 8 (2026-03-27)
+**Implementado:**
+- Club badge en header (izq: próxima sesión | centro: club | der: campana)
+- Tab "Hoy" del Coach Panel con calendario + detalle del día en 2 columnas
+- RLS sessions_update (tomar sesiones sin coach del mismo club)
+- RLS attendance_delete
+- CreateSessionDialog: club_id + validación fecha pasada + días pasados deshabilitados
+- Foto de perfil 20MB + bucket avatars SQL
+- Flujo de registro con Club (3 pasos)
+- SQL clubs, club_memberships, migración de datos
+- SessionFeedbackModal + useSessionFeedback + integración en App.tsx
+- SQL session_feedback
+- Profile.tsx con insights del miembro (6 cards)
+- Dashboard modularizado: CoachDashboardView + MemberDashboardView + orquestador
+- NextSessionBanner fix (filtra sesiones futuras para miembros)
+- Sesiones disponibles con nombre del coach, horario hasta, barra de progreso de lugares
+- Queries separadas para coach sin límite global de 10
+- vercel.json con rewrites SPA + cache headers
+- Branch cleanup y backup-v1.0
+
+### Sesión 9 (2026-03-28)
+**Implementado:**
+- **Fix Vercel:** Variables de entorno faltaban en el nuevo proyecto → app conectaba a Supabase viejo
+- **Sidebar colapsable** en AppLayout.tsx:
+  - Toggle con ícono Menu
+  - Colapsado: `w-[72px]`, íconos 24px, height 52px, centrados, tooltips
+  - Expandido: `w-64` con íconos + labels
+  - Usa CSS inline para garantizar tamaños (no sobreescrito por Tailwind)
+  - Sigue tema global (`bg-card`, no navy fijo)
+- **Login fix:** `h-screen overflow-hidden` + columna formulario `overflow-y-auto` → elimina scroll no deseado. Copyright dentro del flujo del formulario
+- **Register fix:**
+  - Toast de email inválido aparece en paso de cuenta (no en paso club)
+  - Mensaje específico si email ya registrado
+  - Campo de token de invitación manual para coaches
+  - Footer dentro del flujo, no absoluto
+- **Agenda:** sesiones pasadas muestran "Cerrada" / "Completada" / badge "Finalizada". `isPast = new Date(s.end_time) < new Date()`
+- **SessionFeedbackModal:**
+  - Al **enviar**: elimina la notificación (no vuelve a aparecer)
+  - Al **omitir**: marca como leída (puede reabrirse desde campana)
+  - Usa `upsert` en lugar de `insert` para manejar feedback duplicado
+- **NotificationsBell:**
+  - Click en notificación `session_feedback` reabre `SessionFeedbackModal`
+  - Estado `feedbackTarget` gestiona el modal dentro de la campana
+- **CoachDashboardView:**
+  - Fix: `setClaimingSessionId(null)` en `onSuccess` del claimMutation
+  - Invalida `next-session` query al tomar sesión → banner se actualiza sin recargar
+- **InviteCoach:**
+  - Disponible para todos los coaches (no solo super_admin)
+  - Genera invitaciones con el `club_id` del coach que las crea
+  - Muestra nombre del club en el banner informativo
+  - Lista solo las invitaciones creadas por el usuario actual
+- **CoachDashboard:** tab "Invitar Coach" visible para todos los coaches
+- **RLS notifications:** policy `notifications_insert_for_others` para coaches
+- **App.tsx:** ProtectedRoute y CoachRoute definidos en el mismo archivo, Outlet importado
+
+---
+
+## 🚀 PRÓXIMOS PASOS
+
+### Alta prioridad
+- [ ] **Panel de gestión del Club** — ver/editar join_code, cambiar plan, listar miembros del club
+- [ ] **Unclaim/delete sesiones desde CoachDashboard** — alert de confirmación, notificación a inscriptos, solo el creador puede eliminar
+
+### Media prioridad
+- [ ] CoachDashboard modularización (si supera 600 líneas al agregar unclaim/delete)
+- [ ] Leaderboard de asistencia
+- [ ] Exportar asistencia CSV
+
+### Infraestructura futura
+- [ ] RevenueCat billing
+- [ ] Multi-tenancy (tabla `organizations`)
+- [ ] Push notifications server-side
+- [ ] Emails transaccionales
+
+---
+
+## 📊 CRÉDENCIALES ACTUALIZADAS
+
+| Email | Password | Rol |
+|-------|----------|-----|
+| figo.albarra@gmail.com | (personal) | super_admin |
+| coach@woditos.app | Coach2026! | coach |
+| maria@woditos.app | Woditos2026! | member |
+| juan@woditos.app | Woditos2026! | member |
+| sofia@woditos.app | Woditos2026! | member |
+| test@woditos.app | 123456 | member |

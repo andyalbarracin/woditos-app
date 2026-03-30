@@ -1,7 +1,7 @@
 /**
  * Archivo: App.tsx
  * Ruta: src/App.tsx
- * Última modificación: 2026-03-27
+ * Última modificación: 2026-03-29
  * Descripción: Punto de entrada de la app. Define rutas, providers y
  *              el componente AppWithFeedback que muestra el modal post-sesión.
  */
@@ -17,6 +17,7 @@ import AppLayout from '@/components/layout/AppLayout';
 // Pages
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
+import ResetPassword from '@/pages/ResetPassword';
 import Dashboard from '@/pages/Dashboard';
 import Agenda from '@/pages/Agenda';
 import Community from '@/pages/Community';
@@ -95,6 +96,7 @@ function App() {
                 {/* Rutas públicas */}
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
 
                 {/* Rutas protegidas */}
                 <Route element={<ProtectedRoute />}>
@@ -125,7 +127,6 @@ function App() {
         </BrowserRouter>
       </ThemeProvider>
     </QueryClientProvider>
-    
   );
 }
 

@@ -1,26 +1,33 @@
 /**
  * Archivo: CoachDashboard.tsx
  * Ruta: src/pages/CoachDashboard.tsx
- * Última modificación: 2026-03-27
+ * Última modificación: 2026-03-29
  * Descripción: Panel exclusivo para coaches y super_admin.
- *   - Tab Hoy: calendario + detalle de sesiones del día seleccionado
+ *   - Tab Hoy: calendario + detalle de sesiones del día (con Soltar/Eliminar)
  *   - Gestión de miembros por crew
  *   - Analytics de asistencia y sesiones
- *   - Tab de invitaciones de coach (solo super_admin)
+ *   - Tab de invitaciones de coach
  */
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
-import { format, startOfMonth, endOfMonth, isSameDay } from 'date-fns';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Users, Calendar, TrendingUp, Plus, Check, X, Clock, UserCheck, BarChart3, Activity, Link } from 'lucide-react';
+import {
+  Users, Calendar, TrendingUp, Plus, Check, X, Clock,
+  UserCheck, BarChart3, Activity, Link, Trash2, UserMinus,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Calendar as CalendarWidget } from '@/components/ui/calendar';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip,
+  ResponsiveContainer, PieChart, Pie, Cell,
+} from 'recharts';
 import CreateSessionDialog from '@/components/CreateSessionDialog';
 import InviteCoach from '@/components/InviteCoach';
 
@@ -32,8 +39,9 @@ export default function CoachDashboard() {
   const [showCreateSession, setShowCreateSession] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<string>('');
   const [selectedDay, setSelectedDay] = useState<Date>(new Date());
+  const [sessionToDelete, setSessionToDelete] = useState<any>(null);
 
-const isCoach = user?.role === 'coach' || user?.role === 'super_admin';
+  const isCoach = user?.role === 'coach' || user?.role === 'super_admin';
 
   const { data: groups } = useQuery({
     queryKey: ['coach-groups'],
@@ -43,7 +51,6 @@ const isCoach = user?.role === 'coach' || user?.role === 'super_admin';
     },
   });
 
-  // Sesiones del mes para marcar el calendario
   const { data: monthSessions } = useQuery({
     queryKey: ['coach-month-sessions', selectedDay.getMonth(), selectedDay.getFullYear()],
     queryFn: async () => {
@@ -53,12 +60,12 @@ const isCoach = user?.role === 'coach' || user?.role === 'super_admin';
         .from('sessions')
         .select('id, start_time')
         .gte('start_time', start.toISOString())
-        .lte('start_time', end.toISOString());
+        .lte('start_time', end.toISOString())
+        .eq('coach_id', user!.id);
       return data || [];
     },
   });
 
-  // Sesiones del día seleccionado
   const { data: daySessions } = useQuery({
     queryKey: ['coach-day-sessions', selectedDay.toDateString()],
     queryFn: async () => {
@@ -70,6 +77,7 @@ const isCoach = user?.role === 'coach' || user?.role === 'super_admin';
         .select('*, groups(name), reservations(id, user_id, reservation_status, users!user_id(id, profiles(full_name, avatar_url))), attendance(id, user_id, attendance_status)')
         .gte('start_time', dayStart.toISOString())
         .lt('start_time', dayEnd.toISOString())
+        .eq('coach_id', user!.id)
         .order('start_time');
       return data || [];
     },
@@ -113,31 +121,81 @@ const isCoach = user?.role === 'coach' || user?.role === 'super_admin';
     },
   });
 
-  const sessionsByType = allSessions?.reduce((acc: any[], s: any) => {
-    const existing = acc.find(x => x.tipo === s.session_type);
-    if (existing) existing.cantidad++;
-    else acc.push({ tipo: s.session_type, cantidad: 1 });
-    return acc;
-  }, []) || [];
+  /* ── Helpers compartidos ─────────────────────────────────────── */
+  const invalidateSessionQueries = () => {
+    queryClient.invalidateQueries({ queryKey: ['coach-day-sessions'] });
+    queryClient.invalidateQueries({ queryKey: ['coach-month-sessions'] });
+    queryClient.invalidateQueries({ queryKey: ['coach-all-sessions'] });
+    queryClient.invalidateQueries({ queryKey: ['coach-attendance-stats'] });
+    queryClient.invalidateQueries({ queryKey: ['my-coach-sessions'] });
+    queryClient.invalidateQueries({ queryKey: ['unassigned-sessions'] });
+    queryClient.invalidateQueries({ queryKey: ['next-session'] });
+    queryClient.invalidateQueries({ queryKey: ['upcoming-sessions-dashboard'] });
+  };
 
-  const attendancePie = allAttendance?.reduce((acc: any[], a: any) => {
-    const label = a.attendance_status === 'present' ? 'Presente' :
-      a.attendance_status === 'late' ? 'Tarde' :
-      a.attendance_status === 'absent' ? 'Ausente' : 'Excusado';
-    const existing = acc.find(x => x.name === label);
-    if (existing) existing.value++;
-    else acc.push({ name: label, value: 1 });
-    return acc;
-  }, []) || [];
+  const notifyMembers = async (session: any, title: string, message: string) => {
+    const confirmed = session.reservations?.filter(
+      (r: any) => r.reservation_status === 'confirmed'
+    ) || [];
+    if (confirmed.length === 0) return;
+    await supabase.from('notifications').insert(
+      confirmed.map((r: any) => ({
+        user_id: r.user_id,
+        title,
+        message,
+        type: 'session',
+      }))
+    );
+  };
 
-  const weeklyData = allSessions?.reduce((acc: any[], s: any) => {
-    const week = format(new Date(s.start_time), "'Sem' w", { locale: es });
-    const existing = acc.find(x => x.semana === week);
-    const attended = s.attendance?.filter((a: any) => a.attendance_status === 'present').length || 0;
-    if (existing) { existing.sesiones++; existing.asistentes += attended; }
-    else acc.push({ semana: week, sesiones: 1, asistentes: attended });
-    return acc;
-  }, []) || [];
+  const canDelete = (s: any) =>
+    s.created_by === user?.id
+    || (!s.created_by && s.coach_id === user?.id)
+    || user?.role === 'super_admin';
+
+  const confirmedCount = (s: any) =>
+    s.reservations?.filter((r: any) => r.reservation_status === 'confirmed')?.length || 0;
+
+  /* ── Mutations ───────────────────────────────────────────────── */
+  const unclaimMutation = useMutation({
+    mutationFn: async (session: any) => {
+      await notifyMembers(
+        session,
+        '📋 Coach desasignado',
+        `El coach se desasignó de "${session.title}" del ${format(new Date(session.start_time), "d MMM 'a las' HH:mm", { locale: es })}. Puede ser tomada por otro coach.`
+      );
+      const { error } = await supabase.from('sessions')
+        .update({ coach_id: null }).eq('id', session.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidateSessionQueries();
+      toast.success('Sesión soltada — vuelve a "sin coach"');
+    },
+    onError: () => toast.error('No se pudo soltar la sesión'),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (session: any) => {
+      await notifyMembers(
+        session,
+        '❌ Sesión cancelada',
+        `La sesión "${session.title}" del ${format(new Date(session.start_time), "d MMM 'a las' HH:mm", { locale: es })} fue cancelada por el coach.`
+      );
+      const { error } = await (supabase.rpc as any)('delete_session_cascade', {
+          p_session_id: session.id,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setSessionToDelete(null);
+      invalidateSessionQueries();
+      toast.success('Sesión eliminada');
+    },
+    onError: (err: any) => {
+      toast.error('No se pudo eliminar: ' + (err.message || 'Error desconocido'));
+    },
+  });
 
   const markAttendance = useMutation({
     mutationFn: async ({
@@ -167,6 +225,33 @@ const isCoach = user?.role === 'coach' || user?.role === 'super_admin';
     onError: (err: any) => toast.error('No se pudo registrar la asistencia: ' + err.message),
   });
 
+  /* ── Datos para analytics ────────────────────────────────────── */
+  const sessionsByType = allSessions?.reduce((acc: any[], s: any) => {
+    const existing = acc.find(x => x.tipo === s.session_type);
+    if (existing) existing.cantidad++;
+    else acc.push({ tipo: s.session_type, cantidad: 1 });
+    return acc;
+  }, []) || [];
+
+  const attendancePie = allAttendance?.reduce((acc: any[], a: any) => {
+    const label = a.attendance_status === 'present' ? 'Presente' :
+      a.attendance_status === 'late' ? 'Tarde' :
+      a.attendance_status === 'absent' ? 'Ausente' : 'Excusado';
+    const existing = acc.find(x => x.name === label);
+    if (existing) existing.value++;
+    else acc.push({ name: label, value: 1 });
+    return acc;
+  }, []) || [];
+
+  const weeklyData = allSessions?.reduce((acc: any[], s: any) => {
+    const week = format(new Date(s.start_time), "'Sem' w", { locale: es });
+    const existing = acc.find(x => x.semana === week);
+    const attended = s.attendance?.filter((a: any) => a.attendance_status === 'present').length || 0;
+    if (existing) { existing.sesiones++; existing.asistentes += attended; }
+    else acc.push({ semana: week, sesiones: 1, asistentes: attended });
+    return acc;
+  }, []) || [];
+
   const totalMembers = members?.length || 0;
   const totalSessions30d = allSessions?.length || 0;
   const avgAttendance = allAttendance?.length
@@ -188,21 +273,17 @@ const isCoach = user?.role === 'coach' || user?.role === 'super_admin';
 
       {/* Summary Cards */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="bg-card border border-border rounded-xl p-4">
-          <Users size={18} className="text-secondary mb-2" />
-          <p className="text-2xl font-display font-bold text-foreground">{totalMembers}</p>
-          <p className="text-xs text-muted-foreground uppercase tracking-wider">Miembros</p>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-4">
-          <Calendar size={18} className="text-primary mb-2" />
-          <p className="text-2xl font-display font-bold text-foreground">{totalSessions30d}</p>
-          <p className="text-xs text-muted-foreground uppercase tracking-wider">Sesiones (30d)</p>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-4">
-          <TrendingUp size={18} className="text-accent mb-2" />
-          <p className="text-2xl font-display font-bold text-foreground">{avgAttendance}%</p>
-          <p className="text-xs text-muted-foreground uppercase tracking-wider">Asistencia</p>
-        </div>
+        {[
+          { icon: Users, label: 'Miembros', value: totalMembers, color: 'text-secondary' },
+          { icon: Calendar, label: 'Sesiones (30d)', value: totalSessions30d, color: 'text-primary' },
+          { icon: TrendingUp, label: 'Asistencia', value: `${avgAttendance}%`, color: 'text-accent' },
+        ].map(({ icon: Icon, label, value, color }) => (
+          <div key={label} className="bg-card border border-border rounded-xl p-4">
+            <Icon size={18} className={`${color} mb-2`} />
+            <p className="text-2xl font-display font-bold text-foreground">{value}</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">{label}</p>
+          </div>
+        ))}
       </div>
 
       <Tabs defaultValue="today">
@@ -274,16 +355,38 @@ const isCoach = user?.role === 'coach' || user?.role === 'super_admin';
                   return (
                     <div key={s.id} className="bg-card border border-border rounded-xl p-4">
                       <div className="flex items-center justify-between mb-3">
-                        <div>
+                        <div className="flex-1 min-w-0 mr-2">
                           <h3 className="font-display font-bold text-foreground text-sm">{s.title}</h3>
                           <p className="text-xs text-muted-foreground">
                             {format(new Date(s.start_time), 'HH:mm')} - {format(new Date(s.end_time), 'HH:mm')}
                             {s.groups?.name && ` · ${s.groups.name}`}
                           </p>
                         </div>
-                        <div className="flex items-center gap-1.5 text-xs">
-                          <UserCheck size={13} className="text-secondary" />
-                          <span className="text-foreground font-medium">{confirmed.length}/{s.capacity}</span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {/* Soltar / Eliminar — solo si el coach está asignado */}
+                          {s.coach_id === user?.id && (
+                            <>
+                              <Button variant="ghost" size="icon"
+                                className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                title="Soltar sesión"
+                                disabled={unclaimMutation.isPending}
+                                onClick={() => unclaimMutation.mutate(s)}>
+                                <UserMinus size={14} />
+                              </Button>
+                              {canDelete(s) && (
+                                <Button variant="ghost" size="icon"
+                                  className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                  title="Eliminar sesión"
+                                  onClick={() => setSessionToDelete(s)}>
+                                  <Trash2 size={14} />
+                                </Button>
+                              )}
+                            </>
+                          )}
+                          <div className="flex items-center gap-1.5 text-xs ml-1">
+                            <UserCheck size={13} className="text-secondary" />
+                            <span className="text-foreground font-medium">{confirmed.length}/{s.capacity}</span>
+                          </div>
                         </div>
                       </div>
                       {confirmed.length > 0 && (
@@ -329,12 +432,8 @@ const isCoach = user?.role === 'coach' || user?.role === 'super_admin';
                 <div className="bg-card border border-dashed border-border rounded-xl p-6 text-center flex flex-col items-center gap-3">
                   <Calendar size={24} className="text-muted-foreground" />
                   <p className="text-sm text-muted-foreground">No hay sesiones este día</p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1"
-                    onClick={() => setShowCreateSession(true)}
-                  >
+                  <Button variant="outline" size="sm" className="gap-1"
+                    onClick={() => setShowCreateSession(true)}>
                     <Plus size={13} /> Crear sesión
                   </Button>
                 </div>
@@ -410,7 +509,7 @@ const isCoach = user?.role === 'coach' || user?.role === 'super_admin';
                 <BarChart data={sessionsByType}>
                   <XAxis dataKey="tipo" tick={{ fill: 'hsl(250,10%,55%)', fontSize: 12 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill: 'hsl(250,10%,55%)', fontSize: 12 }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={{ backgroundColor: 'hsl(230,20%,9%)', border: '1px solid hsl(240,12%,18%)', borderRadius: '8px', color: 'hsl(250,20%,96%)' }} />
+                  <RechartsTooltip contentStyle={{ backgroundColor: 'hsl(230,20%,9%)', border: '1px solid hsl(240,12%,18%)', borderRadius: '8px', color: 'hsl(250,20%,96%)' }} />
                   <Bar dataKey="cantidad" fill="hsl(16,100%,58%)" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -430,7 +529,7 @@ const isCoach = user?.role === 'coach' || user?.role === 'super_admin';
                         <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip />
+                    <RechartsTooltip />
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
@@ -444,7 +543,7 @@ const isCoach = user?.role === 'coach' || user?.role === 'super_admin';
                   <BarChart data={weeklyData}>
                     <XAxis dataKey="semana" tick={{ fill: 'hsl(250,10%,55%)', fontSize: 11 }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fill: 'hsl(250,10%,55%)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                    <Tooltip contentStyle={{ backgroundColor: 'hsl(230,20%,9%)', border: '1px solid hsl(240,12%,18%)', borderRadius: '8px', color: 'hsl(250,20%,96%)' }} />
+                    <RechartsTooltip contentStyle={{ backgroundColor: 'hsl(230,20%,9%)', border: '1px solid hsl(240,12%,18%)', borderRadius: '8px', color: 'hsl(250,20%,96%)' }} />
                     <Bar dataKey="sesiones" fill="hsl(16,100%,58%)" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="asistentes" fill="hsl(165,100%,39%)" radius={[4, 4, 0, 0]} />
                   </BarChart>
@@ -462,6 +561,40 @@ const isCoach = user?.role === 'coach' || user?.role === 'super_admin';
           </TabsContent>
         )}
       </Tabs>
+
+      {/* ── Dialog de confirmación para eliminar sesión ───────────── */}
+      <Dialog open={!!sessionToDelete} onOpenChange={(open) => { if (!open) setSessionToDelete(null); }}>
+        <DialogContent className="bg-card border-border max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-display text-destructive">Eliminar sesión</DialogTitle>
+          </DialogHeader>
+          {sessionToDelete && (
+            <div className="space-y-4">
+              <p className="text-sm text-foreground">
+                ¿Estás seguro de que querés eliminar <strong>"{sessionToDelete.title}"</strong>?
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {format(new Date(sessionToDelete.start_time), "EEEE d 'de' MMMM · HH:mm", { locale: es })}
+              </p>
+              {confirmedCount(sessionToDelete) > 0 && (
+                <p className="text-sm text-destructive/80 bg-destructive/10 rounded-lg px-3 py-2">
+                  Se notificará a {confirmedCount(sessionToDelete)} inscripto{confirmedCount(sessionToDelete) !== 1 ? 's' : ''} que la sesión fue cancelada.
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground">Esta acción no se puede deshacer.</p>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setSessionToDelete(null)}>
+                  Cancelar
+                </Button>
+                <Button variant="destructive" disabled={deleteMutation.isPending}
+                  onClick={() => deleteMutation.mutate(sessionToDelete)}>
+                  {deleteMutation.isPending ? 'Eliminando...' : 'Eliminar'}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
