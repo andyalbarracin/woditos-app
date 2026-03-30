@@ -91,10 +91,19 @@ export default function CoachDashboard() {
   const { data: members } = useQuery({
     queryKey: ['coach-members', selectedGroup],
     queryFn: async () => {
-      let query = supabase.from('group_memberships')
+      if (!user?.id) return [];
+      const { data: myClub } = await supabase
+        .from('club_memberships')
+        .select('club_id')
+        .eq('user_id', user.id)
+        .limit(1)
+        .single();
+      if (!myClub) return [];
+
+      let query = supabase.from('club_memberships')
         .select('*, users!user_id(id, email, role, status, profiles(full_name, avatar_url, experience_level))')
-        .eq('membership_status', 'active');
-      if (selectedGroup && selectedGroup !== 'all') query = query.eq('group_id', selectedGroup);
+        .eq('club_id', myClub.club_id)
+        .eq('status', 'active');
       const { data } = await query;
       return data || [];
     },
