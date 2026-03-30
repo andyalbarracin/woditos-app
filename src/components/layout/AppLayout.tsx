@@ -71,7 +71,7 @@ export default function AppLayout() {
   const COLLAPSED_PAD = 26;
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
+    <div className="flex h-dvh bg-background overflow-hidden">
 
       {/* ─── SIDEBAR DESKTOP ─────────────────────────────────────── */}
       <aside
