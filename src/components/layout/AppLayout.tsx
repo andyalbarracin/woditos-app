@@ -4,6 +4,7 @@
  * Última modificación: 2026-03-29
  * Descripción: Layout principal de la app. Sidebar desktop colapsable con iconos
  *   centrados, nav móvil inferior, header con NextSessionBanner y NotificationsBell.
+ *   Mobile: banner flotante dismissible + logout accesible desde avatar en header.
  */
 import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
@@ -18,6 +19,9 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  Popover, PopoverContent, PopoverTrigger,
+} from '@/components/ui/popover';
 import NotificationsBell from '@/components/NotificationsBell';
 import NextSessionBanner from '@/components/NextSessionBanner';
 
@@ -45,6 +49,7 @@ export default function AppLayout() {
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileBannerDismissed, setMobileBannerDismissed] = useState(false);
 
   const isCoach = user?.role === 'coach' || user?.role === 'super_admin';
 
@@ -62,8 +67,7 @@ export default function AppLayout() {
     `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium w-full transition-all
      ${isActive ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`;
 
-  /* ── SIDEBAR_W: 72px | PAD: 14px cada lado | ITEM: 44px ─────── */
-  /* ── Cambiar PAD para mover iconos: +valor = más al centro ───── */
+  /* ── SIDEBAR_W: 72px | PAD controla centrado de iconos ───────── */
   const COLLAPSED_PAD = 26;
 
   return (
@@ -97,7 +101,6 @@ export default function AppLayout() {
         </div>
 
         {/* ── Navegación ─────────────────────────────────────────── */}
-        {/* LÍNEA CLAVE: paddingLeft/paddingRight controlan el centrado */}
         <nav
           className="flex-1 overflow-hidden"
           style={collapsed
@@ -260,7 +263,7 @@ export default function AppLayout() {
       {/* ─── CONTENIDO PRINCIPAL ─────────────────────────────────── */}
       <main className="flex-1 flex flex-col overflow-hidden">
 
-        {/* Header desktop */}
+        {/* Header desktop — sin cambios */}
         <header className="hidden md:flex items-center px-6 py-3 border-b border-border bg-card/50 h-14 shrink-0">
           <div className="flex-1 flex items-center">
             <NextSessionBanner />
@@ -285,23 +288,88 @@ export default function AppLayout() {
           </div>
         </header>
 
-        {/* Header móvil */}
-        <header className="md:hidden flex items-center px-4 py-3 border-b border-border bg-card shrink-0">
-          <div className="flex items-center gap-2 flex-1">
-            <img src={woditosLogo} alt="Woditos" className="h-8" />
-            <span className="font-display font-bold text-foreground">Woditos</span>
+        {/* ── Header móvil ───────────────────────────────────────── */}
+        <header className="md:hidden flex items-center px-3 py-2.5 border-b border-border bg-card shrink-0">
+          {/* Izquierda: logo */}
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <img src={woditosLogo} alt="Woditos" className="h-7 shrink-0" />
+            <span className="font-display font-bold text-foreground text-sm truncate">Woditos</span>
           </div>
+
+          {/* Centro: club badge */}
           {clubMembership && (
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded-md border border-border bg-card/80 text-xs mx-2">
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded-md border border-border bg-card/80 text-xs mx-2 shrink-0">
               <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-              <span className="font-medium text-foreground max-w-[90px] truncate">
+              <span className="font-medium text-foreground max-w-[80px] truncate">
                 {clubMembership.club.name}
               </span>
             </div>
           )}
-          <div className="flex items-center gap-2">
-            <NextSessionBanner />
+
+          {/* Derecha: campana + avatar con menú */}
+          <div className="flex items-center gap-1 shrink-0">
             <NotificationsBell />
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="flex items-center justify-center h-9 w-9 rounded-full focus:outline-none focus:ring-2 focus:ring-primary/50">
+                  <Avatar className="h-8 w-8">
+                    {profile?.avatar_url && <AvatarImage src={profile.avatar_url} />}
+                    <AvatarFallback className="bg-primary/20 text-primary text-[10px] font-bold">
+                      {profile?.full_name?.slice(0, 2).toUpperCase() || '?'}
+                    </AvatarFallback>
+                  </Avatar>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                className="w-56 p-0 bg-card border-border"
+                align="end"
+                sideOffset={8}
+              >
+                {/* Info del usuario */}
+                <div className="px-4 py-3 border-b border-border">
+                  <p className="text-sm font-medium text-foreground truncate">
+                    {profile?.full_name || 'Usuario'}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {formatRole(user?.role)}
+                  </p>
+                </div>
+
+                {/* Acciones */}
+                <div className="p-1.5">
+                  <button
+                    onClick={() => navigate('/perfil')}
+                    className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm text-foreground hover:bg-muted transition-colors"
+                  >
+                    <User size={16} className="text-muted-foreground" />
+                    Mi perfil
+                  </button>
+
+                  {/* Theme toggle */}
+                  <button
+                    onClick={toggleTheme}
+                    className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm text-foreground hover:bg-muted transition-colors"
+                  >
+                    {theme === 'dark'
+                      ? <Sun size={16} className="text-muted-foreground" />
+                      : <Moon size={16} className="text-muted-foreground" />
+                    }
+                    {theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+                  </button>
+
+                  <div className="border-t border-border my-1" />
+
+                  <button
+                    onClick={handleSignOut}
+                    className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm text-destructive hover:bg-destructive/10 transition-colors"
+                  >
+                    <LogOut size={16} />
+                    Cerrar sesión
+                  </button>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
         </header>
 
@@ -316,6 +384,19 @@ export default function AppLayout() {
             </footer>
           </div>
         </div>
+
+        {/* ── Banner flotante mobile — próxima sesión ─────────────
+             NextSessionBanner variant="mobile-float" retorna null si
+             no hay sesión, así no queda un contenedor vacío.
+        ──────────────────────────────────────────────────────────── */}
+        {!mobileBannerDismissed && (
+          <div className="md:hidden fixed bottom-[68px] right-3 z-40">
+            <NextSessionBanner
+              variant="mobile-float"
+              onDismiss={() => setMobileBannerDismissed(true)}
+            />
+          </div>
+        )}
 
         {/* Nav móvil inferior */}
         <nav className="md:hidden flex items-center justify-around border-t border-border bg-card py-2 shrink-0">
