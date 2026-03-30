@@ -190,10 +190,7 @@ export default function Register() {
 
         await supabase.from('users').update({ role: 'club_admin' }).eq('id', authUser.id);
         await supabase.from('club_memberships').insert({
-          club_id: newClub.id,
-          user_id: authUser.id,
-          role: 'club_admin',
-        });
+        club_id: newClub.id, user_id: authUser.id, role: 'club_admin', status: 'active',        });
 
         toast.success(`¡Club "${clubName}" creado! Bienvenido a Woditos.`);
 
@@ -208,20 +205,17 @@ export default function Register() {
 
         if (club) {
           await supabase.from('club_memberships').insert({
-            club_id: club.id,
-            user_id: authUser.id,
-            role: 'member',
-          });
+        club_id: club.id, user_id: authUser.id, role: 'member', status: 'active',        });
           toast.success(`¡Te uniste a "${club.name}"!`);
         } else {
           toast.error('Código de club inválido. Podés unirte más tarde desde tu perfil.');
         }
 
       } else {
-        toast.success('¡Cuenta creada! Revisá tu email para confirmar.');
+        toast.success('¡Cuenta creada! Ya podés iniciar sesión.');
       }
 
-      navigate('/login');
+      window.location.href = '/inicio';
     } catch (err: any) {
       toast.error(err.message || 'Error al registrar');
     } finally {

@@ -79,9 +79,7 @@ export default function Onboarding() {
         }
 
         await supabase.from('club_memberships').insert({
-          club_id: club.id,
-          user_id: user.id,
-          role: 'member',
+          club_id: club.id, user_id: user.id, role: 'member', status: 'active',
         });
         toast.success(`¡Te uniste a "${club.name}"!`);
 
@@ -133,7 +131,7 @@ export default function Onboarding() {
 
         await supabase.from('users').update({ role: 'club_admin' }).eq('id', user.id);
         await supabase.from('club_memberships').insert({
-          club_id: newClub.id, user_id: user.id, role: 'club_admin',
+          club_id: newClub.id, user_id: user.id, role: 'club_admin', status: 'active',
         });
         toast.success(`¡Club "${clubName.trim()}" creado!`);
 
