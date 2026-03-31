@@ -296,8 +296,7 @@ export default function CoachDashboard() {
       </div>
 
       <Tabs defaultValue="today">
-        <TabsList className="bg-card border border-border w-full overflow-x-auto justify-start">
-          <TabsTrigger value="today" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+<TabsList className="bg-card border border-border grid grid-cols-2 sm:grid-cols-4 h-auto gap-1 p-1">          <TabsTrigger value="today" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <Calendar size={16} /> Agenda
           </TabsTrigger>
           <TabsTrigger value="members" className="gap-2 data-[state=active]:bg-secondary data-[state=active]:text-secondary-foreground">
