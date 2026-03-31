@@ -144,9 +144,12 @@ export default function Login() {
 
             <div className="bg-muted/50 rounded-lg p-3 space-y-1 text-xs text-muted-foreground">
               <p className="font-semibold text-foreground">👤 Usuarios de prueba:</p>
+              <p>Perfiles de Miembros: </p>
               <p>📧 maria@woditos.app · 🔑 Woditos2026!</p>
               <p>📧 juan@woditos.app · 🔑 Woditos2026!</p>
               <p>📧 sofia@woditos.app · 🔑 Woditos2026!</p>
+              <p>Perfil de Coach: </p>
+              <p>📧 coach@woditos.app · 🔑 Woditos2026!</p>
             </div>
 
             <p className="text-center text-sm text-muted-foreground">
