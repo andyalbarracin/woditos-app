@@ -86,8 +86,8 @@ export default function Login() {
           <div className="w-full max-w-sm space-y-6">
 
             <div className="text-center">
-              <img src={woditosLogo} alt="Woditos" className="h-16 mx-auto mb-6" />
-              <h1 className="font-display text-2xl font-bold text-foreground">Iniciar Sesión</h1>
+            <img src={woditosLogo} alt="Woditos" className="h-20 mx-auto mb-6" />              
+            <h1 className="font-display text-2xl font-bold text-foreground">Iniciar Sesión</h1>
               <p className="text-muted-foreground mt-2">Bienvenido de vuelta a tu crew</p>
             </div>
 

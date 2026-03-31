@@ -12,7 +12,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import {
   Home, Calendar, Users, BookOpen, User, LogOut,
-  Dumbbell, Sun, Moon, ClipboardCheck, Menu,
+  Dumbbell, Sun, Moon, ClipboardCheck, Menu, LifeBuoy,
 } from 'lucide-react';
 import woditosLogo from '@/assets/woditos-logo.png';
 import { Button } from '@/components/ui/button';
@@ -171,6 +171,29 @@ export default function AppLayout() {
             )}
           </div>
         </nav>
+        {/* ── Soporte ────────────────────────────────────────────── */}
+        {collapsed ? (
+          <div className="shrink-0" style={{ display: 'flex', justifyContent: 'center', paddingTop: 4, paddingBottom: 4 }}>
+            <Tooltip delayDuration={0}>
+              <TooltipTrigger asChild>
+                <NavLink to="/soporte"
+                  className={({ isActive }) => collapsedItem(isActive)}
+                  style={{ display: 'flex', height: 44 }}>
+                  <LifeBuoy size={22} />
+                </NavLink>
+              </TooltipTrigger>
+              <TooltipContent side="right" sideOffset={6}>Ayuda</TooltipContent>
+            </Tooltip>
+          </div>
+        ) : (
+          <div className="shrink-0 px-[10px] pb-1">
+            <NavLink to="/soporte"
+              className={({ isActive }) => expandedItem(isActive)}>
+              <LifeBuoy size={18} />
+              <span>Ayuda</span>
+            </NavLink>
+          </div>
+        )}
 
         {/* ── Theme toggle ───────────────────────────────────────── */}
         {collapsed ? (

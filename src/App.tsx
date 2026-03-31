@@ -15,6 +15,7 @@ import { AuthProvider, useAuth } from '@/hooks/useAuth';
 import { ThemeProvider } from '@/hooks/useTheme';
 import AppLayout from '@/components/layout/AppLayout';
 
+
 // Pages
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
@@ -30,6 +31,8 @@ import Profile from '@/pages/Profile';
 import CoachDashboard from '@/pages/CoachDashboard';
 import Attendance from '@/pages/Attendance';
 import NotFound from '@/pages/NotFound';
+import Support from '@/pages/Support';
+
 
 // Feedback modal
 import SessionFeedbackModal from '@/components/SessionFeedbackModal';
@@ -138,6 +141,7 @@ function App() {
                       <Route path="/perfil" element={<Profile />} />
                       <Route path="/asistencia" element={<Attendance />} />
                       <Route path="/coach" element={<CoachRoute><CoachDashboard /></CoachRoute>} />
+                      <Route path="/soporte" element={<Support />} />
                     </Route>
                   </Route>
                 </Route>
