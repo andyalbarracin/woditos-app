@@ -24,6 +24,8 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { QRCodeSVG } from 'qrcode.react';
 import { profileUpdateSchema } from '@/lib/validation';
+import FeedbackHistory from '@/components/profile/FeedbackHistory';
+
 
 function formatRole(role: string | undefined): string {
   if (!role) return 'Miembro';
@@ -575,7 +577,8 @@ export default function ProfilePage() {
           </div>
         </div>
       )}
-
+      {/* Feedback del miembro */}
+      {!isCoach && <FeedbackHistory />}
       {/* Achievements */}
       <div>
         <h3 className="font-display text-lg font-bold text-foreground mb-3">🏆 Logros</h3>

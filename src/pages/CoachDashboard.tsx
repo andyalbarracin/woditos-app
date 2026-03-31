@@ -30,6 +30,7 @@ import {
 } from 'recharts';
 import CreateSessionDialog from '@/components/CreateSessionDialog';
 import InviteCoach from '@/components/InviteCoach';
+import FeedbackAnalytics from '@/components/dashboard/FeedbackAnalytics';
 
 const PIE_COLORS = ['hsl(165,100%,39%)', 'hsl(17,81%,52%)', 'hsl(45,100%,60%)', 'hsl(217,47%,55%)'];
 
@@ -561,6 +562,7 @@ export default function CoachDashboard() {
               )}
             </div>
           </div>
+          <FeedbackAnalytics />
         </TabsContent>
 
         {isCoach && (
