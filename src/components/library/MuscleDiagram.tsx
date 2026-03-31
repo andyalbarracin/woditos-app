@@ -65,7 +65,7 @@ export default function MuscleDiagram({ muscleGroup, category }: MuscleDiagramPr
       : 'hsl(240 12% 18%)';
 
   return (
-    <div className="flex gap-8 justify-center items-start py-4">
+    <div className="flex flex-wrap gap-4 sm:gap-8 justify-center items-start py-4">
       {/* ─── VISTA FRONTAL ─────────────────────────────────────────────── */}
       <div className="text-center">
         <p className="text-xs text-muted-foreground mb-3 uppercase tracking-wider font-medium">Frontal</p>
