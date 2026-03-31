@@ -1,17 +1,16 @@
 /**
  * Archivo: FeedbackAnalytics.tsx
  * Ruta: src/components/dashboard/FeedbackAnalytics.tsx
- * Última modificación: 2026-03-30
+ * Última modificación: 2026-03-31
  * Descripción: Resumen visual del feedback de sesiones para coaches.
- *   Muestra humor promedio, distribución de ratings, incomodidades frecuentes
- *   y comentarios recientes. Se integra en la tab Analytics del CoachDashboard.
+ *   Fix: join profiles separado para evitar bloqueo de RLS en relación embebida.
  */
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { MessageSquare, TrendingUp } from 'lucide-react';
+import { MessageSquare } from 'lucide-react';
 
 const RATING_EMOJI: Record<number, { emoji: string; label: string }> = {
   1: { emoji: '😞', label: 'Muy mal' },
@@ -46,40 +45,51 @@ export default function FeedbackAnalytics() {
     queryFn: async () => {
       if (!user?.id) return null;
 
-      /* Traer feedback de sesiones que este coach impartió (últimos 30 días) */
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-      const { data: sessionIds } = await supabase
+      // 1. IDs de sesiones del coach en los últimos 30 días
+      const { data: sessionRows } = await supabase
         .from('sessions')
-        .select('id')
+        .select('id, title, start_time')
         .eq('coach_id', user.id)
         .gte('start_time', thirtyDaysAgo.toISOString());
 
-      if (!sessionIds?.length) return null;
+      if (!sessionRows?.length) return null;
 
-      const ids = sessionIds.map(s => s.id);
+      const sessionMap: Record<string, { title: string; start_time: string }> = {};
+      sessionRows.forEach(s => { sessionMap[s.id] = { title: s.title, start_time: s.start_time }; });
+      const ids = Object.keys(sessionMap);
 
+      // 2. Feedbacks — sin join a profiles
       const { data: feedbacks } = await supabase
         .from('session_feedback')
-        .select('rating, discomforts, note, created_at, sessions!inner(title, start_time), profiles!user_id(full_name)')
+        .select('id, session_id, user_id, rating, discomforts, note, created_at')
         .in('session_id', ids)
         .order('created_at', { ascending: false });
 
       if (!feedbacks?.length) return null;
 
-      /* Calcular métricas */
-      const ratings = feedbacks.map((f: any) => f.rating);
-      const avg = ratings.reduce((a: number, b: number) => a + b, 0) / ratings.length;
+      // 3. Perfiles de los miembros que dieron feedback (query separada)
+      const memberIds = [...new Set(feedbacks.map(f => f.user_id))];
+      const { data: profileRows } = await supabase
+        .from('profiles')
+        .select('user_id, full_name')
+        .in('user_id', memberIds);
 
-      /* Distribución */
+      const profileMap: Record<string, string> = {};
+      profileRows?.forEach(p => { profileMap[p.user_id] = p.full_name; });
+
+      // 4. Calcular métricas
+      const ratings = feedbacks.map(f => f.rating);
+      const avg = ratings.reduce((a, b) => a + b, 0) / ratings.length;
+
       const distribution: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-      ratings.forEach((r: number) => { distribution[r] = (distribution[r] || 0) + 1; });
+      ratings.forEach(r => { distribution[r] = (distribution[r] || 0) + 1; });
       const maxCount = Math.max(...Object.values(distribution), 1);
 
-      /* Incomodidades frecuentes */
       const discomfortCounts: Record<string, number> = {};
-      feedbacks.forEach((f: any) => {
+      feedbacks.forEach(f => {
         ((f.discomforts || []) as string[]).forEach(d => {
           discomfortCounts[d] = (discomfortCounts[d] || 0) + 1;
         });
@@ -88,16 +98,15 @@ export default function FeedbackAnalytics() {
         .sort((a, b) => b[1] - a[1])
         .slice(0, 4);
 
-      /* Últimos comentarios */
       const recentNotes = feedbacks
-        .filter((f: any) => f.note)
+        .filter(f => f.note)
         .slice(0, 5)
-        .map((f: any) => ({
+        .map(f => ({
           note: f.note,
           rating: f.rating,
-          memberName: f.profiles?.full_name || 'Miembro',
-          sessionTitle: f.sessions?.title || 'Sesión',
-          date: f.sessions?.start_time,
+          memberName: profileMap[f.user_id] || 'Miembro',
+          sessionTitle: sessionMap[f.session_id]?.title || 'Sesión',
+          date: sessionMap[f.session_id]?.start_time,
         }));
 
       return {
@@ -138,14 +147,12 @@ export default function FeedbackAnalytics() {
 
       {/* Promedio + distribución */}
       <div className="flex items-start gap-6">
-        {/* Promedio */}
         <div className="text-center shrink-0">
           <span className="text-5xl">{avgEmoji.emoji}</span>
           <p className="text-2xl font-display font-bold text-foreground mt-1">{data.avg}</p>
           <p className="text-xs text-muted-foreground">{avgEmoji.label}</p>
         </div>
 
-        {/* Distribución horizontal */}
         <div className="flex-1 space-y-1.5">
           {[5, 4, 3, 2, 1].map(r => {
             const count = data.distribution[r] || 0;
@@ -196,7 +203,7 @@ export default function FeedbackAnalytics() {
             Últimos comentarios
           </p>
           <div className="space-y-2">
-            {data.recentNotes.map((n: any, i: number) => (
+            {data.recentNotes.map((n, i) => (
               <div key={i} className="border border-border rounded-lg p-3">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-lg">{RATING_EMOJI[n.rating]?.emoji || '😐'}</span>

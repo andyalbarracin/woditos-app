@@ -526,6 +526,7 @@ export default function CoachDashboard() {
               <p className="text-muted-foreground text-center py-8">Sin datos aún</p>
             )}
           </div>
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-card border border-border rounded-xl p-5">
               <h3 className="font-display font-bold text-foreground mb-4">Distribución de Asistencia</h3>
