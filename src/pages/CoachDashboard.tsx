@@ -269,8 +269,8 @@ export default function CoachDashboard() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <div>
+<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
           <h1 className="font-display text-3xl font-extrabold text-foreground">Coach Panel</h1>
           <p className="text-sm text-muted-foreground">Gestiona tus crews y sesiones</p>
         </div>
@@ -296,7 +296,7 @@ export default function CoachDashboard() {
       </div>
 
       <Tabs defaultValue="today">
-        <TabsList className="bg-card border border-border">
+        <TabsList className="bg-card border border-border w-full overflow-x-auto justify-start">
           <TabsTrigger value="today" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <Calendar size={16} /> Agenda
           </TabsTrigger>
