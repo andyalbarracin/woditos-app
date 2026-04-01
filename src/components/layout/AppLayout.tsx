@@ -403,7 +403,7 @@ export default function AppLayout() {
               <Outlet />
             </div>
             <footer className="mt-8 py-4 text-center text-xs text-muted-foreground border-t border-border">
-              © 2026 Woditos. Todos los derechos reservados.
+              © 2026 Woditos V1.0 - Todos los derechos reservados.
             </footer>
           </div>
         </div>
