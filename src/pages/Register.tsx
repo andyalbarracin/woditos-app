@@ -188,9 +188,12 @@ export default function Register() {
 
         if (clubError) throw clubError;
 
-        await supabase.from('users').update({ role: 'coach' }).eq('id', authUser.id);
         await supabase.from('club_memberships').insert({
-        club_id: newClub.id, user_id: authUser.id, role: 'club_admin', status: 'active',        });
+          club_id: newClub.id, user_id: authUser.id, role: 'club_admin', status: 'active',
+        });
+        // Delay para asegurar que cualquier trigger de DB haya terminado antes de setear el rol
+        await new Promise(res => setTimeout(res, 500));
+        await supabase.from('users').update({ role: 'coach' }).eq('id', authUser.id);
 
         toast.success(`¡Club "${clubName}" creado! Bienvenido a Woditos.`);
 
