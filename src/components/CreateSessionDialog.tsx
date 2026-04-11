@@ -1,11 +1,12 @@
 /**
  * Archivo: CreateSessionDialog.tsx
  * Ruta: src/components/CreateSessionDialog.tsx
- * Última modificación: 2026-03-29
+ * Última modificación: 2026-04-10
  * Descripción: Modal reutilizable para crear sesiones.
  *   - Valida que la sesión no sea en el pasado
  *   - Calendar date picker, hora 24h, duración +/- 15min
  *   - Asigna club_id y created_by del coach al crear
+ *   v2.2: grupos filtrados por club_id del coach (no muestra crews de otros clubs)
  */
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -62,12 +63,21 @@ export default function CreateSessionDialog({ open, onOpenChange, initialDate, o
   const [newCrewLocation, setNewCrewLocation] = useState('');
   const [creating, setCreating]               = useState(false);
 
+  const clubId = clubMembership?.club_id;
+
+  // FIX v2.2: filtrar grupos por club_id del coach
   const { data: groups } = useQuery({
-    queryKey: ['session-dialog-groups'],
+    queryKey: ['session-dialog-groups', clubId],
     queryFn: async () => {
-      const { data } = await supabase.from('groups').select('id, name').order('name');
+      if (!clubId) return [];
+      const { data } = await (supabase as any)
+        .from('groups')
+        .select('id, name')
+        .eq('club_id', clubId)
+        .order('name');
       return data || [];
     },
+    enabled: !!clubId,
   });
 
   const startTime = `${startHour}:${startMinute}`;
@@ -99,12 +109,12 @@ export default function CreateSessionDialog({ open, onOpenChange, initialDate, o
     if (crewMode === 'new') {
       if (!newCrewName.trim()) { toast.error('Ingresá el nombre del crew'); setCreating(false); return; }
       const { data: newGroup, error: groupError } = await supabase.from('groups').insert({
-        name: sanitizeText(newCrewName.trim()),
+        name:       sanitizeText(newCrewName.trim()),
         group_type: newCrewType || 'functional',
-        location: newCrewLocation || null,
-        capacity: parseInt(capacity) || 20,
-        coach_id: user!.id,
-        club_id: clubMembership?.club_id || null,
+        location:   newCrewLocation || null,
+        capacity:   parseInt(capacity) || 20,
+        coach_id:   user!.id,
+        club_id:    clubId || null,
       }).select('id').single();
       if (groupError) { toast.error('No se pudo crear el crew'); setCreating(false); return; }
       groupId = newGroup.id;
@@ -119,7 +129,7 @@ export default function CreateSessionDialog({ open, onOpenChange, initialDate, o
       group_id:     groupId,
       coach_id:     user!.id,
       created_by:   user!.id,
-      club_id:      clubMembership?.club_id || null,
+      club_id:      clubId || null,
       title:        sanitizeText(title) || 'Sesión',
       session_type: sessionType,
       start_time:   startISO,
@@ -177,7 +187,10 @@ export default function CreateSessionDialog({ open, onOpenChange, initialDate, o
                   <SelectValue placeholder="Seleccionar crew" />
                 </SelectTrigger>
                 <SelectContent>
-                  {groups?.map((g: any) => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
+                  {groups && groups.length > 0
+                    ? groups.map((g: any) => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)
+                    : <SelectItem value="__none" disabled>No hay crews en tu club</SelectItem>
+                  }
                 </SelectContent>
               </Select>
             ) : (

@@ -1,10 +1,10 @@
 /**
  * Archivo: AppLayout.tsx
  * Ruta: src/components/layout/AppLayout.tsx
- * Última modificación: 2026-03-29
- * Descripción: Layout principal de la app. Sidebar desktop colapsable con iconos
- *   centrados, nav móvil inferior, header con NextSessionBanner y NotificationsBell.
- *   Mobile: banner flotante dismissible + logout accesible desde avatar en header.
+ * Última modificación: 2026-04-08
+ * Descripción: Layout principal. Sidebar desktop colapsable, nav móvil inferior.
+ *   v2.0: agrega "Rutinas" (ListChecks → /rutinas) en coachItems. Footer V2.0.
+ *   v2.1: renombra "Asistencias" → "Sesiones" en coachItems.
  */
 import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
@@ -12,30 +12,31 @@ import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import {
   Home, Calendar, Users, BookOpen, User, LogOut,
-  Dumbbell, Sun, Moon, ClipboardCheck, Menu, LifeBuoy,
+  Dumbbell, Sun, Moon, ClipboardCheck, Menu, LifeBuoy, ListChecks,
 } from 'lucide-react';
 import woditosLogo from '@/assets/woditos-logo.png';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import {
-  Popover, PopoverContent, PopoverTrigger,
-} from '@/components/ui/popover';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import NotificationsBell from '@/components/NotificationsBell';
 import NextSessionBanner from '@/components/NextSessionBanner';
 
 const navItems = [
-  { to: '/',           icon: Home,          label: 'Inicio',      end: true },
+  { to: '/',           icon: Home,          label: 'Inicio',      end: true  },
   { to: '/agenda',     icon: Calendar,      label: 'Agenda',      end: false },
   { to: '/comunidad',  icon: Users,         label: 'Crew',        end: false },
   { to: '/biblioteca', icon: BookOpen,      label: 'Wiki',        end: false },
   { to: '/perfil',     icon: User,          label: 'Perfil',      end: false },
 ];
 
+// v2.1: label cambiado de 'Asistencias' → 'Sesiones'
+// (antes era: { to: '/asistencia', icon: ClipboardCheck, label: 'Asistencias', end: false })
 const coachItems = [
   { to: '/coach',      icon: Dumbbell,       label: 'Coach Panel', end: false },
-  { to: '/asistencia', icon: ClipboardCheck, label: 'Asistencias', end: false },
+  { to: '/asistencia', icon: ClipboardCheck, label: 'Sesiones',    end: false },
+  { to: '/rutinas',    icon: ListChecks,     label: 'Rutinas',     end: false },
 ];
 
 function formatRole(role: string | undefined): string {
@@ -52,22 +53,18 @@ export default function AppLayout() {
   const [mobileBannerDismissed, setMobileBannerDismissed] = useState(false);
 
   const isCoach = user?.role === 'coach' || user?.role === 'super_admin';
+  const handleSignOut = async () => { await signOut(); navigate('/login'); };
 
-  const handleSignOut = async () => {
-    await signOut();
-    navigate('/login');
-  };
-
-  /* ── Clases para ítems de navegación ─────────────────────────── */
   const collapsedItem = (isActive: boolean) =>
-    `flex items-center justify-center rounded-xl transition-colors
-     ${isActive ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`;
+    `flex items-center justify-center rounded-xl transition-colors ${
+      isActive ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+    }`;
 
   const expandedItem = (isActive: boolean) =>
-    `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium w-full transition-all
-     ${isActive ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`;
+    `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium w-full transition-all ${
+      isActive ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+    }`;
 
-  /* ── SIDEBAR_W: 72px | PAD controla centrado de iconos ───────── */
   const COLLAPSED_PAD = 26;
 
   return (
@@ -78,61 +75,43 @@ export default function AppLayout() {
         style={{ width: collapsed ? 72 : 256 }}
         className="hidden md:flex flex-col border-r border-border bg-card transition-all duration-200 ease-in-out overflow-hidden shrink-0"
       >
-        {/* ── Logo + toggle ──────────────────────────────────────── */}
-        <div
-          className="flex items-center border-b border-border h-14 shrink-0"
+        {/* Logo + toggle */}
+        <div className="flex items-center border-b border-border h-14 shrink-0"
           style={collapsed
             ? { justifyContent: 'center' }
-            : { justifyContent: 'space-between', paddingLeft: 12, paddingRight: 12 }
-          }
-        >
+            : { justifyContent: 'space-between', paddingLeft: 12, paddingRight: 12 }}>
           {!collapsed && (
             <div className="flex items-center gap-2 overflow-hidden">
               <img src={woditosLogo} alt="Woditos" className="h-7 shrink-0" />
               <span className="font-display font-bold text-foreground truncate">Woditos</span>
             </div>
           )}
-          <button
-            onClick={() => setCollapsed(c => !c)}
-            className="flex items-center justify-center h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all shrink-0"
-          >
+          <button onClick={() => setCollapsed(c => !c)}
+            className="flex items-center justify-center h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all shrink-0">
             <Menu size={20} />
           </button>
         </div>
 
-        {/* ── Navegación ─────────────────────────────────────────── */}
-        <nav
-          className="flex-1 overflow-hidden"
+        {/* Navegación */}
+        <nav className="flex-1 overflow-hidden"
           style={collapsed
             ? { paddingTop: 12, paddingBottom: 8, paddingLeft: COLLAPSED_PAD, paddingRight: COLLAPSED_PAD }
-            : { padding: '8px 10px' }
-          }
-        >
+            : { padding: '8px 10px' }}>
           <div className="flex flex-col gap-1">
             {navItems.map(({ to, icon: Icon, label, end }) =>
               collapsed ? (
                 <Tooltip key={to} delayDuration={0}>
                   <TooltipTrigger asChild>
-                    <NavLink
-                      to={to}
-                      end={end}
-                      className={({ isActive }) => collapsedItem(isActive)}
-                      style={{ display: 'flex', height: 44 }}
-                    >
+                    <NavLink to={to} end={end} className={({ isActive }) => collapsedItem(isActive)}
+                      style={{ display: 'flex', height: 44 }}>
                       <Icon size={22} />
                     </NavLink>
                   </TooltipTrigger>
                   <TooltipContent side="right" sideOffset={6}>{label}</TooltipContent>
                 </Tooltip>
               ) : (
-                <NavLink
-                  key={to}
-                  to={to}
-                  end={end}
-                  className={({ isActive }) => expandedItem(isActive)}
-                >
-                  <Icon size={18} />
-                  <span>{label}</span>
+                <NavLink key={to} to={to} end={end} className={({ isActive }) => expandedItem(isActive)}>
+                  <Icon size={18} /><span>{label}</span>
                 </NavLink>
               )
             )}
@@ -144,26 +123,16 @@ export default function AppLayout() {
                   collapsed ? (
                     <Tooltip key={to} delayDuration={0}>
                       <TooltipTrigger asChild>
-                        <NavLink
-                          to={to}
-                          end={end}
-                          className={({ isActive }) => collapsedItem(isActive)}
-                          style={{ display: 'flex', height: 44 }}
-                        >
+                        <NavLink to={to} end={end} className={({ isActive }) => collapsedItem(isActive)}
+                          style={{ display: 'flex', height: 44 }}>
                           <Icon size={22} />
                         </NavLink>
                       </TooltipTrigger>
                       <TooltipContent side="right" sideOffset={6}>{label}</TooltipContent>
                     </Tooltip>
                   ) : (
-                    <NavLink
-                      key={to}
-                      to={to}
-                      end={end}
-                      className={({ isActive }) => expandedItem(isActive)}
-                    >
-                      <Icon size={18} />
-                      <span>{label}</span>
+                    <NavLink key={to} to={to} end={end} className={({ isActive }) => expandedItem(isActive)}>
+                      <Icon size={18} /><span>{label}</span>
                     </NavLink>
                   )
                 )}
@@ -171,14 +140,13 @@ export default function AppLayout() {
             )}
           </div>
         </nav>
-        {/* ── Soporte ────────────────────────────────────────────── */}
+
+        {/* Soporte */}
         {collapsed ? (
           <div className="shrink-0" style={{ display: 'flex', justifyContent: 'center', paddingTop: 4, paddingBottom: 4 }}>
             <Tooltip delayDuration={0}>
               <TooltipTrigger asChild>
-                <NavLink to="/soporte"
-                  className={({ isActive }) => collapsedItem(isActive)}
-                  style={{ display: 'flex', height: 44 }}>
+                <NavLink to="/soporte" className={({ isActive }) => collapsedItem(isActive)} style={{ display: 'flex', height: 44 }}>
                   <LifeBuoy size={22} />
                 </NavLink>
               </TooltipTrigger>
@@ -187,25 +155,21 @@ export default function AppLayout() {
           </div>
         ) : (
           <div className="shrink-0 px-[10px] pb-1">
-            <NavLink to="/soporte"
-              className={({ isActive }) => expandedItem(isActive)}>
-              <LifeBuoy size={18} />
-              <span>Ayuda</span>
+            <NavLink to="/soporte" className={({ isActive }) => expandedItem(isActive)}>
+              <LifeBuoy size={18} /><span>Ayuda</span>
             </NavLink>
           </div>
         )}
 
-        {/* ── Theme toggle ───────────────────────────────────────── */}
+        {/* Theme toggle */}
         {collapsed ? (
           <div className="border-t border-border shrink-0"
             style={{ display: 'flex', justifyContent: 'center', paddingTop: 8, paddingBottom: 8 }}>
             <Tooltip delayDuration={0}>
               <TooltipTrigger asChild>
-                <button
-                  onClick={toggleTheme}
+                <button onClick={toggleTheme}
                   className="flex items-center justify-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
-                  style={{ height: 44, width: 44 }}
-                >
+                  style={{ height: 44, width: 44 }}>
                   {theme === 'dark' ? <Moon size={22} /> : <Sun size={22} />}
                 </button>
               </TooltipTrigger>
@@ -226,7 +190,7 @@ export default function AppLayout() {
           </div>
         )}
 
-        {/* ── Perfil + logout ────────────────────────────────────── */}
+        {/* Perfil + logout */}
         {collapsed ? (
           <div className="border-t border-border shrink-0"
             style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, paddingTop: 12, paddingBottom: 12 }}>
@@ -243,10 +207,8 @@ export default function AppLayout() {
             </Tooltip>
             <Tooltip delayDuration={0}>
               <TooltipTrigger asChild>
-                <button
-                  onClick={handleSignOut}
-                  className="flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-destructive hover:bg-muted transition-all"
-                >
+                <button onClick={handleSignOut}
+                  className="flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-destructive hover:bg-muted transition-all">
                   <LogOut size={18} />
                 </button>
               </TooltipTrigger>
@@ -263,19 +225,11 @@ export default function AppLayout() {
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">
-                  {profile?.full_name || 'Usuario'}
-                </p>
-                <p className="text-xs text-muted-foreground truncate">
-                  {formatRole(user?.role)}
-                </p>
+                <p className="text-sm font-medium text-foreground truncate">{profile?.full_name || 'Usuario'}</p>
+                <p className="text-xs text-muted-foreground truncate">{formatRole(user?.role)}</p>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleSignOut}
-                className="text-muted-foreground hover:text-destructive shrink-0"
-              >
+              <Button variant="ghost" size="icon" onClick={handleSignOut}
+                className="text-muted-foreground hover:text-destructive shrink-0">
                 <LogOut size={16} />
               </Button>
             </div>
@@ -286,18 +240,14 @@ export default function AppLayout() {
       {/* ─── CONTENIDO PRINCIPAL ─────────────────────────────────── */}
       <main className="flex-1 flex flex-col overflow-hidden">
 
-        {/* Header desktop — sin cambios */}
+        {/* Header desktop */}
         <header className="hidden md:flex items-center px-6 py-3 border-b border-border bg-card/50 h-14 shrink-0">
-          <div className="flex-1 flex items-center">
-            <NextSessionBanner />
-          </div>
+          <div className="flex-1 flex items-center"><NextSessionBanner /></div>
           <div className="flex items-center justify-center">
             {clubMembership ? (
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-card text-sm">
                 <div className="w-2 h-2 rounded-full bg-primary" />
-                <span className="font-medium text-foreground max-w-[160px] truncate">
-                  {clubMembership.club.name}
-                </span>
+                <span className="font-medium text-foreground max-w-[160px] truncate">{clubMembership.club.name}</span>
                 {clubMembership.club.plan !== 'free' && (
                   <span className="text-xs text-muted-foreground">
                     · {clubMembership.club.plan === 'pro_plus' ? 'Pro+' : 'Pro'}
@@ -306,33 +256,23 @@ export default function AppLayout() {
               </div>
             ) : <div className="w-32" />}
           </div>
-          <div className="flex-1 flex items-center justify-end">
-            <NotificationsBell />
-          </div>
+          <div className="flex-1 flex items-center justify-end"><NotificationsBell /></div>
         </header>
 
-        {/* ── Header móvil ───────────────────────────────────────── */}
+        {/* Header móvil */}
         <header className="md:hidden flex items-center px-3 py-2.5 border-b border-border bg-card shrink-0">
-          {/* Izquierda: logo */}
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <img src={woditosLogo} alt="Woditos" className="h-7 shrink-0" />
             <span className="font-display font-bold text-foreground text-sm truncate">Woditos</span>
           </div>
-
-          {/* Centro: club badge */}
           {clubMembership && (
             <div className="flex items-center gap-1.5 px-2 py-1 rounded-md border border-border bg-card/80 text-xs mx-2 shrink-0">
               <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-              <span className="font-medium text-foreground max-w-[80px] truncate">
-                {clubMembership.club.name}
-              </span>
+              <span className="font-medium text-foreground max-w-[80px] truncate">{clubMembership.club.name}</span>
             </div>
           )}
-
-          {/* Derecha: campana + avatar con menú */}
           <div className="flex items-center gap-1 shrink-0">
             <NotificationsBell />
-
             <Popover>
               <PopoverTrigger asChild>
                 <button className="flex items-center justify-center h-9 w-9 rounded-full focus:outline-none focus:ring-2 focus:ring-primary/50">
@@ -344,51 +284,25 @@ export default function AppLayout() {
                   </Avatar>
                 </button>
               </PopoverTrigger>
-              <PopoverContent
-                className="w-56 p-0 bg-card border-border"
-                align="end"
-                sideOffset={8}
-              >
-                {/* Info del usuario */}
+              <PopoverContent className="w-56 p-0 bg-card border-border" align="end" sideOffset={8}>
                 <div className="px-4 py-3 border-b border-border">
-                  <p className="text-sm font-medium text-foreground truncate">
-                    {profile?.full_name || 'Usuario'}
-                  </p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {formatRole(user?.role)}
-                  </p>
+                  <p className="text-sm font-medium text-foreground truncate">{profile?.full_name || 'Usuario'}</p>
+                  <p className="text-xs text-muted-foreground truncate">{formatRole(user?.role)}</p>
                 </div>
-
-                {/* Acciones */}
                 <div className="p-1.5">
-                  <button
-                    onClick={() => navigate('/perfil')}
-                    className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm text-foreground hover:bg-muted transition-colors"
-                  >
-                    <User size={16} className="text-muted-foreground" />
-                    Mi perfil
+                  <button onClick={() => navigate('/perfil')}
+                    className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm text-foreground hover:bg-muted transition-colors">
+                    <User size={16} className="text-muted-foreground" /> Mi perfil
                   </button>
-
-                  {/* Theme toggle */}
-                  <button
-                    onClick={toggleTheme}
-                    className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm text-foreground hover:bg-muted transition-colors"
-                  >
-                    {theme === 'dark'
-                      ? <Sun size={16} className="text-muted-foreground" />
-                      : <Moon size={16} className="text-muted-foreground" />
-                    }
+                  <button onClick={toggleTheme}
+                    className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm text-foreground hover:bg-muted transition-colors">
+                    {theme === 'dark' ? <Sun size={16} className="text-muted-foreground" /> : <Moon size={16} className="text-muted-foreground" />}
                     {theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
                   </button>
-
                   <div className="border-t border-border my-1" />
-
-                  <button
-                    onClick={handleSignOut}
-                    className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm text-destructive hover:bg-destructive/10 transition-colors"
-                  >
-                    <LogOut size={16} />
-                    Cerrar sesión
+                  <button onClick={handleSignOut}
+                    className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm text-destructive hover:bg-destructive/10 transition-colors">
+                    <LogOut size={16} /> Cerrar sesión
                   </button>
                 </div>
               </PopoverContent>
@@ -399,56 +313,40 @@ export default function AppLayout() {
         {/* Contenido */}
         <div className="flex-1 overflow-y-auto p-4 md:p-8">
           <div className="min-h-full flex flex-col">
-            <div className="flex-1">
-              <Outlet />
-            </div>
+            <div className="flex-1"><Outlet /></div>
             <footer className="mt-8 py-4 text-center text-xs text-muted-foreground border-t border-border">
-              © 2026 Woditos V1.0 - Todos los derechos reservados.
+              © 2026 Woditos V2.0 - Todos los derechos reservados.
             </footer>
           </div>
         </div>
 
-        {/* ── Banner flotante mobile — próxima sesión ─────────────
-             NextSessionBanner variant="mobile-float" retorna null si
-             no hay sesión, así no queda un contenedor vacío.
-        ──────────────────────────────────────────────────────────── */}
+        {/* Banner flotante mobile */}
         {!mobileBannerDismissed && (
           <div className="md:hidden fixed bottom-[68px] right-3 z-40">
-            <NextSessionBanner
-              variant="mobile-float"
-              onDismiss={() => setMobileBannerDismissed(true)}
-            />
+            <NextSessionBanner variant="mobile-float" onDismiss={() => setMobileBannerDismissed(true)} />
           </div>
         )}
 
         {/* Nav móvil inferior */}
         <nav className="md:hidden flex items-center justify-around border-t border-border bg-card py-2 shrink-0">
           {navItems.map(({ to, icon: Icon, label, end }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
+            <NavLink key={to} to={to} end={end}
               className={({ isActive }) =>
                 `flex flex-col items-center gap-1 py-1 px-2 text-xs font-medium transition-all ${
                   isActive ? 'text-primary' : 'text-muted-foreground'
                 }`
-              }
-            >
-              <Icon size={20} />
-              {label}
+              }>
+              <Icon size={20} />{label}
             </NavLink>
           ))}
           {isCoach && (
-            <NavLink
-              to="/coach"
+            <NavLink to="/coach"
               className={({ isActive }) =>
                 `flex flex-col items-center gap-1 py-1 px-2 text-xs font-medium transition-all ${
                   isActive ? 'text-secondary' : 'text-muted-foreground'
                 }`
-              }
-            >
-              <Dumbbell size={20} />
-              Coach
+              }>
+              <Dumbbell size={20} />Coach
             </NavLink>
           )}
         </nav>

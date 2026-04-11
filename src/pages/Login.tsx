@@ -147,6 +147,9 @@ export default function Login() {
               <p>📧 maria@woditos.app · 🔑 Woditos2026!</p>
               <p>📧 juan@woditos.app · 🔑 Woditos2026!</p>
               <p>📧 sofia@woditos.app · 🔑 Woditos2026!</p>
+              <p className="font-semibold text-foreground">👤 Coachs de prueba:</p>
+              <p>📧 coach@woditos.app · 🔑 Woditos2026!</p>
+              <p>📧 test-coach@woditos.app · 🔑 Woditos2026!</p>
             </div>
 
             <p className="text-center text-sm text-muted-foreground">

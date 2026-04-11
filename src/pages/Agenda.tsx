@@ -1,11 +1,14 @@
 /**
  * Archivo: Agenda.tsx
  * Ruta: src/pages/Agenda.tsx
- * Última modificación: 2026-03-29
+ * Última modificación: 2026-04-10
  * Descripción: Agenda semanal. Sesiones pasadas muestran "Cerrada" para miembros.
  *   Todas las mutations invalidan queries cross-component (dashboard, banner, coach panel).
+ *   v2.1: coaches navegan a /sesion/:id al clickear una tarjeta de sesión.
+ *   v2.2: miembros navegan a /mi-sesion/:id al clickear una sesión en la que están inscriptos.
  */
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
@@ -18,31 +21,33 @@ import { Badge } from '@/components/ui/badge';
 import CreateSessionDialog from '@/components/CreateSessionDialog';
 
 const SESSION_COLORS: Record<string, string> = {
-  running: 'border-l-secondary',
+  running:    'border-l-secondary',
   functional: 'border-l-primary',
-  amrap: 'border-l-primary',
-  emom: 'border-l-accent',
-  hiit: 'border-l-destructive',
-  technique: 'border-l-info',
+  amrap:      'border-l-primary',
+  emom:       'border-l-accent',
+  hiit:       'border-l-destructive',
+  technique:  'border-l-info',
 };
 
 export default function Agenda() {
   const { user, profile } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [weekOffset, setWeekOffset] = useState(0);
   const [showCreateSession, setShowCreateSession] = useState(false);
 
   const weekStart = startOfWeek(addDays(new Date(), weekOffset * 7), { weekStartsOn: 1 });
-  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const weekDays  = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const [selectedDay, setSelectedDay] = useState(new Date());
 
-  const isCoach = user?.role === 'coach' || user?.role === 'super_admin';
+  const isCoach  = user?.role === 'coach' || user?.role === 'super_admin';
+  const isMember = user?.role === 'member';
 
   const { data: sessions, isLoading } = useQuery({
     queryKey: ['sessions-week', weekOffset],
     queryFn: async () => {
       const start = weekDays[0].toISOString();
-      const end = addDays(weekDays[6], 1).toISOString();
+      const end   = addDays(weekDays[6], 1).toISOString();
       const { data } = await supabase
         .from('sessions')
         .select('*, groups(name), reservations(id, user_id, reservation_status)')
@@ -53,7 +58,6 @@ export default function Agenda() {
     },
   });
 
-  /* ── Invalidar todas las queries que dependen de sesiones ────── */
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ['sessions-week'] });
     queryClient.invalidateQueries({ queryKey: ['next-session'] });
@@ -85,9 +89,7 @@ export default function Agenda() {
         if (error) throw error;
       } else {
         const { error } = await supabase.from('reservations').insert({
-          session_id: sessionId,
-          user_id: user!.id,
-          reservation_status: 'confirmed',
+          session_id: sessionId, user_id: user!.id, reservation_status: 'confirmed',
         });
         if (error) throw error;
       }
@@ -96,17 +98,14 @@ export default function Agenda() {
       if (session?.coach_id && session.coach_id !== user!.id) {
         await supabase.from('notifications').insert({
           user_id: session.coach_id,
-          title: '🏋️ Nueva reserva',
-          message: `${profile?.full_name || 'Un miembro'} se inscribió en "${session.title}"`,
-          type: 'reservation',
+          title:   '🏋️ Nueva reserva',
+          message: `${profile?.full_name || 'Un alumno'} se inscribió en "${session.title}"`,
+          type:    'reservation',
         });
       }
     },
-    onSuccess: () => {
-      invalidateAll();
-      toast.success('¡Reserva confirmada!');
-    },
-    onError: () => toast.error('No se pudo hacer la reserva. Intentá de nuevo.'),
+    onSuccess: () => { invalidateAll(); toast.success('¡Reserva confirmada!'); },
+    onError:   () => toast.error('No se pudo hacer la reserva. Intentá de nuevo.'),
   });
 
   const cancelMutation = useMutation({
@@ -116,11 +115,8 @@ export default function Agenda() {
         .eq('id', reservationId);
       if (error) throw error;
     },
-    onSuccess: () => {
-      invalidateAll();
-      toast.success('Reserva cancelada');
-    },
-    onError: () => toast.error('No se pudo cancelar la reserva.'),
+    onSuccess: () => { invalidateAll(); toast.success('Reserva cancelada'); },
+    onError:   () => toast.error('No se pudo cancelar la reserva.'),
   });
 
   const claimMutation = useMutation({
@@ -129,14 +125,27 @@ export default function Agenda() {
         .update({ coach_id: user!.id }).eq('id', sessionId);
       if (error) throw error;
     },
-    onSuccess: () => {
-      invalidateAll();
-      toast.success('Sesión asignada a vos');
-    },
-    onError: () => toast.error('No se pudo asignar la sesión'),
+    onSuccess: () => { invalidateAll(); toast.success('Sesión asignada a vos'); },
+    onError:   () => toast.error('No se pudo asignar la sesión'),
   });
 
   const daySessions = sessions?.filter((s: any) => isSameDay(new Date(s.start_time), selectedDay)) || [];
+
+  // Determinar si el miembro puede ver el detalle de una sesión
+  const memberCanViewDetail = (s: any) => {
+    const confirmedReservations = s.reservations?.filter(
+      (r: any) => r.reservation_status === 'confirmed'
+    ) || [];
+    return confirmedReservations.some((r: any) => r.user_id === user?.id);
+  };
+
+  const handleCardClick = (s: any) => {
+    if (isCoach) {
+      navigate(`/sesion/${s.id}`);
+    } else if (isMember && memberCanViewDetail(s)) {
+      navigate(`/mi-sesion/${s.id}`);
+    }
+  };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
@@ -157,19 +166,16 @@ export default function Agenda() {
         </Button>
         <div className="flex-1 grid grid-cols-7 gap-1">
           {weekDays.map((day) => {
-            const isToday = isSameDay(day, new Date());
+            const isToday    = isSameDay(day, new Date());
             const isSelected = isSameDay(day, selectedDay);
             const hasSessions = sessions?.some((s: any) => isSameDay(new Date(s.start_time), day));
             return (
-              <button
-                key={day.toISOString()}
-                onClick={() => setSelectedDay(day)}
+              <button key={day.toISOString()} onClick={() => setSelectedDay(day)}
                 className={`flex flex-col items-center py-2 rounded-xl transition-all text-sm ${
-                  isSelected ? 'bg-primary text-primary-foreground' :
-                  isToday ? 'bg-primary/10 text-primary' :
-                  'hover:bg-muted text-muted-foreground'
-                }`}
-              >
+                  isSelected ? 'bg-primary text-primary-foreground'
+                  : isToday  ? 'bg-primary/10 text-primary'
+                  : 'hover:bg-muted text-muted-foreground'
+                }`}>
                 <span className="text-xs uppercase">{format(day, 'EEE', { locale: es })}</span>
                 <span className="font-bold text-lg">{format(day, 'd')}</span>
                 {hasSessions && !isSelected && (
@@ -200,18 +206,26 @@ export default function Agenda() {
               (r: any) => r.reservation_status === 'confirmed'
             ) || [];
             const userReservation = confirmedReservations.find((r: any) => r.user_id === user?.id);
-            const isFull = confirmedReservations.length >= s.capacity;
-            const isPast = new Date(s.end_time) < new Date();
-            const spots = s.capacity - confirmedReservations.length;
-            const isMySession = s.coach_id === user?.id;
+            const isFull       = confirmedReservations.length >= s.capacity;
+            const isPast       = new Date(s.end_time) < new Date();
+            const spots        = s.capacity - confirmedReservations.length;
+            const isMySession  = s.coach_id === user?.id;
             const isUnassigned = !s.coach_id;
+
+            // Clickeable para coaches siempre, para members solo si están inscriptos
+            const isClickable = isCoach || (isMember && !!userReservation);
 
             return (
               <div
                 key={s.id}
+                onClick={() => handleCardClick(s)}
                 className={`bg-card border border-border rounded-xl p-4 border-l-4 ${
                   SESSION_COLORS[s.session_type] || 'border-l-primary'
-                } ${isPast ? 'opacity-60' : ''}`}
+                } ${isPast ? 'opacity-60' : ''} ${
+                  isClickable
+                    ? 'cursor-pointer hover:border-primary/30 hover:shadow-sm transition-all'
+                    : ''
+                }`}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -237,6 +251,10 @@ export default function Agenda() {
                           Finalizada
                         </Badge>
                       )}
+                      {/* Hint visual */}
+                      {isClickable && (
+                        <span className="text-xs text-muted-foreground opacity-50 ml-1">Ver detalle →</span>
+                      )}
                     </div>
                     <p className="font-semibold text-foreground">{s.title}</p>
                     <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
@@ -253,8 +271,8 @@ export default function Agenda() {
                     </div>
                   </div>
 
-                  {/* Botones según rol y estado */}
-                  <div>
+                  {/* Botones — stopPropagation para no activar navegación */}
+                  <div onClick={e => e.stopPropagation()}>
                     {isCoach ? (
                       isUnassigned ? (
                         <Button size="sm"
@@ -288,11 +306,9 @@ export default function Agenda() {
                         disabled={isFull || isPast || bookMutation.isPending}
                         onClick={() => !isFull && !isPast && bookMutation.mutate(s.id)}
                         className={
-                          isPast
-                            ? 'bg-muted text-muted-foreground cursor-default'
-                            : isFull
-                              ? 'opacity-50 cursor-default'
-                              : 'gradient-primary text-primary-foreground'
+                          isPast   ? 'bg-muted text-muted-foreground cursor-default'
+                          : isFull ? 'opacity-50 cursor-default'
+                          : 'gradient-primary text-primary-foreground'
                         }>
                         {isPast ? 'Cerrada' : isFull ? 'Lleno' : 'Reservar'}
                       </Button>

@@ -1,0 +1,436 @@
+/**
+ * Archivo: Routines.tsx
+ * Ruta: src/pages/Routines.tsx
+ * Última modificación: 2026-04-08
+ * Descripción: Página principal del módulo de rutinas.
+ *   Coach: lista rutinas, crea nuevas, asigna a sesiones con CalendarWidget.
+ *   Chips muestran sesiones ya asignadas (con X para eliminar).
+ *   Miembro: ve rutinas asignadas e historial.
+ */
+
+import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { format, startOfMonth, endOfMonth, isSameDay } from 'date-fns';
+import { es } from 'date-fns/locale';
+import {
+  Plus, ListChecks, Clock, Target, ChevronRight,
+  Zap, Loader2, ClipboardList, Calendar as CalendarIcon, X,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Calendar as CalendarWidget } from '@/components/ui/calendar';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { ROUTINE_TYPES, ROUTINE_LEVELS } from '@/lib/exerciseTranslations';
+
+const db = supabase as any;
+
+interface Routine {
+  id: string; name: string; type: string; level: string;
+  estimated_minutes: number; description: string | null;
+  created_at: string; routine_exercises: { id: string }[];
+}
+interface SessionOption { id: string; title: string; start_time: string; }
+interface Assignment {
+  id: string; status: string; assigned_at: string;
+  routines: { id: string; name: string; type: string; estimated_minutes: number };
+}
+
+const TYPE_LABEL: Record<string, string> = Object.fromEntries(ROUTINE_TYPES.map(t => [t.value, t.label]));
+const LEVEL_LABEL: Record<string, string> = Object.fromEntries(ROUTINE_LEVELS.map(l => [l.value, l.label]));
+const LEVEL_COLOR: Record<string, string> = {
+  beginner:     'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+  intermediate: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300',
+  advanced:     'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
+};
+
+export default function Routines() {
+  const navigate = useNavigate();
+  const { user, clubMembership } = useAuth();
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const isCoach = user?.role === 'coach' || user?.role === 'super_admin';
+  const clubId  = clubMembership?.club_id;
+
+  const [assignDialog, setAssignDialog]       = useState<{ routineId: string; name: string } | null>(null);
+  const [calendarDay, setCalendarDay]         = useState<Date>(new Date());
+  const [selectedSession, setSelectedSession] = useState('');
+  const [activeTab, setActiveTab]             = useState<'assigned' | 'history'>('assigned');
+
+  // ── Rutinas del coach ─────────────────────────────────────────
+  const routinesQuery = useQuery<Routine[]>({
+    queryKey: ['routines', clubId],
+    queryFn: async () => {
+      const { data, error } = await db
+        .from('routines').select('*, routine_exercises(id)')
+        .eq('club_id', clubId).eq('is_active', true)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!clubId && isCoach,
+  });
+
+  // ── Sesiones del mes (para marcar días en el calendario) ──────
+  const monthSessionsQuery = useQuery({
+    queryKey: ['routines-month-sessions', calendarDay.getMonth(), calendarDay.getFullYear(), user?.id],
+    queryFn: async () => {
+      const { data } = await supabase.from('sessions')
+        .select('id, start_time')
+        .eq('coach_id', user!.id)
+        .gte('start_time', startOfMonth(calendarDay).toISOString())
+        .lte('start_time', endOfMonth(calendarDay).toISOString());
+      return data ?? [];
+    },
+    enabled: !!user?.id && isCoach && !!assignDialog,
+  });
+
+  const daysWithSessions = useMemo(() =>
+    (monthSessionsQuery.data ?? []).map((s: any) => new Date(s.start_time)),
+  [monthSessionsQuery.data]);
+
+  // ── Sesiones del día seleccionado ─────────────────────────────
+  const daySessionsQuery = useQuery<SessionOption[]>({
+    queryKey: ['routines-day-sessions', calendarDay.toDateString(), user?.id],
+    queryFn: async () => {
+      const dayStart = new Date(calendarDay); dayStart.setHours(0,0,0,0);
+      const dayEnd   = new Date(dayStart);    dayEnd.setDate(dayEnd.getDate() + 1);
+      const { data } = await supabase.from('sessions')
+        .select('id, title, start_time')
+        .eq('coach_id', user!.id)
+        .gte('start_time', dayStart.toISOString())
+        .lt('start_time', dayEnd.toISOString())
+        .order('start_time');
+      return (data ?? []) as SessionOption[];
+    },
+    enabled: !!user?.id && isCoach && !!assignDialog,
+  });
+
+  // ── Asignaciones a sesiones de cada rutina (para los chips) ───
+  const routineIds = useMemo(() =>
+    (routinesQuery.data ?? []).map(r => r.id), [routinesQuery.data]);
+
+  const assignmentsQuery = useQuery({
+    queryKey: ['routine-session-assignments-page', routineIds.join(',')],
+    queryFn: async () => {
+      if (!routineIds.length) return [];
+      const { data } = await db
+        .from('routine_assignments')
+        .select('id, routine_id, session_id, sessions(id, title, start_time)')
+        .in('routine_id', routineIds)
+        .not('session_id', 'is', null);
+      return data ?? [];
+    },
+    enabled: routineIds.length > 0 && isCoach,
+  });
+
+  const assignmentsByRoutine = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    (assignmentsQuery.data ?? []).forEach((a: any) => {
+      if (!map[a.routine_id]) map[a.routine_id] = [];
+      map[a.routine_id].push(a);
+    });
+    return map;
+  }, [assignmentsQuery.data]);
+
+  // ── Miembro: rutinas asignadas ────────────────────────────────
+  const assignedQuery = useQuery<Assignment[]>({
+    queryKey: ['my-assignments', user?.id],
+    queryFn: async () => {
+      const { data, error } = await db
+        .from('routine_assignments')
+        .select('id, status, assigned_at, routines(id, name, type, estimated_minutes)')
+        .eq('assigned_to', user!.id).neq('status', 'completed')
+        .order('assigned_at', { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!user?.id && !isCoach,
+  });
+
+  // ── Asignar rutina a sesión ───────────────────────────────────
+  const assignMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedSession || !assignDialog || !user?.id) throw new Error('Faltan datos');
+      const { error } = await db.from('routine_assignments').insert({
+        routine_id: assignDialog.routineId, session_id: selectedSession,
+        assigned_by: user.id, status: 'pending',
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: 'Rutina asignada a la sesión' });
+      qc.invalidateQueries({ queryKey: ['routine-session-assignments-page'] });
+      qc.invalidateQueries({ queryKey: ['session-routines'] });
+      setAssignDialog(null);
+      setSelectedSession('');
+    },
+    onError: (err: Error) =>
+      toast({ title: 'Error', description: err.message, variant: 'destructive' }),
+  });
+
+  // ── Eliminar asignación a sesión ──────────────────────────────
+  const removeAssignment = useMutation({
+    mutationFn: async (assignmentId: string) => {
+      const { error } = await db.from('routine_assignments').delete().eq('id', assignmentId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['routine-session-assignments-page'] });
+      qc.invalidateQueries({ queryKey: ['session-routines'] });
+      toast({ title: 'Asignación eliminada' });
+    },
+  });
+
+  // ─── Vista Coach ──────────────────────────────────────────────
+
+  if (isCoach) return (
+    <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold flex items-center gap-2">
+            <ListChecks className="h-5 w-5" /> Rutinas
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {routinesQuery.data?.length ?? 0} rutina{routinesQuery.data?.length !== 1 ? 's' : ''}
+          </p>
+        </div>
+        <Button onClick={() => navigate('/rutinas/nueva')}>
+          <Plus className="h-4 w-4 mr-2" /> Nueva
+        </Button>
+      </div>
+
+      {routinesQuery.isLoading ? (
+        <div className="flex justify-center py-16">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : routinesQuery.data?.length === 0 ? (
+        <div className="text-center py-16 text-muted-foreground space-y-3">
+          <ClipboardList className="h-10 w-10 mx-auto opacity-30" />
+          <p className="text-sm">Todavía no creaste ninguna rutina.</p>
+          <Button variant="outline" onClick={() => navigate('/rutinas/nueva')}>
+            <Plus className="h-4 w-4 mr-2" /> Crear primera rutina
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {routinesQuery.data?.map(r => {
+            const sessionAssignments = assignmentsByRoutine[r.id] ?? [];
+            return (
+              <div key={r.id} className="rounded-xl border bg-card hover:shadow-sm transition-shadow">
+                <div className="p-4 cursor-pointer" onClick={() => navigate(`/rutinas/${r.id}`)}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{r.name}</p>
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        <Badge variant="secondary" className="text-xs">{TYPE_LABEL[r.type] ?? r.type}</Badge>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${LEVEL_COLOR[r.level]}`}>
+                          {LEVEL_LABEL[r.level] ?? r.level}
+                        </span>
+                      </div>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                  </div>
+                  <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Target className="h-3 w-3" /> {r.routine_exercises?.length ?? 0} ejercicios
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" /> {r.estimated_minutes} min
+                    </span>
+                  </div>
+                </div>
+
+                {/* Chips de sesiones asignadas */}
+                {sessionAssignments.length > 0 && (
+                  <div className="px-4 pb-2.5 flex flex-wrap gap-1.5">
+                    <span className="text-xs text-muted-foreground w-full -mb-0.5">Asignada a:</span>
+                    {sessionAssignments.map((a: any) => (
+                      <div key={a.id}
+                        className="flex items-center gap-1.5 bg-primary/5 border border-primary/15 text-xs px-2.5 py-1 rounded-full">
+                        <CalendarIcon className="h-3 w-3 text-primary/60 shrink-0" />
+                        <span className="text-foreground/80 max-w-[110px] truncate">
+                          {a.sessions?.title ?? '—'}
+                        </span>
+                        {a.sessions?.start_time && (
+                          <span className="text-muted-foreground shrink-0">
+                            {format(new Date(a.sessions.start_time), 'd/M HH:mm', { locale: es })}
+                          </span>
+                        )}
+                        <button
+                          onClick={e => { e.stopPropagation(); removeAssignment.mutate(a.id); }}
+                          className="ml-0.5 text-muted-foreground hover:text-destructive transition-colors">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="border-t px-4 py-2 flex gap-2">
+                  <Button size="sm" variant="ghost" className="text-xs h-7"
+                    onClick={() => navigate(`/rutinas/${r.id}/editar`)}>
+                    Editar
+                  </Button>
+                  <Button size="sm" variant="ghost" className="text-xs h-7 text-primary"
+                    onClick={() => {
+                      setCalendarDay(new Date());
+                      setSelectedSession('');
+                      setAssignDialog({ routineId: r.id, name: r.name });
+                    }}>
+                    <Zap className="h-3 w-3 mr-1" /> Asignar a sesión
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Dialog asignación con CalendarWidget */}
+      <Dialog open={!!assignDialog} onOpenChange={v => !v && setAssignDialog(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-base">Asignar a sesión</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground truncate -mt-2">{assignDialog?.name}</p>
+
+          {/* Calendar */}
+          <div className="rounded-xl border bg-muted/30 p-3">
+            <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-2">
+              Elegí un día
+            </p>
+            <CalendarWidget
+              mode="single" selected={calendarDay} locale={es}
+              onSelect={d => { if (d) { setCalendarDay(d); setSelectedSession(''); } }}
+              className="rounded-md border-0 pointer-events-auto w-full"
+              classNames={{
+                months: "flex flex-col w-full", month: "space-y-2 w-full",
+                table: "w-full border-collapse", head_row: "flex w-full",
+                head_cell: "text-muted-foreground rounded-md flex-1 font-normal text-[0.7rem] text-center",
+                row: "flex w-full mt-1",
+                cell: "flex-1 h-8 text-center text-sm p-0 relative",
+                day: "h-8 w-full p-0 font-normal aria-selected:opacity-100 hover:bg-muted rounded-md transition-colors text-sm",
+                day_selected: "bg-primary text-primary-foreground hover:bg-primary",
+                day_today: "bg-accent/20 text-accent font-bold",
+                day_outside: "text-muted-foreground opacity-40",
+                nav: "space-x-1 flex items-center",
+                nav_button: "h-6 w-6 bg-transparent p-0 opacity-50 hover:opacity-100 border border-border rounded-md inline-flex items-center justify-center",
+                nav_button_previous: "absolute left-1",
+                nav_button_next: "absolute right-1",
+                caption: "flex justify-center pt-1 relative items-center mb-1",
+                caption_label: "text-xs font-medium",
+              }}
+              modifiers={{ hasSessions: daysWithSessions }}
+              modifiersClassNames={{ hasSessions: 'font-bold after:block after:w-1 after:h-1 after:rounded-full after:bg-primary after:mx-auto' }}
+            />
+          </div>
+
+          {/* Selector de sesión del día */}
+          <div>
+            <p className="text-xs text-muted-foreground mb-1">
+              Sesiones del {format(calendarDay, "d 'de' MMMM", { locale: es })}
+            </p>
+            {daySessionsQuery.isLoading ? (
+              <div className="flex justify-center py-3">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              </div>
+            ) : daySessionsQuery.data?.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-3 border border-dashed rounded-lg">
+                No hay sesiones este día
+              </p>
+            ) : (
+              <Select value={selectedSession} onValueChange={setSelectedSession}>
+                <SelectTrigger><SelectValue placeholder="Elegí una sesión…" /></SelectTrigger>
+                <SelectContent>
+                  {daySessionsQuery.data?.map(s => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {format(new Date(s.start_time), 'HH:mm')} · {s.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+
+          <div className="flex gap-3">
+            <Button variant="outline" className="flex-1" onClick={() => setAssignDialog(null)}>
+              Cancelar
+            </Button>
+            <Button className="flex-1"
+              disabled={!selectedSession || assignMutation.isPending}
+              onClick={() => assignMutation.mutate()}>
+              {assignMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Asignar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+
+  // ─── Vista Alumno/Miembro ─────────────────────────────────────
+
+  return (
+    <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+      <h1 className="text-xl font-semibold flex items-center gap-2">
+        <ListChecks className="h-5 w-5" /> Mis rutinas
+      </h1>
+
+      <div className="flex rounded-lg border overflow-hidden">
+        {(['assigned', 'history'] as const).map(tab => (
+          <button key={tab} onClick={() => setActiveTab(tab)}
+            className={`flex-1 py-2 text-sm font-medium transition-colors ${
+              activeTab === tab ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'
+            }`}>
+            {tab === 'assigned' ? 'Asignadas' : 'Historial'}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'assigned' && (
+        <>
+          {assignedQuery.isLoading ? (
+            <div className="flex justify-center py-10">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : assignedQuery.data?.length === 0 ? (
+            <div className="text-center py-14 text-muted-foreground">
+              <ClipboardList className="h-10 w-10 mx-auto opacity-30 mb-3" />
+              <p className="text-sm">No tenés rutinas asignadas por ahora.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {assignedQuery.data?.map(a => (
+                <div key={a.id}
+                  className="rounded-xl border bg-card p-4 cursor-pointer hover:shadow-sm transition-shadow"
+                  onClick={() => navigate(`/rutinas/${a.routines.id}`)}>
+                  <div className="flex items-center justify-between">
+                    <p className="font-medium">{a.routines.name}</p>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <div className="flex gap-3 mt-1 text-xs text-muted-foreground">
+                    <span>{TYPE_LABEL[a.routines.type] ?? a.routines.type}</span>
+                    <span>·</span>
+                    <span>{a.routines.estimated_minutes} min</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {activeTab === 'history' && (
+        <div className="text-center py-14 text-muted-foreground">
+          <p className="text-sm">Completá una rutina para ver tu historial aquí.</p>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -1,22 +1,23 @@
 /**
  * Archivo: App.tsx
  * Ruta: src/App.tsx
- * Última modificación: 2026-03-30
- * Descripción: Punto de entrada de la app. Define rutas, providers,
- *   OnboardingGuard (redirige a /onboarding si no tiene club) y
- *   AppWithFeedback (modal post-sesión).
+ * Última modificación: 2026-04-10
+ * Descripción: Punto de entrada de la app. Rutas, providers,
+ *   OnboardingGuard y AppWithFeedback.
+ *   v2.0: agrega rutas del módulo de rutinas (/rutinas/*).
+ *   v2.1: agrega /sesion/:id para detalle de sesión de coaches.
+ *   v2.2: agrega /mi-sesion/:id para detalle de sesión de miembros.
  */
 import { Toaster } from '@/components/ui/toaster';
 import { Toaster as Sonner } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/hooks/useAuth';
 import { ThemeProvider } from '@/hooks/useTheme';
 import AppLayout from '@/components/layout/AppLayout';
 
-
-// Pages
+// Pages v1
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import ResetPassword from '@/pages/ResetPassword';
@@ -33,18 +34,24 @@ import Attendance from '@/pages/Attendance';
 import NotFound from '@/pages/NotFound';
 import Support from '@/pages/Support';
 
+// Pages v2 — Módulo de Rutinas
+import Routines from '@/pages/Routines';
+import RoutineDetail from '@/pages/RoutineDetail';
+import RoutineBuilder from '@/components/routines/RoutineBuilder';
+
+// Pages v2.1 — Detalle de sesión (coach)
+import SessionDetail from '@/pages/SessionDetail';
+
+// Pages v2.2 — Detalle de ejercicio librería + detalle sesión miembro
+import LibraryExerciseDetail from '@/pages/LibraryExerciseDetail';
+import MemberSessionDetail from '@/pages/MemberSessionDetail';
 
 // Feedback modal
 import SessionFeedbackModal from '@/components/SessionFeedbackModal';
 import { useSessionFeedback } from '@/hooks/useSessionFeedback';
 
 const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      staleTime: 30_000,
-    },
-  },
+  defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
 });
 
 function ProtectedRoute() {
@@ -60,15 +67,8 @@ function ProtectedRoute() {
   return <Outlet />;
 }
 
-/**
- * OnboardingGuard — se ubica entre ProtectedRoute y AppLayout.
- * Si el usuario está autenticado pero no tiene clubMembership,
- * lo redirige a /onboarding para completar su perfil.
- */
 function OnboardingGuard() {
   const { user, clubMembership } = useAuth();
-
-  /* user es null mientras fetchUserData todavía corre */
   if (!user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -76,7 +76,6 @@ function OnboardingGuard() {
       </div>
     );
   }
-
   if (!clubMembership) return <Navigate to="/onboarding" replace />;
   return <Outlet />;
 }
@@ -84,16 +83,21 @@ function OnboardingGuard() {
 function CoachRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
   if (isLoading) return null;
-  const isCoach = user?.role === 'coach' || user?.role === 'super_admin';  if (!isCoach) return <Navigate to="/inicio" replace />;
+  const isCoach = user?.role === 'coach' || user?.role === 'super_admin';
+  if (!isCoach) return <Navigate to="/inicio" replace />;
   return <>{children}</>;
+}
+
+/** Wrapper para RoutineBuilder en modo edición — lee :id de los params */
+function RoutineBuilderEdit() {
+  const { id } = useParams<{ id: string }>();
+  return <RoutineBuilder routineId={id} />;
 }
 
 function AppWithFeedback() {
   const { user } = useAuth();
   const { pending, dismiss } = useSessionFeedback();
-
   if (user?.role !== 'member' || !pending) return null;
-
   return (
     <SessionFeedbackModal
       open={!!pending}
@@ -118,35 +122,46 @@ function App() {
               <AppWithFeedback />
 
               <Routes>
-                {/* Rutas públicas */}
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
+                {/* Públicas */}
+                <Route path="/login"          element={<Login />} />
+                <Route path="/register"       element={<Register />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
 
-                {/* Rutas protegidas */}
+                {/* Protegidas */}
                 <Route element={<ProtectedRoute />}>
-                  {/* Onboarding — accesible SIN club (fuera de OnboardingGuard) */}
                   <Route path="/onboarding" element={<Onboarding />} />
 
-                  {/* App principal — requiere club */}
                   <Route element={<OnboardingGuard />}>
                     <Route element={<AppLayout />}>
-                      <Route path="/" element={<Navigate to="/inicio" replace />} />
-                      <Route path="/inicio" element={<Dashboard />} />
-                      <Route path="/agenda" element={<Agenda />} />
-                      <Route path="/comunidad" element={<Community />} />
+                      {/* ── v1.0 ── */}
+                      <Route path="/"          element={<Navigate to="/inicio" replace />} />
+                      <Route path="/inicio"     element={<Dashboard />} />
+                      <Route path="/agenda"     element={<Agenda />} />
+                      <Route path="/comunidad"  element={<Community />} />
                       <Route path="/biblioteca" element={<Library />} />
                       <Route path="/biblioteca/ejercicio/:id" element={<ExerciseDetail />} />
+                      <Route path="/biblioteca/libreria/:id"  element={<LibraryExerciseDetail />} />
                       <Route path="/biblioteca/nutricion/:id" element={<FoodDetail />} />
-                      <Route path="/perfil" element={<Profile />} />
+                      <Route path="/perfil"     element={<Profile />} />
                       <Route path="/asistencia" element={<Attendance />} />
-                      <Route path="/coach" element={<CoachRoute><CoachDashboard /></CoachRoute>} />
-                      <Route path="/soporte" element={<Support />} />
+                      <Route path="/coach"      element={<CoachRoute><CoachDashboard /></CoachRoute>} />
+                      <Route path="/soporte"    element={<Support />} />
+
+                      {/* ── v2.0 — Rutinas ── */}
+                      <Route path="/rutinas"              element={<Routines />} />
+                      <Route path="/rutinas/nueva"        element={<CoachRoute><RoutineBuilder /></CoachRoute>} />
+                      <Route path="/rutinas/:id"          element={<RoutineDetail />} />
+                      <Route path="/rutinas/:id/editar"   element={<CoachRoute><RoutineBuilderEdit /></CoachRoute>} />
+
+                      {/* ── v2.1 — Detalle de sesión (coaches) ── */}
+                      <Route path="/sesion/:id" element={<CoachRoute><SessionDetail /></CoachRoute>} />
+
+                      {/* ── v2.2 — Detalle de sesión (miembros) ── */}
+                      <Route path="/mi-sesion/:id" element={<MemberSessionDetail />} />
                     </Route>
                   </Route>
                 </Route>
 
-                {/* 404 */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </TooltipProvider>
