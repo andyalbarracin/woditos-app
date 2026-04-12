@@ -1,11 +1,13 @@
 /**
  * Archivo: Onboarding.tsx
  * Ruta: src/pages/Onboarding.tsx
- * Última modificación: 2026-03-30
+ * Última modificación: 2026-04-10
  * Descripción: Flujo de onboarding post-registro para usuarios sin club.
  *   Se muestra automáticamente cuando un usuario autenticado no tiene
  *   club_membership (ej: registro con Google, o registro sin código).
  *   Permite elegir rol, confirmar nombre, y unirse/crear club.
+ *   v1.1: sanitización de fullName, joinCode, inviteCode y clubName
+ *         con schemas de validation.ts.
  */
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -16,6 +18,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import woditosLogo from '@/assets/woditos-logo.png';
 import { toast } from 'sonner';
+import {
+  profileUpdateSchema,
+  joinCodeSchema,
+  inviteTokenSchema,
+  clubCreationSchema,
+} from '@/lib/validation';
 import { Users, Dumbbell, ArrowRight, ArrowLeft, Loader2 } from 'lucide-react';
 
 type Step = 'role' | 'details';
@@ -49,26 +57,43 @@ export default function Onboarding() {
     e.preventDefault();
     if (!user?.id) return;
 
-    const trimmedName = fullName.trim();
-    if (!trimmedName) { toast.error('Ingresá tu nombre'); return; }
+    // Validar y sanitizar el nombre con profileUpdateSchema
+    const nameResult = profileUpdateSchema.safeParse({
+      full_name: fullName,
+      goals: '',
+      emergency_contact: '',
+    });
+    if (!nameResult.success) {
+      toast.error(nameResult.error.errors[0]?.message || 'Nombre inválido');
+      return;
+    }
+    const sanitizedName = nameResult.data.full_name;
 
     setLoading(true);
 
     try {
       /* ── Actualizar nombre en profile ────────────────────────── */
-      if (trimmedName !== profile?.full_name) {
+      if (sanitizedName !== profile?.full_name) {
         await supabase
           .from('profiles')
-          .update({ full_name: trimmedName, updated_at: new Date().toISOString() })
+          .update({ full_name: sanitizedName, updated_at: new Date().toISOString() })
           .eq('user_id', user.id);
       }
 
       /* ── Miembro: unirse con código ──────────────────────────── */
       if (role === 'member' && joinCode.trim()) {
+        // Sanitizar código de club
+        const joinResult = joinCodeSchema.safeParse(joinCode);
+        if (!joinResult.success) {
+          toast.error('Código de club inválido. Verificá con tu coach.');
+          setLoading(false);
+          return;
+        }
+
         const { data: club } = await supabase
           .from('clubs')
           .select('id, name')
-          .eq('join_code', joinCode.trim().toUpperCase())
+          .eq('join_code', joinResult.data)   // ← valor sanitizado
           .eq('status', 'active')
           .single();
 
@@ -85,10 +110,18 @@ export default function Onboarding() {
 
       /* ── Coach con token de invitación ───────────────────────── */
       } else if (role === 'coach' && coachMode === 'join' && inviteCode.trim()) {
+        // Sanitizar token de invitación
+        const tokenResult = inviteTokenSchema.safeParse(inviteCode);
+        if (!tokenResult.success) {
+          toast.error('Token de invitación inválido.');
+          setLoading(false);
+          return;
+        }
+
         const { data: invite } = await supabase
           .from('coach_invites')
           .select('status, expires_at')
-          .eq('token', inviteCode.trim())
+          .eq('token', tokenResult.data)      // ← valor sanitizado
           .single();
 
         if (!invite || invite.status !== 'pending' || new Date(invite.expires_at) < new Date()) {
@@ -98,7 +131,7 @@ export default function Onboarding() {
         }
 
         const { data: rpcResult } = await (supabase.rpc as any)('use_coach_invite', {
-          p_token: inviteCode.trim(),
+          p_token: tokenResult.data,          // ← valor sanitizado
           p_user_id: user.id,
         });
         const result = rpcResult as { success: boolean; error?: string } | null;
@@ -111,19 +144,22 @@ export default function Onboarding() {
 
       /* ── Coach crea club nuevo ───────────────────────────────── */
       } else if (role === 'coach' && coachMode === 'create') {
-        if (!clubName.trim()) {
-          toast.error('Ingresá el nombre del club');
+        // Sanitizar nombre del club
+        const clubResult = clubCreationSchema.safeParse({ name: clubName });
+        if (!clubResult.success) {
+          toast.error(clubResult.error.errors[0]?.message || 'Nombre de club inválido');
           setLoading(false);
           return;
         }
+        const sanitizedClubName = clubResult.data.name;
 
-        const slug = clubName.trim()
+        const slug = sanitizedClubName
           .toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').slice(0, 50);
         const uniqueSlug = `${slug}-${Date.now().toString(36)}`;
 
         const { data: newClub, error: clubError } = await supabase
           .from('clubs')
-          .insert({ name: clubName.trim(), slug: uniqueSlug, owner_id: user.id, plan: 'pro' })
+          .insert({ name: sanitizedClubName, slug: uniqueSlug, owner_id: user.id, plan: 'pro' })
           .select()
           .single();
 
@@ -133,9 +169,9 @@ export default function Onboarding() {
         await supabase.from('club_memberships').insert({
           club_id: newClub.id, user_id: user.id, role: 'club_admin', status: 'active',
         });
-        toast.success(`¡Club "${clubName.trim()}" creado!`);
+        toast.success(`¡Club "${sanitizedClubName}" creado!`);
 
-      /* ── Miembro sin código (skip) ───────────────────────────── */
+      /* ── Miembro sin código (error) ──────────────────────────── */
       } else if (role === 'member' && !joinCode.trim()) {
         toast.error('Necesitás un código de club para continuar. Pedíselo a tu coach.');
         setLoading(false);
@@ -305,12 +341,14 @@ export default function Onboarding() {
             </Button>
           </form>
         )}
+
         <button
           onClick={async () => { await supabase.auth.signOut(); navigate('/login'); }}
           className="flex items-center justify-center gap-2 w-full text-sm text-muted-foreground hover:text-primary transition-colors"
         >
           <ArrowLeft size={14} /> Volver al inicio
         </button>
+
         <p className="text-center text-xs text-muted-foreground">
           © 2026 Woditos. Todos los derechos reservados.
         </p>

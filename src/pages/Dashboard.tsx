@@ -1,9 +1,11 @@
 /**
  * Archivo: Dashboard.tsx
  * Ruta: src/pages/Dashboard.tsx
- * Última modificación: 2026-03-28
+ * Última modificación: 2026-04-10
  * Descripción: Dashboard principal. Orquesta entre CoachDashboardView y MemberDashboardView.
  *   Carga stats compartidos y el feed de actividad reciente.
+ *   v1.1 (seguridad): recentPosts filtrado por miembros del mismo club en dos pasos.
+ *         Antes mostraba posts de TODOS los clubs.
  */
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
@@ -15,6 +17,8 @@ import { Users, ChevronRight } from 'lucide-react';
 import CoachDashboardView from '@/components/dashboard/CoachDashboardView';
 import MemberDashboardView from '@/components/dashboard/MemberDashboardView';
 
+const db = supabase as any;
+
 function greeting() {
   const h = new Date().getHours();
   if (h < 12) return 'Buenos días';
@@ -23,9 +27,10 @@ function greeting() {
 }
 
 export default function Dashboard() {
-  const { profile, user } = useAuth();
+  const { profile, user, clubMembership } = useAuth();
   const navigate = useNavigate();
   const isCoach = user?.role === 'coach' || user?.role === 'super_admin';
+  const clubId = clubMembership?.club_id;
 
   const { data: stats } = useQuery({
     queryKey: ['member-stats', user?.id],
@@ -47,15 +52,33 @@ export default function Dashboard() {
   });
 
   const { data: recentPosts } = useQuery({
-    queryKey: ['recent-posts'],
+    queryKey: ['recent-posts', clubId],
     queryFn: async () => {
+      if (!clubId) return [];
+
+      // Paso 1: obtener user_ids de todos los miembros activos del club.
+      // Los posts tienen author_user_id. Filtramos por autores del mismo club
+      // para evitar mostrar posts de otros clubs.
+      const { data: members } = await db
+        .from('club_memberships')
+        .select('user_id')
+        .eq('club_id', clubId)
+        .eq('status', 'active');
+
+      const memberIds = (members || []).map((m: any) => m.user_id);
+      if (memberIds.length === 0) return [];
+
+      // Paso 2: posts recientes solo de miembros del mismo club.
       const { data } = await supabase
         .from('posts')
         .select('*, users!author_user_id(id, profiles(full_name, avatar_url))')
+        .in('author_user_id', memberIds)
         .order('created_at', { ascending: false })
         .limit(3);
+
       return data || [];
     },
+    enabled: !!clubId,
   });
 
   return (

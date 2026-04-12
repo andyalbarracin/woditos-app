@@ -1,13 +1,15 @@
 /**
  * Archivo: Support.tsx
  * Ruta: src/pages/Support.tsx
- * Última modificación: 2026-03-30
+ * Última modificación: 2026-04-10
  * Descripción: Página de soporte, preguntas frecuentes y tutorial de la app.
- *   Incluye guía para coaches y miembros, FAQ, y contacto de soporte.
+ *   Incluye guía para coaches y miembros, FAQ, contacto de soporte y sección legal.
+ *   v1.1: agrega sección "Legal" con links a Términos de Uso y Política de Privacidad.
  */
 import woditosLogo from '@/assets/woditos-logo.png';
-import { Copy, Check } from 'lucide-react'
-import { useState } from 'react'
+import { Copy, Check, FileText, ShieldCheck } from 'lucide-react';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
 
 const slogans = [
   'La comunidad que te empuja.',
@@ -15,7 +17,6 @@ const slogans = [
   'Entrenamiento real, gente real.',
   'Donde el esfuerzo se comparte.',
   'Sumá ritmo. Sumá equipo.',
-  
 ];
 
 function getSlogan() {
@@ -23,13 +24,14 @@ function getSlogan() {
 }
 
 export default function Support() {
-    const [copied, setCopied] = useState(false)
+  const [copied, setCopied] = useState(false);
 
   const handleCopyEmail = async () => {
-    await navigator.clipboard.writeText('woditos.soporte@gmail.com')
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1200)
-  }
+    await navigator.clipboard.writeText('woditos.soporte@gmail.com');
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1200);
+  };
+
   return (
     <div className="max-w-3xl mx-auto space-y-10 animate-fade-in pb-12">
 
@@ -85,6 +87,7 @@ export default function Support() {
             <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold">Ayuda</p>
             <a href="#faq" className="block text-primary hover:underline">→ Preguntas frecuentes</a>
             <a href="#contacto" className="block text-primary hover:underline">→ Contacto de soporte</a>
+            <a href="#legal" className="block text-primary hover:underline">→ Legal</a>
           </div>
         </div>
       </nav>
@@ -103,9 +106,6 @@ export default function Support() {
         <p className="text-sm text-foreground/80 leading-relaxed">
           Hay dos roles principales: <strong>Coach</strong> (crea y gestiona sesiones, crews y miembros) y <strong>Miembro</strong> (reserva sesiones, recibe feedback y participa de la comunidad).
         </p>
-         {/* <div className="bg-muted/30 border border-dashed border-border rounded-xl p-8 text-center text-xs text-muted-foreground">
-                 📷 Imagen: Vista general de la app — dashboard de coach y miembro 
-        </div>*/}
       </section>
 
       <section id="registro" className="space-y-4 scroll-mt-20">
@@ -123,10 +123,6 @@ export default function Support() {
         <p className="text-sm text-foreground/80 leading-relaxed">
           <strong>Como Coach:</strong> podés crear tu propio club (se genera automáticamente un código para invitar miembros) o unirte a un club existente si otro coach te envió una invitación.
         </p>
-         {/* <div className="bg-muted/30 border border-dashed border-border rounded-xl p-8 text-center text-xs text-muted-foreground">
-                📷 Imagen: Pantalla de registro — selección de rol 
-
-        </div>*/}
 
         <h3 className="font-display text-lg font-semibold text-foreground mt-4">Recuperar contraseña</h3>
         <p className="text-sm text-foreground/80 leading-relaxed">
@@ -147,10 +143,6 @@ export default function Support() {
         <p className="text-sm text-foreground/80 leading-relaxed">
           En el header encontrás: el banner de tu próxima sesión, el badge de tu club, la campana de notificaciones, y tu avatar (tocalo para acceder a tu perfil, cambiar tema o cerrar sesión).
         </p>
-         {/*<div className="bg-muted/30 border border-dashed border-border rounded-xl p-8 text-center text-xs text-muted-foreground">
-               📷 Imagen: Navegación desktop (sidebar) y mobile (bottom nav)
-
-        </div>*/}
       </section>
 
       <section id="perfil" className="space-y-4 scroll-mt-20">
@@ -160,10 +152,6 @@ export default function Support() {
         <p className="text-sm text-foreground/80 leading-relaxed">
           Desde tu perfil podés: cambiar tu foto (tocá sobre el avatar), editar tu nombre, definir tus objetivos de entrenamiento, y agregar un contacto de emergencia. También tenés tu código QR personal para check-in rápido en sesiones presenciales.
         </p>
-        {/*<div className="bg-muted/30 border border-dashed border-border rounded-xl p-8 text-center text-xs text-muted-foreground">
-                 📷 Imagen: Pantalla de perfil con stats y edición 
-
-        </div>*/}
       </section>
 
       <section id="notificaciones" className="space-y-4 scroll-mt-20">
@@ -201,10 +189,6 @@ export default function Support() {
         <p className="text-sm text-foreground/80 leading-relaxed">
           La barra de lugares te indica cuántos quedan disponibles. Cuando quedan pocos (3 o menos), se muestra en rojo para que te apures.
         </p>
-        {/* <div className="bg-muted/30 border border-dashed border-border rounded-xl p-8 text-center text-xs text-muted-foreground">
-                 📷 Imagen: Card de sesión con botón Reservar y barra de lugares 
-
-        </div>*/}
       </section>
 
       <section id="m-agenda" className="space-y-4 scroll-mt-20">
@@ -253,10 +237,6 @@ export default function Support() {
         <p className="text-sm text-foreground/80 leading-relaxed">
           La sección "Tu actividad" te muestra: sesiones esta semana vs la anterior, asistencia del mes, tu tipo de sesión favorito, tu compañero/a más frecuente, y tu coach del mes. También una frase motivadora basada en tu racha.
         </p>
-         {/*  <div className="bg-muted/30 border border-dashed border-border rounded-xl p-8 text-center text-xs text-muted-foreground">
-               📷 Imagen: Insights del miembro — cards de actividad semanal y mensual
-        </div> */}
-
       </section>
 
       {/* ═══════════════════════════════════════════════════════════ */}
@@ -285,10 +265,6 @@ export default function Support() {
           <strong> Duración</strong> → ajustable con botones +/- de 15 minutos; muestra la hora de fin automáticamente.
           <strong> Ubicación y capacidad</strong> → opcionales.
         </p>
-        {/* <div className="bg-muted/30 border border-dashed border-border rounded-xl p-8 text-center text-xs text-muted-foreground">
-                 📷 Imagen: Modal de crear sesión con calendar y selectores 
-
-        </div>*/}
       </section>
 
       <section id="c-gestionar" className="space-y-4 scroll-mt-20">
@@ -311,7 +287,7 @@ export default function Support() {
           Control de asistencia
         </h2>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          Desde <strong>Asistencias</strong> en el menú lateral, accedés al control completo. Seleccioná un día en el calendario y una sesión. Para cada inscripto, marcá:
+          Desde <strong>Sesiones</strong> en el menú lateral, accedés al control completo. Seleccioná un día en el calendario y una sesión. Para cada inscripto, marcá:
         </p>
         <p className="text-sm text-foreground/80 leading-relaxed">
           ✓ <strong>Presente</strong> (verde) · ⏱ <strong>Tarde</strong> (amarillo) · ✕ <strong>Ausente</strong> (rojo).
@@ -320,9 +296,6 @@ export default function Support() {
         <p className="text-sm text-foreground/80 leading-relaxed">
           También podés enviar un mensaje a todos los asistentes de la sesión desde la misma pantalla.
         </p>
-        {/* <div className="bg-muted/30 border border-dashed border-border rounded-xl p-8 text-center text-xs text-muted-foreground">
-          {/*  📷 Imagen: Pantalla de asistencia con toggles y QR scanner 
-        </div>*/}
       </section>
 
       <section id="c-panel" className="space-y-4 scroll-mt-20">
@@ -333,7 +306,7 @@ export default function Support() {
           El Coach Panel es tu centro de operaciones. Tiene cuatro tabs:
         </p>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          <strong>📅 Agenda →</strong> calendario mensual con tus sesiones. Seleccioná un día para ver el detalle: inscriptos, asistencia en tiempo real, y acciones de soltar/eliminar.
+          <strong>📅 Agenda →</strong> calendario mensual con tus sesiones.
         </p>
         <p className="text-sm text-foreground/80 leading-relaxed">
           <strong>👥 Miembros →</strong> lista de todos los miembros de tu club con su nivel de experiencia y estado.
@@ -342,12 +315,8 @@ export default function Support() {
           <strong>📊 Analytics →</strong> gráficos de sesiones por tipo, distribución de asistencia, y actividad semanal de los últimos 30 días.
         </p>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          <strong>🔗 Invitar Coach →</strong> generá links de invitación para sumar coaches a tu club. Compartí el código de miembros con tus alumnos.
+          <strong>🔗 Invitar Coach →</strong> generá links de invitación para sumar coaches a tu club.
         </p>
-        {/* <div className="bg-muted/30 border border-dashed border-border rounded-xl p-8 text-center text-xs text-muted-foreground">
-                {/*  📷 Imagen: Coach Panel — vista de Agenda con calendario y detalle 
-
-        </div>*/}
       </section>
 
       <section id="c-invitar" className="space-y-4 scroll-mt-20">
@@ -355,10 +324,10 @@ export default function Support() {
           Invitar coaches y miembros
         </h2>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          <strong>Para invitar miembros:</strong> compartí el código de club que aparece en la tab "Invitar Coach" del Coach Panel. Tus alumnos lo ingresan al registrarse y quedan automáticamente vinculados a tu club.
+          <strong>Para invitar miembros:</strong> compartí el código de club que aparece en la tab "Invitar Coach" del Coach Panel.
         </p>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          <strong>Para invitar coaches:</strong> generá un link de invitación desde la misma tab. Podés configurar el email sugerido y la fecha de expiración (1 a 30 días). El link se copia automáticamente al portapapeles. Podés revocarlo en cualquier momento.
+          <strong>Para invitar coaches:</strong> generá un link de invitación desde la misma tab. Podés configurar el email sugerido y la fecha de expiración (1 a 30 días).
         </p>
       </section>
 
@@ -368,15 +337,8 @@ export default function Support() {
         </h2>
         <p className="text-sm text-foreground/80 leading-relaxed">
           En la tab Analytics del Coach Panel encontrás tres visualizaciones de los últimos 30 días:
-        </p>
-        <p className="text-sm text-foreground/80 leading-relaxed">
-          <strong>Sesiones por tipo →</strong> gráfico de barras que muestra cuántas sesiones hubo de cada tipo (running, funcional, EMOM, etc.).
-        </p>
-        <p className="text-sm text-foreground/80 leading-relaxed">
-          <strong>Distribución de asistencia →</strong> gráfico de torta con el porcentaje de presentes, tardes y ausentes.
-        </p>
-        <p className="text-sm text-foreground/80 leading-relaxed">
-          <strong>Actividad semanal →</strong> sesiones dictadas y asistentes por semana, para identificar tendencias.
+          <strong> Sesiones por tipo</strong> (barras), <strong>Distribución de asistencia</strong> (torta)
+          y <strong>Actividad semanal</strong> (sesiones y asistentes por semana).
         </p>
       </section>
 
@@ -448,26 +410,74 @@ export default function Support() {
         <div className="bg-primary/5 border border-primary/20 rounded-xl p-6 text-center space-y-3">
           <h2 className="font-display text-xl font-bold text-foreground">¿Necesitás ayuda?</h2>
           <p className="text-sm text-muted-foreground">
-            Si no encontrás la respuesta que buscás, escribinos y te respondemos a la brevedad.</p>
+            Si no encontrás la respuesta que buscás, escribinos y te respondemos a la brevedad.
+          </p>
           <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg gradient-primary text-primary-foreground text-sm font-semibold">
-  <span>✉ woditos.soporte@gmail.com</span>
+            <span>✉ woditos.soporte@gmail.com</span>
+            <button
+              type="button"
+              onClick={handleCopyEmail}
+              className="inline-flex items-center justify-center w-8 h-8 rounded-md bg-white/10 hover:bg-white/20 active:scale-95 transition-all"
+              aria-label="Copiar email de soporte"
+              title={copied ? 'Copiado' : 'Copiar email'}
+            >
+              {copied ? <Check size={16} /> : <Copy size={16} />}
+            </button>
+            {copied && (
+              <span className="text-xs font-medium opacity-90">Copiado</span>
+            )}
+          </div>
+        </div>
+      </section>
 
-  <button
-    type="button"
-    onClick={handleCopyEmail}
-    className="inline-flex items-center justify-center w-8 h-8 rounded-md bg-white/10 hover:bg-white/20 active:scale-95 transition-all"
-    aria-label="Copiar email de soporte"
-    title={copied ? 'Copiado' : 'Copiar email'}
-  >
-    {copied ? <Check size={16} /> : <Copy size={16} />}
-  </button>
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* LEGAL — nuevo en v1.1                                      */}
+      {/* ═══════════════════════════════════════════════════════════ */}
 
-  {copied && (
-    <span className="text-xs font-medium opacity-90">
-      Copiado
-    </span>
-  )}
-</div>
+      <section id="legal" className="scroll-mt-20">
+        <div className="border-t border-border pt-6 mb-4">
+          <h1 className="font-display text-2xl font-extrabold text-foreground">
+            Legal
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Documentos legales y políticas de Woditos.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Link
+            to="/terminos"
+            className="group flex items-start gap-4 bg-card border border-border rounded-xl p-5 hover:border-primary/50 hover:bg-primary/5 transition-all"
+          >
+            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10 shrink-0">
+              <FileText size={20} className="text-primary" />
+            </div>
+            <div>
+              <p className="font-semibold text-sm text-foreground group-hover:text-primary transition-colors">
+                Términos de Uso
+              </p>
+              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                Condiciones de uso del servicio, responsabilidades y reglas de la plataforma.
+              </p>
+            </div>
+          </Link>
+
+          <Link
+            to="/privacidad"
+            className="group flex items-start gap-4 bg-card border border-border rounded-xl p-5 hover:border-primary/50 hover:bg-primary/5 transition-all"
+          >
+            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10 shrink-0">
+              <ShieldCheck size={20} className="text-primary" />
+            </div>
+            <div>
+              <p className="font-semibold text-sm text-foreground group-hover:text-primary transition-colors">
+                Política de Privacidad
+              </p>
+              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                Cómo recopilamos, usamos y protegemos tus datos personales (Ley 25.326).
+              </p>
+            </div>
+          </Link>
         </div>
       </section>
 
@@ -480,7 +490,7 @@ export default function Support() {
           "{getSlogan()}"
         </p>
         <p className="text-xs text-muted-foreground">
-          {/*© 2026 Woditos - Andres Albarracin. Todos los derechos reservados.*/}
+          © 2026 Woditos. Todos los derechos reservados.
         </p>
       </footer>
     </div>

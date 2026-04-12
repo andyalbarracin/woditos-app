@@ -1,4 +1,4 @@
-# Logs
+# ── Logs ──────────────────────────────────────────────────────
 logs
 *.log
 npm-debug.log*
@@ -7,18 +7,75 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# ── Dependencias ──────────────────────────────────────────────
 node_modules
+.pnp
+.pnp.js
+
+# ── Build outputs ─────────────────────────────────────────────
 dist
 dist-ssr
-*.local
+build
+.output
+.nuxt
+.next
 
-# Editor directories and files
+# ── Variables de entorno — NUNCA subir al repo ────────────────
+.env
+.env.*
+.env.local
+.env.development
+.env.development.local
+.env.test
+.env.test.local
+.env.production
+.env.production.local
+!.env.example
+
+# ── Archivos locales de Vite ──────────────────────────────────
+*.local
+vite.config.ts.timestamp-*
+
+# ── Editor ────────────────────────────────────────────────────
 .vscode/*
 !.vscode/extensions.json
+!.vscode/settings.json
 .idea
-.DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+*.swp
+
+# ── OS ────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ── Testing ───────────────────────────────────────────────────
+coverage
+*.lcov
+.nyc_output
+
+# ── TypeScript ────────────────────────────────────────────────
+*.tsbuildinfo
+
+# ── Capacitor / Mobile ────────────────────────────────────────
+ios/App/Pods
+android/.gradle
+android/app/release
+*.keystore
+!debug.keystore
+
+# ── Misc ──────────────────────────────────────────────────────
+.cache
+.temp
+.tmp
+*.bak
+*.orig

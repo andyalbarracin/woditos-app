@@ -13,5 +13,9 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
+    // Bypass Navigator Locks API para evitar NavigatorLockAcquireTimeoutError
+    // que ocurre con Vite HMR cuando múltiples instancias compiten por el lock.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    lock: ((_name: string, _acquireTimeout: number, fn: () => Promise<any>) => fn()) as any,
   }
 });

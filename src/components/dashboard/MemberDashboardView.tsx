@@ -1,9 +1,11 @@
 /**
  * Archivo: MemberDashboardView.tsx
  * Ruta: src/components/dashboard/MemberDashboardView.tsx
- * Última modificación: 2026-03-28
+ * Última modificación: 2026-04-10
  * Descripción: Vista del dashboard para miembros.
  *   Muestra sesiones confirmadas, sesiones disponibles con barra de progreso y nombre del coach.
+ *   v1.1 (seguridad): upcomingSessions filtrada por coaches del mismo club en dos pasos.
+ *         Antes mostraba sesiones de TODOS los clubs.
  */
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -16,6 +18,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 
+const db = supabase as any;
+
 const SESSION_COLORS: Record<string, string> = {
   running: 'bg-secondary', functional: 'bg-primary', amrap: 'bg-primary',
   emom: 'bg-accent', hiit: 'bg-destructive', technique: 'bg-info',
@@ -27,22 +31,42 @@ interface MemberDashboardViewProps {
 }
 
 export default function MemberDashboardView({ stats, achievements }: MemberDashboardViewProps) {
-  const { user, profile } = useAuth();
+  const { user, profile, clubMembership } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
+  const clubId = clubMembership?.club_id;
+
   const { data: upcomingSessions } = useQuery({
-    queryKey: ['upcoming-sessions-dashboard'],
+    queryKey: ['upcoming-sessions-dashboard', clubId],
     queryFn: async () => {
+      if (!clubId) return [];
+
+      // Paso 1: obtener user_ids de coaches activos en el mismo club.
+      // Las sesiones no tienen club_id directo, se relacionan con el club
+      // a través de coach_id → club_memberships. Por eso filtramos en dos pasos.
+      const { data: coachMembers } = await db
+        .from('club_memberships')
+        .select('user_id')
+        .eq('club_id', clubId)
+        .eq('status', 'active')
+        .in('role', ['coach', 'club_admin', 'super_admin']);
+
+      const coachIds = (coachMembers || []).map((m: any) => m.user_id);
+      if (coachIds.length === 0) return [];
+
+      // Paso 2: sesiones futuras cuyo coach pertenece al mismo club.
       const { data } = await supabase
         .from('sessions')
         .select('*, groups(name), reservations(id, user_id, reservation_status), users!coach_id(profiles(full_name))')
         .gte('start_time', new Date().toISOString())
+        .in('coach_id', coachIds)
         .order('start_time', { ascending: true })
         .limit(15);
+
       return data || [];
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && !!clubId,
   });
 
   const bookMutation = useMutation({
@@ -97,10 +121,10 @@ export default function MemberDashboardView({ stats, achievements }: MemberDashb
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { icon: Flame,      label: 'Racha',      value: `${stats?.current_streak || 0} días`,      color: 'text-primary' },
-          { icon: Calendar,   label: 'Sesiones',   value: `${stats?.total_sessions || 0}`,            color: 'text-secondary' },
-          { icon: TrendingUp, label: 'Asistencia', value: `${stats?.attendance_percentage || 0}%`,    color: 'text-accent' },
-          { icon: Users,      label: 'Presentes',  value: `${stats?.present_sessions || 0}`,          color: 'text-info' },
+          { icon: Flame,      label: 'Racha',      value: `${stats?.current_streak || 0} días`,   color: 'text-primary' },
+          { icon: Calendar,   label: 'Sesiones',   value: `${stats?.total_sessions || 0}`,         color: 'text-secondary' },
+          { icon: TrendingUp, label: 'Asistencia', value: `${stats?.attendance_percentage || 0}%`, color: 'text-accent' },
+          { icon: Users,      label: 'Presentes',  value: `${stats?.present_sessions || 0}`,       color: 'text-info' },
         ].map(({ icon: Icon, label, value, color }) => (
           <div key={label} className="bg-card border border-border rounded-xl p-4 space-y-2">
             <Icon size={18} className={color} />

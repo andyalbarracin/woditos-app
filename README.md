@@ -1,73 +1,116 @@
-# Welcome to your Lovable project
+# Woditos
 
-## Project info
+**Plataforma de gestión fitness para comunidades de running y entrenamiento funcional.**
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+Woditos conecta a coaches con sus alumnos, centralizando la gestión de sesiones, asistencia, rutinas y comunicación en un solo lugar.
 
-## How can I edit this code?
+---
 
-There are several ways of editing your application.
+## ¿Qué es Woditos?
 
-**Use Lovable**
+Woditos está diseñado para clubs deportivos en Argentina — especialmente comunidades de running y entrenamiento funcional. Permite a los coaches organizar su trabajo diario y a los miembros mantenerse conectados con su club.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+### Para Coaches
+- Crear y gestionar sesiones grupales con tipo, crew, ubicación y capacidad
+- Tomar y soltar sesiones disponibles
+- Control de asistencia (presente / tarde / ausente) con check-in por QR
+- Asignar rutinas a sesiones
+- Ver analytics: sesiones por tipo, distribución de asistencia, actividad semanal
+- Invitar coaches al club mediante links con expiración
+- Enviar notificaciones y comunicados a los alumnos de una sesión
+- Escribir notas privadas sobre cada miembro
 
-Changes made via Lovable will be committed automatically to this repo.
+### Para Miembros
+- Reservar y cancelar sesiones
+- Ver el detalle de cada sesión: rutina asignada, compañeros inscriptos, coach
+- Dejar feedback post-sesión (valoración 1-5, incomodidades, nota al coach)
+- Ver estadísticas personales: racha de asistencia, presencia, porcentaje mensual
+- Participar en el feed del club: posts, stories, likes y comentarios
+- Perfil con QR personal para check-in rápido
 
-**Use your preferred IDE**
+### General
+- Autenticación por email/password y Google OAuth
+- Sistema de clubs con código de unión
+- Notificaciones en tiempo real
+- Modo oscuro / claro
+- App mobile-ready (navegación inferior, diseño responsivo)
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+---
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## Stack tecnológico
 
-Follow these steps:
+| Capa | Tecnología |
+|---|---|
+| Frontend | React 18 + TypeScript + Vite |
+| UI | Tailwind CSS + shadcn/ui |
+| Estado | TanStack Query v5 |
+| Routing | React Router v6 |
+| Backend | Supabase (PostgreSQL + Auth + RLS + Storage) |
+| Deploy | Vercel |
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+---
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+## Instalación y desarrollo local
 
-# Step 3: Install the necessary dependencies.
-npm i
+```bash
+# 1. Clonar el repositorio
+git clone https://github.com/andyalbarracin/woditos-app.git
+cd woditos-app
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# 2. Instalar dependencias
+npm install
+
+# 3. Configurar variables de entorno
+cp .env.example .env
+# Completar VITE_SUPABASE_URL y VITE_SUPABASE_PUBLISHABLE_KEY
+
+# 4. Iniciar servidor de desarrollo
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+### Variables de entorno requeridas
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```bash
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=your-anon-key
+```
 
-**Use GitHub Codespaces**
+---
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Estructura del proyecto
+src/
+├── components/       # Componentes reutilizables
+│   ├── dashboard/    # Vistas del dashboard por rol
+│   ├── layout/       # AppLayout, sidebar, header
+│   └── routines/     # Constructor de rutinas
+├── hooks/            # Custom hooks (useAuth, useRateLimit, etc.)
+├── lib/              # Supabase client, validación, utils
+├── pages/            # Páginas de la app
+└── types/            # Tipos TypeScript
 
-## What technologies are used for this project?
+---
 
-This project is built with:
+## Roles de usuario
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+| Rol | Descripción |
+|---|---|
+| `super_admin` | Acceso total a la plataforma |
+| `coach` / `club_admin` | Gestión de club, sesiones y miembros |
+| `member` | Reservas, feedback y comunidad |
 
-## How can I deploy this project?
+---
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+## Deploy
 
-## Can I connect a custom domain to my Lovable project?
+La app se despliega automáticamente en **Vercel** desde la rama `main`.
 
-Yes, you can!
+```bash
+npm run build   # Build de producción
+npm run preview # Preview local del build
+```
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+---
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## Licencia
+
+© 2026 Woditos — Todos los derechos reservados.

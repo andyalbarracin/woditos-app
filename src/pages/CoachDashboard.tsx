@@ -1,9 +1,12 @@
 /**
  * Archivo: CoachDashboard.tsx
  * Ruta: src/pages/CoachDashboard.tsx
- * Última modificación: 2026-04-06
+ * Última modificación: 2026-04-10
  * Descripción: Panel para coaches. 5 tabs: Agenda, Miembros, Analytics,
  *   Rutinas (nuevo v2.0), Invitar Coach. Botones "Nueva Sesión" y "Nueva Rutina".
+ *   v1.1 (seguridad): allSessions filtrada por coach_id. allAttendance en dos pasos
+ *         para filtrar solo asistencia de sesiones del coach.
+ *         Antes exponía sesiones y asistencia de TODOS los coaches.
  */
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -98,21 +101,42 @@ export default function CoachDashboard() {
     },
   });
 
+  // FIX: filtrada por coach_id para no exponer sesiones de otros coaches
   const { data: allSessions } = useQuery({
     queryKey: ['coach-all-sessions'],
     queryFn: async () => {
       const ago = new Date(); ago.setDate(ago.getDate() - 30);
       const { data } = await supabase.from('sessions')
         .select('*, attendance(attendance_status), reservations(reservation_status)')
-        .gte('start_time', ago.toISOString()).order('start_time');
+        .gte('start_time', ago.toISOString())
+        .eq('coach_id', user!.id)    // ← antes no tenía este filtro
+        .order('start_time');
       return data || [];
     },
   });
 
+  // FIX: dos pasos para filtrar solo asistencia de sesiones del coach.
+  // Antes hacía .select() sin filtro y traía asistencia de TODA la DB.
   const { data: allAttendance } = useQuery({
     queryKey: ['coach-attendance-stats'],
     queryFn: async () => {
-      const { data } = await supabase.from('attendance').select('attendance_status');
+      // Paso 1: IDs de sesiones del coach en los últimos 30 días
+      const ago = new Date(); ago.setDate(ago.getDate() - 30);
+      const { data: sessions } = await supabase
+        .from('sessions')
+        .select('id')
+        .eq('coach_id', user!.id)
+        .gte('start_time', ago.toISOString());
+
+      const sessionIds = (sessions || []).map((s: any) => s.id);
+      if (sessionIds.length === 0) return [];
+
+      // Paso 2: asistencia solo de esas sesiones
+      const { data } = await supabase
+        .from('attendance')
+        .select('attendance_status')
+        .in('session_id', sessionIds);
+
       return data || [];
     },
   });
@@ -245,8 +269,8 @@ export default function CoachDashboard() {
       {/* Summary Cards */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { icon: Users,      label: 'Miembros',      value: totalMembers,    color: 'text-secondary' },
-          { icon: Calendar,   label: 'Sesiones (30d)', value: totalSessions30, color: 'text-primary' },
+          { icon: Users,      label: 'Miembros',      value: totalMembers,        color: 'text-secondary' },
+          { icon: Calendar,   label: 'Sesiones (30d)', value: totalSessions30,    color: 'text-primary' },
           { icon: TrendingUp, label: 'Asistencia',    value: `${avgAttendance}%`, color: 'text-accent' },
         ].map(({ icon: Icon, label, value, color }) => (
           <div key={label} className="bg-card border border-border rounded-xl p-4">

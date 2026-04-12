@@ -1,12 +1,13 @@
 /**
  * Archivo: Login.tsx
  * Ruta: src/pages/Login.tsx
- * Última modificación: 2026-03-29
+ * Última modificación: 2026-04-10
  * Descripción: Página de login con email/password, Google OAuth,
  *   y link a recuperación de contraseña.
+ *   v1.1: agrega links a Términos de Uso y Política de Privacidad.
  */
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
@@ -86,8 +87,8 @@ export default function Login() {
           <div className="w-full max-w-sm space-y-6">
 
             <div className="text-center">
-            <img src={woditosLogo} alt="Woditos" className="h-20 mx-auto mb-6" />              
-            <h1 className="font-display text-2xl font-bold text-foreground">Iniciar Sesión</h1>
+              <img src={woditosLogo} alt="Woditos" className="h-20 mx-auto mb-6" />
+              <h1 className="font-display text-2xl font-bold text-foreground">Iniciar Sesión</h1>
               <p className="text-muted-foreground mt-2">Bienvenido de vuelta a tu crew</p>
             </div>
 
@@ -157,6 +158,18 @@ export default function Login() {
               <button onClick={() => navigate('/register')} className="text-primary hover:underline font-medium">
                 Regístrate
               </button>
+            </p>
+
+            {/* ── Links legales ─────────────────────────────── */}
+            <p className="text-center text-xs text-muted-foreground leading-relaxed">
+              Al usar Woditos aceptás nuestros{' '}
+              <Link to="/terminos" className="text-primary hover:underline font-medium">
+                Términos de Uso
+              </Link>
+              {' '}y nuestra{' '}
+              <Link to="/privacidad" className="text-primary hover:underline font-medium">
+                Política de Privacidad
+              </Link>.
             </p>
 
             <p className="text-center text-xs text-muted-foreground">

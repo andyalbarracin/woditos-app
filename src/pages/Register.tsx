@@ -1,13 +1,14 @@
 /**
  * Archivo: Register.tsx
  * Ruta: src/pages/Register.tsx
- * Última modificación: 2026-03-28
+ * Última modificación: 2026-04-10
  * Descripción: Registro en 3 pasos. Coaches pueden crear club nuevo o unirse
  *   con token de invitación. Miembros pueden ingresar código de club.
- *   Todos los coaches pueden invitar coaches a su club.
+ *   v1.1: checkbox de aceptación de Términos y Política de Privacidad.
+ *   v1.2: sanitización de clubName, joinCode e inviteCode con schemas de validation.ts.
  */
 import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -15,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import woditosLogo from '@/assets/woditos-logo.png';
 import { toast } from 'sonner';
-import { registerSchema } from '@/lib/validation';
+import { registerSchema, clubCreationSchema, joinCodeSchema, inviteTokenSchema } from '@/lib/validation';
 import { ShieldCheck, Users, Dumbbell, ArrowRight } from 'lucide-react';
 
 type Step = 'role' | 'account' | 'club';
@@ -30,16 +31,16 @@ export default function Register() {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [clubName, setClubName] = useState('');
-  const [joinCode, setJoinCode] = useState('');     // miembros: código de club
-  const [inviteCode, setInviteCode] = useState(''); // coaches: token de invitación manual
+  const [joinCode, setJoinCode] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [tokenValid, setTokenValid] = useState<boolean | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const { signUp } = useAuth();
   const navigate = useNavigate();
 
-  // Si hay token en URL, pre-seleccionamos coach y validamos
   useEffect(() => {
     if (!inviteToken) return;
     setRole('coach');
@@ -49,10 +50,18 @@ export default function Register() {
   }, [inviteToken]);
 
   const validateInviteToken = async (token: string) => {
+    // Sanitizar antes de consultar
+    const tokenResult = inviteTokenSchema.safeParse(token);
+    if (!tokenResult.success) {
+      setTokenValid(false);
+      toast.error('Este link de invitación es inválido.');
+      return;
+    }
+
     const { data, error } = await supabase
       .from('coach_invites')
       .select('status, expires_at, email_hint')
-      .eq('token', token)
+      .eq('token', tokenResult.data)
       .single();
 
     if (error || !data || data.status !== 'pending') {
@@ -79,6 +88,11 @@ export default function Register() {
     e.preventDefault();
     setErrors({});
 
+    if (!acceptedTerms) {
+      toast.error('Debés aceptar los Términos de Uso y la Política de Privacidad para continuar.');
+      return;
+    }
+
     if (inviteToken && tokenValid === false) {
       toast.error('No podés continuar con un link inválido.');
       return;
@@ -94,26 +108,25 @@ export default function Register() {
       return;
     }
 
-    // Validar token manual si el coach ingresó uno
     if (role === 'coach' && inviteCode.trim() && !inviteToken) {
       await validateInviteToken(inviteCode.trim());
       if (tokenValid === false) return;
     }
 
-    // Coach sin token va a crear su propio club
     if (role === 'coach' && !inviteCode.trim()) {
       setStep('club');
       return;
     }
 
-    // Coach con token o miembro van directo a registrarse
     await doRegister();
   };
 
   const handleClubSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!clubName.trim()) {
-      toast.error('El nombre del club es obligatorio');
+    // Validar nombre del club antes de avanzar al registro
+    const clubResult = clubCreationSchema.safeParse({ name: clubName });
+    if (!clubResult.success) {
+      toast.error(clubResult.error.errors[0]?.message || 'Nombre de club inválido');
       return;
     }
     await doRegister();
@@ -122,17 +135,15 @@ export default function Register() {
   const doRegister = async () => {
     setLoading(true);
     try {
-      // Intentar crear la cuenta en Supabase Auth
       try {
         await signUp(email, password, fullName);
       } catch (authErr: any) {
-        // Mensajes de error específicos para errores de Auth
         const msg = authErr?.message || '';
         if (msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('already been registered')) {
           toast.error('Este email ya tiene una cuenta. ¿Querés iniciar sesión?');
         } else if (msg.toLowerCase().includes('invalid') && msg.toLowerCase().includes('email')) {
           toast.error('El email ingresado no es válido. Revisalo e intentá de nuevo.');
-          setStep('account'); // Volver al paso de cuenta para que pueda corregirlo
+          setStep('account');
         } else {
           toast.error(msg || 'Error al crear la cuenta');
         }
@@ -140,7 +151,6 @@ export default function Register() {
         return;
       }
 
-      // Esperar a que el usuario esté disponible
       await new Promise(res => setTimeout(res, 1500));
 
       const { data: { user: authUser } } = await supabase.auth.getUser();
@@ -154,9 +164,16 @@ export default function Register() {
       const tokenToUse = inviteCode.trim() || inviteToken;
 
       if (tokenToUse && tokenValid) {
-        // Usar token de invitación → asigna rol coach en club existente
+        // Sanitizar token antes de usar en RPC
+        const tokenResult = inviteTokenSchema.safeParse(tokenToUse);
+        if (!tokenResult.success) {
+          toast.error('Token de invitación inválido.');
+          setLoading(false);
+          return;
+        }
+
         const { data: rpcResult } = await supabase.rpc('use_coach_invite', {
-          p_token: tokenToUse,
+          p_token: tokenResult.data,
           p_user_id: authUser.id,
         });
         const result = rpcResult as { success: boolean; error?: string } | null;
@@ -167,8 +184,16 @@ export default function Register() {
         }
 
       } else if (role === 'coach' && clubName.trim()) {
-        // Crear club nuevo
-        const slug = clubName.trim()
+        // Sanitizar nombre del club antes del INSERT
+        const clubResult = clubCreationSchema.safeParse({ name: clubName });
+        if (!clubResult.success) {
+          toast.error('Nombre de club inválido.');
+          setLoading(false);
+          return;
+        }
+        const sanitizedClubName = clubResult.data.name;
+
+        const slug = sanitizedClubName
           .toLowerCase()
           .replace(/\s+/g, '-')
           .replace(/[^a-z0-9-]/g, '')
@@ -178,7 +203,7 @@ export default function Register() {
         const { data: newClub, error: clubError } = await supabase
           .from('clubs')
           .insert({
-            name: clubName.trim(),
+            name: sanitizedClubName,      // ← valor sanitizado
             slug: uniqueSlug,
             owner_id: authUser.id,
             plan: 'pro',
@@ -191,24 +216,31 @@ export default function Register() {
         await supabase.from('club_memberships').insert({
           club_id: newClub.id, user_id: authUser.id, role: 'club_admin', status: 'active',
         });
-        // Delay para asegurar que cualquier trigger de DB haya terminado antes de setear el rol
         await new Promise(res => setTimeout(res, 500));
         await supabase.from('users').update({ role: 'coach' }).eq('id', authUser.id);
 
-        toast.success(`¡Club "${clubName}" creado! Bienvenido a Woditos.`);
+        toast.success(`¡Club "${sanitizedClubName}" creado! Bienvenido a Woditos.`);
 
       } else if (role === 'member' && joinCode.trim()) {
-        // Miembro se une con código
+        // Sanitizar código de club antes del SELECT
+        const joinResult = joinCodeSchema.safeParse(joinCode);
+        if (!joinResult.success) {
+          toast.error('Código de club inválido. Verificá con tu coach.');
+          setLoading(false);
+          return;
+        }
+
         const { data: club } = await supabase
           .from('clubs')
           .select('id, name')
-          .eq('join_code', joinCode.trim().toUpperCase())
+          .eq('join_code', joinResult.data)  // ← valor sanitizado
           .eq('status', 'active')
           .single();
 
         if (club) {
           await supabase.from('club_memberships').insert({
-        club_id: club.id, user_id: authUser.id, role: 'member', status: 'active',        });
+            club_id: club.id, user_id: authUser.id, role: 'member', status: 'active',
+          });
           toast.success(`¡Te uniste a "${club.name}"!`);
         } else {
           toast.error('Código de club inválido. Podés unirte más tarde desde tu perfil.');
@@ -324,13 +356,13 @@ export default function Register() {
                   Código de club <span className="text-muted-foreground">(opcional)</span>
                 </Label>
                 <Input id="joinCode" placeholder="Ej: ABC123" value={joinCode}
-                  onChange={e => setJoinCode(e.target.value.toUpperCase())} maxLength={6}
+                  onChange={e => setJoinCode(e.target.value.toUpperCase())} maxLength={10}
                   className="bg-card border-border font-mono tracking-widest" />
                 <p className="text-xs text-muted-foreground">Tu coach te comparte este código para unirte a su club.</p>
               </div>
             )}
 
-            {/* Token de invitación para coaches (si no viene por URL) */}
+            {/* Token de invitación para coaches */}
             {role === 'coach' && !inviteToken && (
               <div className="space-y-2">
                 <Label htmlFor="inviteCode">
@@ -345,9 +377,47 @@ export default function Register() {
               </div>
             )}
 
+            {/* Checkbox de aceptación de términos */}
+            <label className="flex items-start gap-3 cursor-pointer group">
+              <div className="relative mt-0.5 shrink-0">
+                <input
+                  type="checkbox"
+                  checked={acceptedTerms}
+                  onChange={e => setAcceptedTerms(e.target.checked)}
+                  className="sr-only"
+                />
+                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                  acceptedTerms
+                    ? 'bg-primary border-primary'
+                    : 'border-border bg-card group-hover:border-primary/50'
+                }`}>
+                  {acceptedTerms && (
+                    <svg width="11" height="8" viewBox="0 0 11 8" fill="none">
+                      <path d="M1 4L4 7L10 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                </div>
+              </div>
+              <span className="text-xs text-muted-foreground leading-relaxed">
+                Leí y acepto los{' '}
+                <Link to="/terminos" target="_blank" rel="noopener noreferrer"
+                  className="text-primary hover:underline font-medium"
+                  onClick={e => e.stopPropagation()}>
+                  Términos de Uso
+                </Link>
+                {' '}y la{' '}
+                <Link to="/privacidad" target="_blank" rel="noopener noreferrer"
+                  className="text-primary hover:underline font-medium"
+                  onClick={e => e.stopPropagation()}>
+                  Política de Privacidad
+                </Link>{' '}
+                de Woditos.
+              </span>
+            </label>
+
             <Button type="submit"
               className="w-full gradient-primary text-primary-foreground font-semibold gap-2"
-              disabled={loading || (inviteToken !== null && tokenValid === false)}>
+              disabled={loading || !acceptedTerms || (inviteToken !== null && tokenValid === false)}>
               {role === 'coach' && !inviteCode.trim() && !inviteToken
                 ? <><span>Siguiente: Crear club</span><ArrowRight size={14} /></>
                 : loading ? 'Creando cuenta...' : 'Crear cuenta'
@@ -396,7 +466,6 @@ export default function Register() {
           </button>
         </p>
 
-        {/* Footer dentro del flujo, no absoluto */}
         <p className="text-center text-xs text-muted-foreground">
           © 2026 Woditos. Todos los derechos reservados.
         </p>

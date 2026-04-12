@@ -3,21 +3,17 @@
  * Archivo: useAuth.tsx
  * Ruta: src/hooks/useAuth.tsx
  * Última modificación: 2026-04-10
- * Descripción: Contexto y hook de autenticación. Maneja sesión, login, registro,
- *              logout y carga de datos de usuario (users + profiles + club membership).
- *   v1.3: usa `db = supabase as any` para evitar errores de tipos en queries
- *         hasta que se regeneren los tipos de Supabase.
- *         onAuthStateChange maneja todo incluyendo INITIAL_SESSION.
- *         Limpia query cache al logout.
+ * Descripción: Contexto y hook de autenticación.
+ *   v1.3: elimina getSession() que causaba deadlock con onAuthStateChange
+ *         en esta versión del cliente Supabase. Todo se maneja desde
+ *         onAuthStateChange incluyendo INITIAL_SESSION que dispara al montar
+ *         y resuelve isLoading correctamente.
  */
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { queryClient } from '@/lib/queryClient';
 import type { User, Profile } from '@/types';
 import type { Session } from '@supabase/supabase-js';
-
-// Cast para evitar errores de TypeScript en tablas v2 hasta regenerar tipos
-const db = supabase as any;
 
 export interface ClubMembership {
   club_id: string;
@@ -57,9 +53,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const fetchUserData = async (userId: string) => {
     try {
       const [userRes, profileRes, clubRes] = await Promise.all([
-        db.from('users').select('*').eq('id', userId).single(),
-        db.from('profiles').select('*').eq('user_id', userId).single(),
-        db
+        supabase.from('users').select('*').eq('id', userId).single(),
+        supabase.from('profiles').select('*').eq('user_id', userId).single(),
+        supabase
           .from('club_memberships')
           .select('club_id, role, clubs(id, name, slug, join_code, plan, owner_id, avatar_url)')
           .eq('user_id', userId)
@@ -81,6 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setClubMembership(null);
       }
     } catch (err) {
+      console.error('[useAuth] fetchUserData error:', err);
     }
   };
 
@@ -110,9 +107,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
-        // Resuelve isLoading con cualquier evento incluyendo INITIAL_SESSION.
+        // isLoading se resuelve con cualquier evento, incluyendo INITIAL_SESSION.
         // INITIAL_SESSION dispara al montar y es la señal de que el estado
-        // de auth fue determinado.
+        // de auth fue determinado. Sin esto isLoading queda true para siempre.
         setIsLoading(false);
       }
     );

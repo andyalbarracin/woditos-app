@@ -7,11 +7,15 @@
  *   v2.0: agrega rutas del módulo de rutinas (/rutinas/*).
  *   v2.1: agrega /sesion/:id para detalle de sesión de coaches.
  *   v2.2: agrega /mi-sesion/:id para detalle de sesión de miembros.
+ *   v2.3: agrega rutas públicas /privacidad y /terminos.
+ *   v2.4: fix OnboardingGuard — usaba !user como spinner eterno cuando
+ *         fetchUserData fallaba silenciosamente. Ahora usa isLoading.
  */
 import { Toaster } from '@/components/ui/toaster';
 import { Toaster as Sonner } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from '@/lib/queryClient';
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/hooks/useAuth';
 import { ThemeProvider } from '@/hooks/useTheme';
@@ -46,49 +50,60 @@ import SessionDetail from '@/pages/SessionDetail';
 import LibraryExerciseDetail from '@/pages/LibraryExerciseDetail';
 import MemberSessionDetail from '@/pages/MemberSessionDetail';
 
+// Pages v2.3 — Legales (públicas)
+import PrivacyPolicy from '@/pages/PrivacyPolicy';
+import TermsOfUse from '@/pages/TermsOfUse';
+
 // Feedback modal
 import SessionFeedbackModal from '@/components/SessionFeedbackModal';
 import { useSessionFeedback } from '@/hooks/useSessionFeedback';
 
-const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
-});
+// ── Spinner compartido ────────────────────────────────────────
+function Spinner() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+    </div>
+  );
+}
+
+// ── Guards ────────────────────────────────────────────────────
 
 function ProtectedRoute() {
   const { session, isLoading } = useAuth();
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    );
-  }
+  if (isLoading) return <Spinner />;
   if (!session) return <Navigate to="/login" replace />;
   return <Outlet />;
 }
 
 function OnboardingGuard() {
-  const { user, clubMembership } = useAuth();
-  if (!user) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    );
-  }
+  const { user, clubMembership, isLoading } = useAuth();
+
+  // Mostrar spinner SOLO mientras la sesión está cargando.
+  // Antes usaba !user como condición del spinner, lo que causaba
+  // un loop eterno si fetchUserData tardaba o fallaba silenciosamente.
+  if (isLoading) return <Spinner />;
+
+  // Si no hay user después de cargar → redirigir a login
+  if (!user) return <Navigate to="/login" replace />;
+
+  // Si hay user pero no tiene club → onboarding
   if (!clubMembership) return <Navigate to="/onboarding" replace />;
+
   return <Outlet />;
 }
 
 function CoachRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
   if (isLoading) return null;
-  const isCoach = user?.role === 'coach' || user?.role === 'super_admin';
+  const role = user?.role as string | undefined;
+  const isCoach = role === 'coach' || role === 'super_admin' || role === 'club_admin';
   if (!isCoach) return <Navigate to="/inicio" replace />;
   return <>{children}</>;
 }
 
-/** Wrapper para RoutineBuilder en modo edición — lee :id de los params */
+// ── Wrappers ──────────────────────────────────────────────────
+
 function RoutineBuilderEdit() {
   const { id } = useParams<{ id: string }>();
   return <RoutineBuilder routineId={id} />;
@@ -97,7 +112,8 @@ function RoutineBuilderEdit() {
 function AppWithFeedback() {
   const { user } = useAuth();
   const { pending, dismiss } = useSessionFeedback();
-  if (user?.role !== 'member' || !pending) return null;
+  const role = user?.role as string | undefined;
+  if (role !== 'member' || !pending) return null;
   return (
     <SessionFeedbackModal
       open={!!pending}
@@ -109,6 +125,8 @@ function AppWithFeedback() {
     />
   );
 }
+
+// ── App ───────────────────────────────────────────────────────
 
 function App() {
   return (
@@ -122,18 +140,21 @@ function App() {
               <AppWithFeedback />
 
               <Routes>
-                {/* Públicas */}
+                {/* ── Rutas públicas ── */}
                 <Route path="/login"          element={<Login />} />
                 <Route path="/register"       element={<Register />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/privacidad"     element={<PrivacyPolicy />} />
+                <Route path="/terminos"       element={<TermsOfUse />} />
 
-                {/* Protegidas */}
+                {/* ── Rutas protegidas ── */}
                 <Route element={<ProtectedRoute />}>
                   <Route path="/onboarding" element={<Onboarding />} />
 
                   <Route element={<OnboardingGuard />}>
                     <Route element={<AppLayout />}>
-                      {/* ── v1.0 ── */}
+
+                      {/* v1.0 */}
                       <Route path="/"          element={<Navigate to="/inicio" replace />} />
                       <Route path="/inicio"     element={<Dashboard />} />
                       <Route path="/agenda"     element={<Agenda />} />
@@ -147,17 +168,18 @@ function App() {
                       <Route path="/coach"      element={<CoachRoute><CoachDashboard /></CoachRoute>} />
                       <Route path="/soporte"    element={<Support />} />
 
-                      {/* ── v2.0 — Rutinas ── */}
-                      <Route path="/rutinas"              element={<Routines />} />
-                      <Route path="/rutinas/nueva"        element={<CoachRoute><RoutineBuilder /></CoachRoute>} />
-                      <Route path="/rutinas/:id"          element={<RoutineDetail />} />
-                      <Route path="/rutinas/:id/editar"   element={<CoachRoute><RoutineBuilderEdit /></CoachRoute>} />
+                      {/* v2.0 — Rutinas */}
+                      <Route path="/rutinas"            element={<Routines />} />
+                      <Route path="/rutinas/nueva"      element={<CoachRoute><RoutineBuilder /></CoachRoute>} />
+                      <Route path="/rutinas/:id"         element={<RoutineDetail />} />
+                      <Route path="/rutinas/:id/editar" element={<CoachRoute><RoutineBuilderEdit /></CoachRoute>} />
 
-                      {/* ── v2.1 — Detalle de sesión (coaches) ── */}
+                      {/* v2.1 — Detalle sesión coach */}
                       <Route path="/sesion/:id" element={<CoachRoute><SessionDetail /></CoachRoute>} />
 
-                      {/* ── v2.2 — Detalle de sesión (miembros) ── */}
+                      {/* v2.2 — Detalle sesión miembro */}
                       <Route path="/mi-sesion/:id" element={<MemberSessionDetail />} />
+
                     </Route>
                   </Route>
                 </Route>

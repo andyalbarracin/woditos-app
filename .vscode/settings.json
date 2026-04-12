@@ -1,0 +1,12 @@
+{
+  "deno.enablePaths": [
+    "supabase/functions"
+  ],
+  "deno.unstable": [],
+  "json.schemaDownload.enable": true,
+  "css.validate": false,
+  "scss.validate": false,
+  "files.associations": {
+    "*.lock": "plaintext"
+  }
+}

@@ -6,8 +6,8 @@
  *   v2.1: título "Sesiones", botón "Ver detalle" navega a /sesion/:id.
  *   v2.2: búsqueda de alumnos filtrada por club_id del coach.
  *         al crear alumno nuevo se le asigna club_membership.
- *         labels "alumno/s" en contexto de sesiones.
- *   Lee location.state para preseleccionar fecha y sesión.
+ *   v2.3 (seguridad): monthSessions, daySessions y groups filtradas por coaches
+ *         del mismo club. Rate limiting en comunicados (3 cada 5 minutos).
  */
 
 import { useState, useMemo } from 'react';
@@ -16,7 +16,8 @@ import CreateSessionDialog from '@/components/CreateSessionDialog';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
-import { format, isSameDay, startOfMonth, endOfMonth, startOfDay } from 'date-fns';
+import { useRateLimit } from '@/hooks/useRateLimit';
+import { format, startOfMonth, endOfMonth, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
   ClipboardCheck, Calendar as CalendarIcon, Check, Clock, X,
@@ -38,6 +39,8 @@ import { cn } from '@/lib/utils';
 import QRScanner from '@/components/QRScanner';
 import { sanitizeText } from '@/lib/validation';
 
+const db = supabase as any;
+
 type AttendanceStatus = 'present' | 'late' | 'absent' | 'excused';
 
 interface AttendeeState {
@@ -58,6 +61,9 @@ export default function AttendancePage() {
   const queryClient = useQueryClient();
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Rate limiting: máx 3 comunicados cada 5 minutos
+  const communicateRate = useRateLimit('communicate', 3, 300);
 
   const locationState = location.state as {
     preselectedDate?: string; preselectedSessionId?: string;
@@ -81,37 +87,73 @@ export default function AttendancePage() {
 
   const clubId = clubMembership?.club_id;
 
-  const { data: monthSessions } = useQuery({
-    queryKey: ['attendance-month-sessions', selectedDate.getMonth(), selectedDate.getFullYear()],
+  // ── Query compartida: IDs de coaches del mismo club ───────────
+  const { data: clubCoachIds } = useQuery({
+    queryKey: ['club-coach-ids', clubId],
     queryFn: async () => {
-      const start = startOfMonth(selectedDate);
-      const end = endOfMonth(selectedDate);
-      const { data } = await supabase.from('sessions').select('id, start_time')
-        .gte('start_time', start.toISOString()).lte('start_time', end.toISOString());
-      return data || [];
+      if (!clubId) return [];
+      const { data } = await db
+        .from('club_memberships')
+        .select('user_id')
+        .eq('club_id', clubId)
+        .eq('status', 'active')
+        .in('role', ['coach', 'club_admin', 'super_admin']);
+      return (data || []).map((c: any) => c.user_id as string);
     },
+    enabled: !!clubId,
+    staleTime: 5 * 60 * 1000,
   });
 
-  const { data: daySessions } = useQuery({
-    queryKey: ['attendance-day-sessions', selectedDate.toDateString()],
+  // ── Sesiones del mes (puntos del calendario) ──────────────────
+  const { data: monthSessions } = useQuery({
+    queryKey: ['attendance-month-sessions', selectedDate.getMonth(), selectedDate.getFullYear(), clubId],
     queryFn: async () => {
+      if (!clubCoachIds || clubCoachIds.length === 0) return [];
+      const start = startOfMonth(selectedDate);
+      const end = endOfMonth(selectedDate);
+      const { data } = await supabase.from('sessions')
+        .select('id, start_time')
+        .gte('start_time', start.toISOString())
+        .lte('start_time', end.toISOString())
+        .in('coach_id', clubCoachIds);
+      return data || [];
+    },
+    enabled: !!clubCoachIds && clubCoachIds.length > 0,
+  });
+
+  // ── Sesiones del día seleccionado ─────────────────────────────
+  const { data: daySessions } = useQuery({
+    queryKey: ['attendance-day-sessions', selectedDate.toDateString(), clubId],
+    queryFn: async () => {
+      if (!clubCoachIds || clubCoachIds.length === 0) return [];
       const dayStart = startOfDay(selectedDate);
       const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate() + 1);
-      const { data } = await supabase.from('sessions').select('*, groups(name)')
-        .gte('start_time', dayStart.toISOString()).lt('start_time', dayEnd.toISOString())
+      const { data } = await supabase.from('sessions')
+        .select('*, groups(name)')
+        .gte('start_time', dayStart.toISOString())
+        .lt('start_time', dayEnd.toISOString())
+        .in('coach_id', clubCoachIds)
         .order('start_time');
       return data || [];
     },
+    enabled: !!clubCoachIds && clubCoachIds.length > 0,
   });
 
+  // ── Grupos del club ───────────────────────────────────────────
   const { data: groups } = useQuery({
-    queryKey: ['attendance-groups'],
+    queryKey: ['attendance-groups', clubId],
     queryFn: async () => {
-      const { data } = await supabase.from('groups').select('id, name').order('name');
+      if (!clubCoachIds || clubCoachIds.length === 0) return [];
+      const { data } = await supabase.from('groups')
+        .select('id, name')
+        .in('coach_id', clubCoachIds)
+        .order('name');
       return data || [];
     },
+    enabled: !!clubCoachIds && clubCoachIds.length > 0,
   });
 
+  // ── Asistentes de la sesión seleccionada ──────────────────────
   const { isLoading: loadingAttendees } = useQuery({
     queryKey: ['attendance-session', selectedSessionId],
     queryFn: async () => {
@@ -206,6 +248,11 @@ export default function AttendancePage() {
   };
 
   const handleCommunicate = async () => {
+    // Rate limiting: máx 3 comunicados cada 5 minutos
+    if (!communicateRate.attempt()) {
+      toast.error(`Límite alcanzado. Podés enviar otro mensaje en ${communicateRate.secondsLeft} segundos.`);
+      return;
+    }
     if (!communicateMessage.trim()) { toast.error('Escribí un mensaje'); return; }
     const userIds = Object.keys(attendees);
     if (userIds.length === 0) { toast.error('No hay alumnos en esta sesión'); return; }
@@ -338,8 +385,12 @@ export default function AttendancePage() {
               {Object.keys(attendees).length > 0 && (
                 <Dialog open={showCommunicate} onOpenChange={setShowCommunicate}>
                   <DialogTrigger asChild>
-                    <Button variant="outline" size="sm" className="gap-1">
-                      <Send size={14} /> Comunicar
+                    <Button variant="outline" size="sm" className="gap-1"
+                      disabled={communicateRate.blocked}>
+                      <Send size={14} />
+                      {communicateRate.blocked
+                        ? `Esperá ${communicateRate.secondsLeft}s`
+                        : 'Comunicar'}
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="bg-card border-border">
@@ -353,8 +404,13 @@ export default function AttendancePage() {
                       <Textarea placeholder="Ej: La sesión de hoy se cancela por lluvia. Nos vemos mañana!"
                         value={communicateMessage} onChange={e => setCommunicateMessage(e.target.value)}
                         className="bg-background border-border min-h-[100px]" />
-                      <Button onClick={handleCommunicate} className="w-full gradient-primary text-primary-foreground gap-2">
-                        <Send size={16} /> Enviar mensaje
+                      <Button onClick={handleCommunicate}
+                        disabled={communicateRate.blocked}
+                        className="w-full gradient-primary text-primary-foreground gap-2">
+                        <Send size={16} />
+                        {communicateRate.blocked
+                          ? `Esperá ${communicateRate.secondsLeft}s`
+                          : 'Enviar mensaje'}
                       </Button>
                     </div>
                   </DialogContent>
@@ -482,7 +538,6 @@ export default function AttendancePage() {
             </div>
           )}
 
-          {/* FIX: se pasa clubId para filtrar búsqueda por club */}
           <AssignMemberToSession
             sessionId={selectedSessionId}
             existingUserIds={Object.keys(attendees)}
@@ -530,9 +585,6 @@ export default function AttendancePage() {
 }
 
 // ─── AssignMemberToSession ────────────────────────────────────────
-// FIX v2.2:
-//   - Búsqueda filtrada por club_id (solo alumnos del mismo club)
-//   - Al crear alumno nuevo se le asigna club_membership automáticamente
 
 function AssignMemberToSession({
   sessionId, existingUserIds, clubId, onAssigned,
@@ -552,18 +604,13 @@ function AssignMemberToSession({
     queryKey: ['search-members-assign', search, clubId],
     queryFn: async () => {
       if (search.length < 2 || !clubId) return [];
-
-      // FIX: buscar solo perfiles de usuarios que pertenecen al mismo club
-      const { data } = await supabase
+      const { data } = await db
         .from('club_memberships')
         .select('user_id, users!user_id(profiles(full_name, avatar_url))')
         .eq('club_id', clubId)
         .eq('status', 'active')
         .eq('role', 'member');
-
       if (!data) return [];
-
-      // Filtrar por nombre y excluir los que ya están en la sesión
       return data
         .map((m: any) => ({
           user_id:    m.user_id,
@@ -592,56 +639,26 @@ function AssignMemberToSession({
     const name = sanitizeText(newMemberName.trim());
     if (!name || name.length < 2) { toast.error('Ingresá un nombre válido (mín. 2 caracteres)'); return; }
     if (!clubId) { toast.error('No se pudo determinar el club'); return; }
-
     setCreating(true);
-
     const slug = name.toLowerCase().replace(/\s+/g, '.').replace(/[^a-z0-9.]/g, '');
     const placeholderEmail = `${slug}.${Date.now()}@pendiente.woditos.app`;
     const userId = crypto.randomUUID();
-
-    // 1. Crear usuario
     const { error: userError } = await supabase.from('users').insert({
       id: userId, email: placeholderEmail, role: 'member', status: 'active',
     });
-    if (userError) {
-      toast.error('No se pudo crear el alumno. Verificá tus permisos.');
-      setCreating(false); return;
-    }
-
-    // 2. Crear perfil
-    const { error: profileError } = await supabase.from('profiles').insert({
-      user_id: userId, full_name: name,
-    });
-    if (profileError) {
-      toast.error('Error creando el perfil del alumno');
-      setCreating(false); return;
-    }
-
-    // 3. FIX: Asignar al club del coach
+    if (userError) { toast.error('No se pudo crear el alumno. Verificá tus permisos.'); setCreating(false); return; }
+    const { error: profileError } = await supabase.from('profiles').insert({ user_id: userId, full_name: name });
+    if (profileError) { toast.error('Error creando el perfil del alumno'); setCreating(false); return; }
     const { error: clubError } = await supabase.from('club_memberships').insert({
-      club_id: clubId,
-      user_id: userId,
-      role:    'member',
-      status:  'active',
+      club_id: clubId, user_id: userId, role: 'member', status: 'active',
     });
-    if (clubError) {
-      toast.error('Alumno creado pero no se pudo asignar al club');
-      setCreating(false); return;
-    }
-
-    // 4. Asignar a la sesión
+    if (clubError) { toast.error('Alumno creado pero no se pudo asignar al club'); setCreating(false); return; }
     const { error: reservationError } = await supabase.from('reservations').insert({
       session_id: sessionId, user_id: userId, reservation_status: 'confirmed',
     });
-
     setCreating(false);
-
-    if (reservationError) {
-      toast.error('Alumno creado pero no se pudo asignar a la sesión');
-    } else {
-      toast.success(`✅ ${name} creado y asignado a la sesión`);
-    }
-
+    if (reservationError) toast.error('Alumno creado pero no se pudo asignar a la sesión');
+    else toast.success(`✅ ${name} creado y asignado a la sesión`);
     setNewMemberName(''); setShowCreateMember(false); setSearch(''); onAssigned();
   };
 
@@ -691,9 +708,7 @@ function AssignMemberToSession({
                 Se creará un perfil parcial y se sumará a tu club. El alumno podrá completar sus datos después.
               </p>
               <div className="flex gap-2">
-                <Button size="sm" variant="ghost" onClick={() => setShowCreateMember(false)} className="text-xs">
-                  Cancelar
-                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setShowCreateMember(false)} className="text-xs">Cancelar</Button>
                 <Button size="sm" onClick={handleCreateMember} disabled={creating}
                   className="gradient-primary text-primary-foreground text-xs gap-1 flex-1">
                   <UserPlus size={12} /> {creating ? 'Creando...' : 'Crear y asignar'}
