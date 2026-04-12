@@ -1,10 +1,13 @@
 /**
  * Archivo: AppLayout.tsx
  * Ruta: src/components/layout/AppLayout.tsx
- * Última modificación: 2026-04-08
+ * Última modificación: 2026-04-12
  * Descripción: Layout principal. Sidebar desktop colapsable, nav móvil inferior.
- *   v2.0: agrega "Rutinas" (ListChecks → /rutinas) en coachItems. Footer V2.0.
- *   v2.1: renombra "Asistencias" → "Sesiones" en coachItems.
+ *   v2.4: sidebar corregido por rol:
+ *         - Miembro: navItems → separador → Rutinas (bottomItems)
+ *         - Coach: navItems → separador → Rutinas + Sesiones + Coach Panel (coachItems)
+ *         Fix logout: se removió navigate('/login') manual — ProtectedRoute redirige
+ *         automáticamente cuando la sesión se anula, evitando race condition.
  */
 import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
@@ -23,20 +26,25 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import NotificationsBell from '@/components/NotificationsBell';
 import NextSessionBanner from '@/components/NextSessionBanner';
 
+// Items comunes a todos los roles
 const navItems = [
-  { to: '/',           icon: Home,          label: 'Inicio',      end: true  },
-  { to: '/agenda',     icon: Calendar,      label: 'Agenda',      end: false },
-  { to: '/comunidad',  icon: Users,         label: 'Crew',        end: false },
-  { to: '/biblioteca', icon: BookOpen,      label: 'Wiki',        end: false },
-  { to: '/perfil',     icon: User,          label: 'Perfil',      end: false },
+  { to: '/',           icon: Home,     label: 'Inicio', end: true  },
+  { to: '/agenda',     icon: Calendar, label: 'Agenda', end: false },
+  { to: '/comunidad',  icon: Users,    label: 'Crew',   end: false },
+  { to: '/biblioteca', icon: BookOpen, label: 'Wiki',   end: false },
+  { to: '/perfil',     icon: User,     label: 'Perfil', end: false },
 ];
 
-// v2.1: label cambiado de 'Asistencias' → 'Sesiones'
-// (antes era: { to: '/asistencia', icon: ClipboardCheck, label: 'Asistencias', end: false })
+// Solo visible para miembros (con separador propio)
+const memberBottomItems = [
+  { to: '/rutinas', icon: ListChecks, label: 'Rutinas', end: false },
+];
+
+// Visible para coaches — Rutinas incluida aquí, no en navItems
 const coachItems = [
+  { to: '/rutinas',    icon: ListChecks,     label: 'Rutinas',     end: false },
   { to: '/coach',      icon: Dumbbell,       label: 'Coach Panel', end: false },
   { to: '/asistencia', icon: ClipboardCheck, label: 'Sesiones',    end: false },
-  { to: '/rutinas',    icon: ListChecks,     label: 'Rutinas',     end: false },
 ];
 
 function formatRole(role: string | undefined): string {
@@ -52,8 +60,20 @@ export default function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileBannerDismissed, setMobileBannerDismissed] = useState(false);
 
-  const isCoach = user?.role === 'coach' || user?.role === 'super_admin';
-  const handleSignOut = async () => { await signOut(); navigate('/login'); };
+  const role    = user?.role as string | undefined;
+  const isCoach = role === 'coach' || role === 'super_admin' || role === 'club_admin';
+
+  // FIX: navigate('/login') se ejecuta en try/finally para garantizar que
+  // siempre se redirige, incluso si signOut tarda o falla silenciosamente.
+  // Sin este navigate, React puede batchear el update de session→null y
+  // ProtectedRoute no re-renderiza a tiempo → el botón "no hace nada".
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } finally {
+      navigate('/login', { replace: true });
+    }
+  };
 
   const collapsedItem = (isActive: boolean) =>
     `flex items-center justify-center rounded-xl transition-colors ${
@@ -66,6 +86,23 @@ export default function AppLayout() {
     }`;
 
   const COLLAPSED_PAD = 26;
+
+  const renderNavItem = ({ to, icon: Icon, label, end }: typeof navItems[0]) =>
+    collapsed ? (
+      <Tooltip key={to} delayDuration={0}>
+        <TooltipTrigger asChild>
+          <NavLink to={to} end={end} className={({ isActive }) => collapsedItem(isActive)}
+            style={{ display: 'flex', height: 44 }}>
+            <Icon size={22} />
+          </NavLink>
+        </TooltipTrigger>
+        <TooltipContent side="right" sideOffset={6}>{label}</TooltipContent>
+      </Tooltip>
+    ) : (
+      <NavLink key={to} to={to} end={end} className={({ isActive }) => expandedItem(isActive)}>
+        <Icon size={18} /><span>{label}</span>
+      </NavLink>
+    );
 
   return (
     <div className="flex h-dvh bg-background overflow-hidden">
@@ -93,51 +130,24 @@ export default function AppLayout() {
         </div>
 
         {/* Navegación */}
-        <nav className="flex-1 overflow-hidden"
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden"
           style={collapsed
             ? { paddingTop: 12, paddingBottom: 8, paddingLeft: COLLAPSED_PAD, paddingRight: COLLAPSED_PAD }
             : { padding: '8px 10px' }}>
           <div className="flex flex-col gap-1">
-            {navItems.map(({ to, icon: Icon, label, end }) =>
-              collapsed ? (
-                <Tooltip key={to} delayDuration={0}>
-                  <TooltipTrigger asChild>
-                    <NavLink to={to} end={end} className={({ isActive }) => collapsedItem(isActive)}
-                      style={{ display: 'flex', height: 44 }}>
-                      <Icon size={22} />
-                    </NavLink>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" sideOffset={6}>{label}</TooltipContent>
-                </Tooltip>
-              ) : (
-                <NavLink key={to} to={to} end={end} className={({ isActive }) => expandedItem(isActive)}>
-                  <Icon size={18} /><span>{label}</span>
-                </NavLink>
-              )
-            )}
 
-            {isCoach && (
-              <>
-                <div className="border-t border-border" style={{ margin: collapsed ? '6px 0' : '4px 0' }} />
-                {coachItems.map(({ to, icon: Icon, label, end }) =>
-                  collapsed ? (
-                    <Tooltip key={to} delayDuration={0}>
-                      <TooltipTrigger asChild>
-                        <NavLink to={to} end={end} className={({ isActive }) => collapsedItem(isActive)}
-                          style={{ display: 'flex', height: 44 }}>
-                          <Icon size={22} />
-                        </NavLink>
-                      </TooltipTrigger>
-                      <TooltipContent side="right" sideOffset={6}>{label}</TooltipContent>
-                    </Tooltip>
-                  ) : (
-                    <NavLink key={to} to={to} end={end} className={({ isActive }) => expandedItem(isActive)}>
-                      <Icon size={18} /><span>{label}</span>
-                    </NavLink>
-                  )
-                )}
-              </>
-            )}
+            {/* Items principales — iguales para todos */}
+            {navItems.map(renderNavItem)}
+
+            {/* Separador + items según rol */}
+            <div className="border-t border-border" style={{ margin: collapsed ? '6px 0' : '4px 0' }} />
+
+            {isCoach
+              // Coach: Rutinas, Coach Panel, Sesiones juntos
+              ? coachItems.map(renderNavItem)
+              // Miembro: solo Rutinas con su separador
+              : memberBottomItems.map(renderNavItem)
+            }
           </div>
         </nav>
 
@@ -300,7 +310,9 @@ export default function AppLayout() {
                     {theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
                   </button>
                   <div className="border-t border-border my-1" />
-                  <button onClick={handleSignOut}
+                  {/* FIX logout mobile: onClick directo, no onPointerDown */}
+                  <button
+                    onClick={handleSignOut}
                     className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm text-destructive hover:bg-destructive/10 transition-colors">
                     <LogOut size={16} /> Cerrar sesión
                   </button>
@@ -332,21 +344,30 @@ export default function AppLayout() {
           {navItems.map(({ to, icon: Icon, label, end }) => (
             <NavLink key={to} to={to} end={end}
               className={({ isActive }) =>
-                `flex flex-col items-center gap-1 py-1 px-2 text-xs font-medium transition-all ${
+                `flex flex-col items-center gap-0.5 py-1 px-1.5 text-[10px] font-medium transition-all ${
                   isActive ? 'text-primary' : 'text-muted-foreground'
-                }`
-              }>
-              <Icon size={20} />{label}
+                }`}>
+              <Icon size={19} />{label}
             </NavLink>
           ))}
+          {/* Divisor visual */}
+          <div className="w-px h-8 bg-border shrink-0" />
+          {/* Rutinas — siempre visible */}
+          <NavLink to="/rutinas"
+            className={({ isActive }) =>
+              `flex flex-col items-center gap-0.5 py-1 px-1.5 text-[10px] font-medium transition-all ${
+                isActive ? 'text-primary' : 'text-muted-foreground'
+              }`}>
+            <ListChecks size={19} />Rutinas
+          </NavLink>
+          {/* Coach Panel — solo coaches */}
           {isCoach && (
             <NavLink to="/coach"
               className={({ isActive }) =>
-                `flex flex-col items-center gap-1 py-1 px-2 text-xs font-medium transition-all ${
+                `flex flex-col items-center gap-0.5 py-1 px-1.5 text-[10px] font-medium transition-all ${
                   isActive ? 'text-secondary' : 'text-muted-foreground'
-                }`
-              }>
-              <Dumbbell size={20} />Coach
+                }`}>
+              <Dumbbell size={19} />Coach
             </NavLink>
           )}
         </nav>

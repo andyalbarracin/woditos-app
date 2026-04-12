@@ -1,11 +1,11 @@
 /**
  * Archivo: RoutineDetail.tsx
  * Ruta: src/pages/RoutineDetail.tsx
- * Última modificación: 2026-04-03
+ * Última modificación: 2026-04-12
  * Descripción: Vista detallada de una rutina.
  *   Coach: estadísticas vía RPC. Ambos roles: ejercicios con GIF.
  *   Miembro: botón sticky para registrar resultado.
- *   Usa `db` (supabase as any) para tablas v2 hasta regenerar tipos.
+ *   v2.1: cada ejercicio tiene botón "Ver en Wiki" si tiene exercise_db_id.
  */
 
 import { useState } from 'react';
@@ -13,7 +13,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   ArrowLeft, Clock, Target, ChevronRight, Loader2,
-  BarChart3, CheckCircle2, Edit, Dumbbell,
+  BarChart3, CheckCircle2, Edit, Dumbbell, BookOpen,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,10 +24,9 @@ import RoutineLogModal from '@/components/routines/RoutineLogModal';
 
 const db = supabase as any;
 
-// ─── Types ───────────────────────────────────────────────────────
-
 interface RoutineExercise {
   id: string;
+  exercise_db_id: string | null;
   exercise_name: string;
   exercise_gif_url: string | null;
   exercise_body_part: string | null;
@@ -58,8 +57,6 @@ interface RoutineStats {
   avg_feeling: number | null;
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────
-
 const TYPE_LABEL: Record<string, string> = Object.fromEntries(ROUTINE_TYPES.map(t => [t.value, t.label]));
 const LEVEL_LABEL: Record<string, string> = Object.fromEntries(ROUTINE_LEVELS.map(l => [l.value, l.label]));
 const LEVEL_COLOR: Record<string, string> = {
@@ -78,8 +75,6 @@ function formatSpec(ex: RoutineExercise): string {
   return parts.join(' · ') || 'Sin especificación';
 }
 
-// ─── Component ───────────────────────────────────────────────────
-
 export default function RoutineDetail() {
   const { id }   = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -89,9 +84,9 @@ export default function RoutineDetail() {
   const [logOpen, setLogOpen]       = useState(false);
   const [imgErrors, setImgErrors]   = useState<Set<string>>(new Set());
 
-  const isCoach = user?.role === 'coach' || user?.role === 'super_admin';
+  const role    = user?.role as string | undefined;
+  const isCoach = role === 'coach' || role === 'super_admin' || role === 'club_admin';
 
-  // ── Detalle de la rutina ──────────────────────────────────────────
   const detailQuery = useQuery<RoutineData>({
     queryKey: ['routine', id],
     queryFn: async () => {
@@ -110,7 +105,6 @@ export default function RoutineDetail() {
     enabled: !!id,
   });
 
-  // ── Stats (solo coach) ────────────────────────────────────────────
   const statsQuery = useQuery<RoutineStats>({
     queryKey: ['routine-stats', id],
     queryFn: async () => {
@@ -242,7 +236,7 @@ export default function RoutineDetail() {
                 </button>
 
                 {isExpanded && (
-                  <div className="border-t px-4 py-3 space-y-2">
+                  <div className="border-t px-4 py-3 space-y-3">
                     {ex.exercise_body_part && (
                       <p className="text-xs text-muted-foreground">
                         Zona: <span className="text-foreground">{ex.exercise_body_part}</span>
@@ -257,6 +251,15 @@ export default function RoutineDetail() {
                     {ex.exercise_gif_url && !imgFailed && (
                       <img src={ex.exercise_gif_url} alt={ex.exercise_name}
                         className="w-full max-w-xs mx-auto rounded-lg" />
+                    )}
+                    {/* Link a la Wiki — solo si tiene exercise_db_id */}
+                    {ex.exercise_db_id && (
+                      <button
+                        onClick={() => navigate(`/biblioteca/libreria/${ex.exercise_db_id}`)}
+                        className="flex items-center gap-2 text-xs text-primary hover:underline mt-1">
+                        <BookOpen className="h-3.5 w-3.5" />
+                        Ver instrucciones completas en la Wiki
+                      </button>
                     )}
                   </div>
                 )}

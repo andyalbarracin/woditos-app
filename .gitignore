@@ -79,3 +79,7 @@ android/app/release
 .tmp
 *.bak
 *.orig
+
+# ── Documentación y DB export (interno, no va al repo) ────────
+docs/
+supabase-export/

@@ -1,230 +1,283 @@
 /**
  * Archivo: RoutineLogModal.tsx
  * Ruta: src/components/routines/RoutineLogModal.tsx
- * Última modificación: 2026-04-03
- * Descripción: Modal para registrar resultado de una rutina completada.
- *   Usa `db` (supabase as any) para tablas v2 hasta regenerar tipos.
+ * Última modificación: 2026-04-12
+ * Descripción: Modal detallado para registrar resultado de una rutina.
+ *   Feeling, RPE slider, tiempo total, log por ejercicio, notas.
+ *   v2.0: acepta assignmentId opcional — si se pasa, marca el assignment
+ *         como completado y notifica al coach (assigned_by).
+ *         Usado tanto desde RoutineDetail (sin assignment) como desde
+ *         Routines.tsx (con assignment, al completar una rutina asignada).
  */
-
 import { useState } from 'react';
-import { Loader2, CheckCircle2 } from 'lucide-react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Slider } from '@/components/ui/slider';
-import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Slider } from '@/components/ui/slider';
+import { toast } from 'sonner';
+import { CheckCircle2 } from 'lucide-react';
 
 const db = supabase as any;
 
-interface ExerciseLog {
-  routineExerciseId: string;
-  exerciseName: string;
-  setsCompleted: number | '';
-  repsCompleted: number | '';
-  weightUsedKg: number | '';
-  notes: string;
+interface Exercise {
+  id: string;
+  exercise_name: string;
+  sets: number | null;
+  reps: number | null;
+  weight_kg: number | null;
 }
 
-interface Props {
+interface ExerciseLog {
+  sets: string;
+  reps: string;
+  weight_kg: string;
+}
+
+interface RoutineLogModalProps {
   open: boolean;
   onClose: () => void;
   routineId: string;
   routineName: string;
-  sessionId?: string;
-  assignmentId?: string;
-  exercises: {
-    id: string;
-    exercise_name: string;
-    sets: number | null;
-    reps: number | null;
-    weight_kg: number | null;
-  }[];
+  exercises: Exercise[];
+  // Opcionales — presentes cuando se completa una asignación directa
+  assignmentId?: string | null;
+  assignedBy?: string | null;    // user_id del coach para notificación
+  memberName?: string | null;    // nombre del alumno para la notificación
 }
 
-const FEELING_EMOJIS = ['😓', '😕', '😐', '😊', '🔥'];
-const FEELING_LABELS = ['Muy difícil', 'Difícil', 'Normal', 'Bien', '¡Excelente!'];
+const FEELINGS = [
+  { value: 1, emoji: '😓', label: 'Muy difícil' },
+  { value: 2, emoji: '😐', label: 'Difícil' },
+  { value: 3, emoji: '😐', label: 'Normal' },
+  { value: 4, emoji: '😊', label: 'Bien' },
+  { value: 5, emoji: '🔥', label: '¡Excelente!' },
+];
+
+const FEELING_LABEL: Record<number, string> = {
+  1: 'Muy difícil', 2: 'Difícil', 3: 'Normal', 4: 'Bien', 5: '¡Excelente!',
+};
+const RPE_LABEL_SHORT: Record<number, string> = {
+  1: 'Muy fácil', 3: 'Fácil', 5: 'Moderado', 7: 'Duro', 9: 'Muy duro', 10: 'Máximo',
+};
+
+function getRpeLabel(value: number): string {
+  if (value <= 2) return 'Muy fácil';
+  if (value <= 4) return 'Fácil';
+  if (value <= 6) return 'Moderado';
+  if (value <= 8) return 'Duro';
+  return 'Máximo esfuerzo';
+}
 
 export default function RoutineLogModal({
-  open, onClose, routineId, routineName, sessionId, assignmentId, exercises,
-}: Props) {
-  const { user }  = useAuth();
-  const { toast } = useToast();
-  const qc        = useQueryClient();
+  open, onClose, routineId, routineName, exercises,
+  assignmentId, assignedBy, memberName,
+}: RoutineLogModalProps) {
+  const { user, profile } = useAuth();
+  const queryClient = useQueryClient();
 
-  const [feeling, setFeeling]           = useState(3);
-  const [rpe, setRpe]                   = useState(7);
-  const [totalMinutes, setTotalMinutes] = useState<number | ''>('');
-  const [notes, setNotes]               = useState('');
-  const [exLogs, setExLogs]             = useState<ExerciseLog[]>(
-    exercises.map(e => ({
-      routineExerciseId: e.id,
-      exerciseName:      e.exercise_name,
-      setsCompleted:     e.sets ?? '',
-      repsCompleted:     e.reps ?? '',
-      weightUsedKg:      e.weight_kg ?? '',
-      notes:             '',
-    }))
+  const [feeling, setFeeling]     = useState<number | null>(null);
+  const [rpe, setRpe]             = useState<number>(5);
+  const [totalMinutes, setTotalMinutes] = useState('');
+  const [notes, setNotes]         = useState('');
+  const [saving, setSaving]       = useState(false);
+  const [exerciseLogs, setExerciseLogs] = useState<Record<string, ExerciseLog>>(
+    Object.fromEntries(exercises.map(e => [e.id, {
+      sets:      e.sets?.toString()      ?? '',
+      reps:      e.reps?.toString()      ?? '',
+      weight_kg: e.weight_kg?.toString() ?? '',
+    }]))
   );
 
-  const updateExLog = (idx: number, patch: Partial<ExerciseLog>) =>
-    setExLogs(prev => prev.map((e, i) => i === idx ? { ...e, ...patch } : e));
+  const updateExLog = (exId: string, field: keyof ExerciseLog, value: string) =>
+    setExerciseLogs(p => ({ ...p, [exId]: { ...p[exId], [field]: value } }));
 
-  const saveMutation = useMutation({
-    mutationFn: async () => {
-      if (!user?.id) throw new Error('No autenticado');
+  const handleSave = async () => {
+    if (!feeling) { toast.error('Seleccioná cómo te fue'); return; }
+    if (!user?.id) return;
+    setSaving(true);
 
-      const { data: result, error: resErr } = await db
-        .from('routine_results')
-        .insert({
-          routine_id:         routineId,
-          assignment_id:      assignmentId ?? null,
-          user_id:            user.id,
-          session_id:         sessionId ?? null,
-          feeling,
-          rpe,
-          total_time_seconds: totalMinutes !== '' ? Number(totalMinutes) * 60 : null,
-          notes:              notes.trim() || null,
-        })
-        .select('id').single();
-      if (resErr) throw resErr;
+    try {
+      const totalSeconds = totalMinutes ? Math.round(parseFloat(totalMinutes) * 60) : null;
 
-      const resultId = result.id;
+      // 1. Guardar resultado de la rutina
+      const { error: resultError } = await db.from('routine_results').insert({
+        routine_id:          routineId,
+        assignment_id:       assignmentId || null,
+        user_id:             user.id,
+        feeling,
+        rpe,
+        total_time_seconds:  totalSeconds,
+        notes:               notes.trim() || null,
+        completed_at:        new Date().toISOString(),
+      });
+      if (resultError) throw resultError;
 
-      const exPayload = exLogs
-        .filter(e => e.setsCompleted !== '' || e.repsCompleted !== '' || e.weightUsedKg !== '')
-        .map(e => ({
-          routine_result_id:   resultId,
-          routine_exercise_id: e.routineExerciseId,
-          exercise_name:       e.exerciseName,
-          sets_completed:      e.setsCompleted !== '' ? Number(e.setsCompleted) : null,
-          reps_completed:      e.repsCompleted !== '' ? Number(e.repsCompleted) : null,
-          weight_used_kg:      e.weightUsedKg !== '' ? Number(e.weightUsedKg) : null,
-          notes:               e.notes || null,
-        }));
-
-      if (exPayload.length > 0) {
-        const { error } = await db.from('exercise_results').insert(exPayload);
-        if (error) throw error;
-      }
-
+      // 2. Si es una asignación directa, marcarla como completada
       if (assignmentId) {
-        await db.from('routine_assignments').update({ status: 'completed' }).eq('id', assignmentId);
+        const { error: assignError } = await db
+          .from('routine_assignments')
+          .update({ status: 'completed' })
+          .eq('id', assignmentId);
+        if (assignError) throw assignError;
       }
-    },
-    onSuccess: () => {
-      toast({ title: '¡Rutina registrada!', description: FEELING_LABELS[feeling - 1] });
-      qc.invalidateQueries({ queryKey: ['routine-results'] });
-      qc.invalidateQueries({ queryKey: ['my-assignments'] });
+
+      // 3. Notificar al coach si corresponde
+      if (assignedBy && assignedBy !== user.id && assignmentId) {
+        const alumno    = memberName || profile?.full_name || 'Un alumno';
+        const feelLabel = FEELING_LABEL[feeling] || '';
+        const rpeLabel  = getRpeLabel(rpe);
+        const timeStr   = totalMinutes ? ` · ${totalMinutes} min` : '';
+        await supabase.from('notifications').insert({
+          user_id: assignedBy,
+          title:   '✅ Rutina completada',
+          message: `${alumno} completó "${routineName}" — ${feelLabel}, RPE ${rpe} (${rpeLabel})${timeStr}${notes.trim() ? ` · "${notes.trim()}"` : ''}`,
+          type:    'routine',
+        });
+      }
+
+      // 4. Invalidar queries relevantes
+      queryClient.invalidateQueries({ queryKey: ['my-assignments'] });
+      queryClient.invalidateQueries({ queryKey: ['my-routine-results'] });
+      queryClient.invalidateQueries({ queryKey: ['routine-completions'] });
+      queryClient.invalidateQueries({ queryKey: ['member-routine-stats'] });
+
+      toast.success('¡Resultado guardado! 💪');
       onClose();
-    },
-    onError: (err: Error) =>
-      toast({ title: 'Error al guardar', description: err.message, variant: 'destructive' }),
-  });
+    } catch (err: any) {
+      toast.error('No se pudo guardar: ' + (err?.message || 'Error desconocido'));
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
-    <Dialog open={open} onOpenChange={v => !v && onClose()}>
-      <DialogContent className="max-w-md flex flex-col p-0 gap-0 h-[88vh]">
-        <DialogHeader className="px-4 pt-4 pb-3 border-b shrink-0">
-          <DialogTitle className="text-base font-semibold truncate">
-            Registrar: {routineName}
-          </DialogTitle>
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="bg-card border-border max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="font-display">Registrar: {routineName}</DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 px-4">
-          <div className="py-4 space-y-6">
-            {/* Feeling */}
-            <div>
-              <Label className="text-sm font-medium">¿Cómo te fue?</Label>
-              <div className="flex gap-2 mt-2 justify-between">
-                {FEELING_EMOJIS.map((emoji, i) => (
-                  <button key={i} onClick={() => setFeeling(i + 1)}
-                    className={`flex flex-col items-center gap-1 p-2 rounded-lg flex-1 transition-all ${
-                      feeling === i + 1 ? 'bg-primary/10 ring-2 ring-primary scale-105' : 'hover:bg-muted'
-                    }`}>
-                    <span className="text-2xl">{emoji}</span>
-                    <span className="text-[10px] text-muted-foreground text-center leading-tight">
-                      {FEELING_LABELS[i]}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
+        <div className="space-y-5 py-1">
 
-            {/* RPE */}
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <Label className="text-sm font-medium">Esfuerzo percibido (RPE)</Label>
-                <span className="text-2xl font-bold text-primary">{rpe}</span>
-              </div>
-              <Slider value={[rpe]} onValueChange={([v]) => setRpe(v)} min={1} max={10} step={1} />
-              <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                <span>Muy fácil</span><span>Máximo esfuerzo</span>
-              </div>
+          {/* Feeling */}
+          <div>
+            <p className="text-sm font-medium mb-3">¿Cómo te fue?</p>
+            <div className="flex justify-between gap-1">
+              {FEELINGS.map(f => (
+                <button key={f.value} onClick={() => setFeeling(f.value)}
+                  className={`flex flex-col items-center gap-1 flex-1 p-2 rounded-xl border transition-all ${
+                    feeling === f.value
+                      ? 'border-primary bg-primary/10 scale-105'
+                      : 'border-border hover:border-primary/40'
+                  }`}>
+                  <span className="text-2xl">{f.emoji}</span>
+                  <span className="text-[9px] text-muted-foreground text-center leading-tight">{f.label}</span>
+                </button>
+              ))}
             </div>
+          </div>
 
-            {/* Tiempo */}
-            <div>
-              <Label className="text-sm font-medium">Tiempo total (minutos)</Label>
-              <Input type="number" min={1} placeholder="Ej: 35" value={totalMinutes}
-                onChange={e => setTotalMinutes(e.target.value === '' ? '' : Number(e.target.value))}
-                className="mt-1" />
+          {/* RPE slider */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-medium">Esfuerzo percibido (RPE)</p>
+              <span className="text-lg font-bold text-primary">{rpe}</span>
             </div>
+            <Slider
+              value={[rpe]}
+              onValueChange={([v]) => setRpe(v)}
+              min={1} max={10} step={1}
+              className="my-2"
+            />
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Muy fácil</span>
+              <span className="font-medium text-foreground">{getRpeLabel(rpe)}</span>
+              <span>Máximo esfuerzo</span>
+            </div>
+          </div>
 
-            {/* Log por ejercicio */}
-            {exLogs.length > 0 && (
-              <div>
-                <Label className="text-sm font-medium">Log por ejercicio (opcional)</Label>
-                <div className="space-y-3 mt-2">
-                  {exLogs.map((ex, idx) => (
-                    <div key={ex.routineExerciseId} className="rounded-lg border p-3 space-y-2">
-                      <p className="text-sm font-medium">{ex.exerciseName}</p>
+          {/* Tiempo total */}
+          <div>
+            <Label className="text-sm">Tiempo total (minutos)</Label>
+            <Input
+              type="number"
+              placeholder="Ej: 35"
+              value={totalMinutes}
+              onChange={e => setTotalMinutes(e.target.value)}
+              className="bg-background border-border mt-1"
+              min={1} max={300}
+            />
+          </div>
+
+          {/* Log por ejercicio */}
+          {exercises.length > 0 && (
+            <div>
+              <p className="text-sm font-medium mb-2">Log por ejercicio (opcional)</p>
+              <div className="space-y-2">
+                {exercises.map(ex => {
+                  const log = exerciseLogs[ex.id] ?? { sets: '', reps: '', weight_kg: '' };
+                  return (
+                    <div key={ex.id} className="bg-muted/40 rounded-xl p-3">
+                      <p className="text-sm font-medium text-foreground mb-2">{ex.exercise_name}</p>
                       <div className="grid grid-cols-3 gap-2">
                         {[
-                          { label: 'Series', key: 'setsCompleted' as const },
-                          { label: 'Reps',   key: 'repsCompleted' as const },
-                          { label: 'Kg',     key: 'weightUsedKg'  as const },
-                        ].map(f => (
-                          <div key={f.key}>
-                            <Label className="text-xs text-muted-foreground">{f.label}</Label>
-                            <Input type="number" min={0} placeholder="—"
-                              value={ex[f.key]}
-                              onChange={e => updateExLog(idx, {
-                                [f.key]: e.target.value === '' ? '' : Number(e.target.value),
-                              })}
-                              className="h-7 text-sm mt-0.5" />
+                          { field: 'sets' as const,      label: 'Series' },
+                          { field: 'reps' as const,      label: 'Reps' },
+                          { field: 'weight_kg' as const, label: 'Kg' },
+                        ].map(({ field, label }) => (
+                          <div key={field}>
+                            <p className="text-xs text-muted-foreground mb-1">{label}</p>
+                            <Input
+                              type="number"
+                              value={log[field]}
+                              onChange={e => updateExLog(ex.id, field, e.target.value)}
+                              placeholder="—"
+                              className="bg-background border-border text-sm h-8"
+                              min={0}
+                            />
                           </div>
                         ))}
                       </div>
                     </div>
-                  ))}
-                </div>
+                  );
+                })}
               </div>
-            )}
-
-            {/* Notas */}
-            <div>
-              <Label className="text-sm font-medium">Notas (opcional)</Label>
-              <Textarea placeholder="Cómo te sentiste, qué mejorar…"
-                value={notes} onChange={e => setNotes(e.target.value)}
-                rows={2} className="mt-1 resize-none" />
             </div>
-          </div>
-        </ScrollArea>
+          )}
 
-        <div className="px-4 py-3 border-t shrink-0 flex gap-3">
-          <Button variant="outline" className="flex-1" onClick={onClose}>Cancelar</Button>
-          <Button className="flex-1" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-            {saveMutation.isPending
-              ? <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              : <CheckCircle2 className="h-4 w-4 mr-2" />}
-            Guardar
-          </Button>
+          {/* Notas */}
+          <div>
+            <Label className="text-sm">Notas (opcional)</Label>
+            <Textarea
+              placeholder="Cómo te sentiste, qué mejorar..."
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              className="bg-background border-border resize-none mt-1"
+              rows={3}
+              maxLength={400}
+            />
+          </div>
+
+          {/* Botones */}
+          <div className="flex gap-3 pt-1">
+            <Button variant="outline" className="flex-1" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button
+              className="flex-1 gradient-primary text-primary-foreground gap-2"
+              onClick={handleSave}
+              disabled={saving || !feeling}>
+              <CheckCircle2 size={16} />
+              {saving ? 'Guardando...' : 'Guardar'}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
