@@ -138,8 +138,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-  };
+  // Limpiar estado local de inmediato — no depender de la red.
+  // supabase.auth.signOut() hace un fetch que puede colgar indefinidamente
+  // sin timeout, dejando el await suspendido y el navigate nunca ejecutándose.
+  clearUserData();
+  setSession(null);
+  queryClient.clear();
+  // Invalidar sesión en el servidor en background (sin await)
+  supabase.auth.signOut().catch(() => {});
+};
 
   return (
     <AuthContext.Provider value={{

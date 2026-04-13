@@ -255,16 +255,20 @@ export default function AppLayout() {
           <div className="flex-1 flex items-center"><NextSessionBanner /></div>
           <div className="flex items-center justify-center">
             {clubMembership ? (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-card text-sm">
-                <div className="w-2 h-2 rounded-full bg-primary" />
-                <span className="font-medium text-foreground max-w-[160px] truncate">{clubMembership.club.name}</span>
-                {clubMembership.club.plan !== 'free' && (
-                  <span className="text-xs text-muted-foreground">
-                    · {clubMembership.club.plan === 'pro_plus' ? 'Pro+' : 'Pro'}
-                  </span>
-                )}
-              </div>
-            ) : <div className="w-32" />}
+            <button
+              onClick={() => navigate('/planes')}
+              className="group flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-card text-sm hover:border-primary/50 transition-colors"
+            >
+              <div className="w-2 h-2 rounded-full bg-primary" />
+              <span className="font-medium text-foreground max-w-[160px] truncate">{clubMembership.club.name}</span>
+              {clubMembership.club.plan !== 'free' && (
+                <span className="text-xs text-muted-foreground">
+                  · {clubMembership.club.plan === 'pro_plus' ? 'Pro+' : 'Pro'}
+                </span>
+              )}
+              <span className="text-[10px] text-primary/70 group-hover:text-primary transition-colors ml-0.5">↑</span>
+            </button>
+          ) : <div className="w-32" />}
           </div>
           <div className="flex-1 flex items-center justify-end"><NotificationsBell /></div>
         </header>
@@ -276,11 +280,14 @@ export default function AppLayout() {
             <span className="font-display font-bold text-foreground text-sm truncate">Woditos</span>
           </div>
           {clubMembership && (
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded-md border border-border bg-card/80 text-xs mx-2 shrink-0">
-              <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-              <span className="font-medium text-foreground max-w-[80px] truncate">{clubMembership.club.name}</span>
-            </div>
-          )}
+  <button
+    onClick={() => navigate('/planes')}
+    className="flex items-center gap-1.5 px-2 py-1 rounded-md border border-border bg-card/80 text-xs mx-2 shrink-0 hover:border-primary/50 transition-colors"
+  >
+    <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+    <span className="font-medium text-foreground max-w-[80px] truncate">{clubMembership.club.name}</span>
+  </button>
+)}
           <div className="flex items-center gap-1 shrink-0">
             <NotificationsBell />
             <Popover>

@@ -12,6 +12,7 @@
  *   v1.3: paso 3 con datos de perfil para historial médico/deportivo.
  */
 import { useState, useEffect } from 'react';
+import React from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -507,14 +508,8 @@ export default function Register() {
               </Select>
             </div>
 
-            {/* Objetivos */}
-            <div className="space-y-2">
-              <Label>¿Cuáles son tus objetivos? <span className="text-muted-foreground">(opcional)</span></Label>
-              <Textarea
-                placeholder="Ej: Correr mi primer 10K, mejorar mi resistencia, bajar de peso..."
-                value={goals} onChange={e => setGoals(e.target.value)}
-                maxLength={500} rows={3} className="bg-card border-border resize-none" />
-            </div>
+            {/* Objetivos — selección visual con cards */}
+            <GoalSelector goals={goals} onChange={setGoals} />
 
             {/* Declaración jurada */}
             <div className="bg-muted/40 border border-border rounded-xl p-4 space-y-3">
@@ -605,6 +600,82 @@ export default function Register() {
           © 2026 Woditos V2.0 - Todos los derechos reservados.
         </p>
       </div>
+    </div>
+  );
+}
+
+// ── GoalSelector ─────────────────────────────────────────────
+const GOAL_OPTIONS = [
+  { value: 'primer-5k',   emoji: '🏃', label: 'Mi primer 5K / 10K',      sub: 'Empezar a correr'    },
+  { value: 'competir',    emoji: '🏅', label: 'Prepararme para competir', sub: 'Carreras o torneos'  },
+  { value: 'fuerza',      emoji: '💪', label: 'Ganar fuerza',             sub: 'Musculación funcional'},
+  { value: 'resistencia', emoji: '⚡', label: 'Mejorar resistencia',      sub: 'Cardio y aguante'    },
+  { value: 'bajar-peso',  emoji: '🔥', label: 'Bajar de peso',            sub: 'Quemar grasa'        },
+  { value: 'mantenerme',  emoji: '🌟', label: 'Mantenerme activo/sano',   sub: 'Rutina saludable'    },
+  { value: 'estres',      emoji: '😴', label: 'Reducir el estrés',        sub: 'Bienestar y energía' },
+  { value: 'otro',        emoji: '✍️', label: 'Otro objetivo',            sub: 'Lo escribo yo'       },
+];
+
+function GoalSelector({ goals, onChange }: { goals: string; onChange: (v: string) => void }) {
+  const [otroText, setOtroText] = React.useState('');
+
+  const selected = React.useMemo(
+    () => goals.split(',').map(g => g.split(':')[0]).filter(Boolean),
+    [goals]
+  );
+
+  const toggle = (value: string) => {
+    const current = goals ? goals.split(',').filter(Boolean) : [];
+    const exists  = current.find(g => g.startsWith(value));
+    if (exists) {
+      const next = current.filter(g => !g.startsWith(value));
+      onChange(next.join(','));
+      if (value === 'otro') setOtroText('');
+    } else {
+      const entry = value === 'otro' ? `otro:${otroText}` : value;
+      onChange([...current, entry].join(','));
+    }
+  };
+
+  const handleOtroText = (text: string) => {
+    setOtroText(text);
+    const current = goals.split(',').filter(g => !g.startsWith('otro'));
+    if (text.trim()) onChange([...current, `otro:${text}`].join(','));
+    else             onChange(current.join(','));
+  };
+
+  const isSelected  = (value: string) => selected.includes(value);
+  const otroSelected = isSelected('otro');
+
+  return (
+    <div className="space-y-2">
+      <Label>
+        ¿Cuáles son tus objetivos?{' '}
+        <span className="text-muted-foreground">(opcional)</span>
+      </Label>
+      <div className="grid grid-cols-2 gap-2">
+        {GOAL_OPTIONS.map(opt => (
+          <button key={opt.value} type="button" onClick={() => toggle(opt.value)}
+            className={`flex items-center gap-2.5 p-3 rounded-xl border-2 text-left transition-all ${
+              isSelected(opt.value)
+                ? 'border-primary bg-primary/10'
+                : 'border-border bg-card hover:border-primary/40 hover:bg-primary/5'
+            }`}>
+            <span className="text-xl shrink-0">{opt.emoji}</span>
+            <div className="min-w-0">
+              <p className={`text-xs font-semibold leading-tight truncate ${
+                isSelected(opt.value) ? 'text-primary' : 'text-foreground'
+              }`}>{opt.label}</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{opt.sub}</p>
+            </div>
+          </button>
+        ))}
+      </div>
+      {otroSelected && (
+        <Input placeholder="Contanos tu objetivo..." value={otroText}
+          onChange={e => handleOtroText(e.target.value)}
+          maxLength={200} className="bg-card border-border text-sm" autoFocus />
+      )}
     </div>
   );
 }

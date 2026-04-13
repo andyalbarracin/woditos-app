@@ -53,6 +53,8 @@ import MemberSessionDetail from '@/pages/MemberSessionDetail';
 // Pages v2.3 — Legales (públicas)
 import PrivacyPolicy from '@/pages/PrivacyPolicy';
 import TermsOfUse from '@/pages/TermsOfUse';
+import Plans from '@/pages/Plans';
+
 
 // Feedback modal
 import SessionFeedbackModal from '@/components/SessionFeedbackModal';
@@ -167,6 +169,7 @@ function App() {
                       <Route path="/asistencia" element={<Attendance />} />
                       <Route path="/coach"      element={<CoachRoute><CoachDashboard /></CoachRoute>} />
                       <Route path="/soporte"    element={<Support />} />
+                      <Route path="/planes" element={<Plans />} />
 
                       {/* v2.0 — Rutinas */}
                       <Route path="/rutinas"            element={<Routines />} />
