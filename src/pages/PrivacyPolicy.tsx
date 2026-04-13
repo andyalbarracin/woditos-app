@@ -53,10 +53,16 @@ export default function PrivacyPolicy() {
               <li><strong>Nombre completo</strong> — para identificarte dentro de tu club.</li>
               <li><strong>Dirección de email</strong> — para autenticación y comunicaciones del servicio.</li>
               <li><strong>Contraseña</strong> — almacenada de forma encriptada por Supabase Auth. Nunca la vemos.</li>
+              <li><strong>Fecha de nacimiento</strong> — requerida al registrarse. Se usa para verificar que los menores cuenten con autorización de un adulto.</li>
+              <li><strong>Peso corporal (kg)</strong> — opcional. Solo visible para vos y tu coach. Ayuda a personalizar el entrenamiento.</li>
+              <li><strong>Frecuencia de actividad física</strong> — opcional. Indica cuántas veces por semana hacés actividad.</li>
               <li><strong>Foto de perfil</strong> — opcional. Solo si la subís vos.</li>
               <li><strong>Objetivos de entrenamiento</strong> — texto libre, opcional.</li>
               <li><strong>Contacto de emergencia</strong> — texto libre, opcional.</li>
             </ul>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Al completar tu perfil, declarás que todos los datos son verdaderos y fueron cargados voluntariamente por vos.
+            </p>
           </SubSection>
           <SubSection title="Datos generados por el uso de la app">
             <ul>

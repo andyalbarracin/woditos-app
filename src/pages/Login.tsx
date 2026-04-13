@@ -173,7 +173,7 @@ export default function Login() {
             </p>
 
             <p className="text-center text-xs text-muted-foreground">
-              © 2026 Woditos V1.0 - Todos los derechos reservados.
+              © 2026 Woditos V2.0 - Todos los derechos reservados.
             </p>
 
           </div>
