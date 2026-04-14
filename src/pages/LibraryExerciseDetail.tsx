@@ -115,18 +115,20 @@ export default function LibraryExerciseDetail() {
       {/* Imágenes */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         {data.gifUrl && !imgFailed ? (
-          <div className="grid grid-cols-2 gap-0">
-            <div className="relative">
+          <div className="flex flex-col sm:flex-row">
+            <div className="relative sm:w-1/2">
               <img src={data.gifUrl} alt={`${data.name} — inicio`}
-                className="w-full h-52 object-cover"
+                className="w-full object-cover"
+                style={{ height: '260px' }}
                 onError={() => setImgFailed(true)} />
               <span className="absolute bottom-2 left-2 text-xs bg-black/50 text-white px-2 py-0.5 rounded">
                 Inicio
               </span>
             </div>
-            <div className="relative bg-muted">
+            <div className="relative bg-muted sm:w-1/2">
               <img src={getAltImageUrl(data.gifUrl)} alt={`${data.name} — final`}
-                className="w-full h-52 object-cover"
+                className="w-full object-cover"
+                style={{ height: '260px' }}
                 onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
               <span className="absolute bottom-2 left-2 text-xs bg-black/50 text-white px-2 py-0.5 rounded">
                 Final
