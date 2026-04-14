@@ -2,13 +2,16 @@
 /**
  * Archivo: useAuth.tsx
  * Ruta: src/hooks/useAuth.tsx
- * Última modificación: 2026-04-10
+ * Última modificación: 2026-04-14
  * Descripción: Contexto y hook de autenticación. Maneja sesión, login, registro,
  *              logout y carga de datos de usuario (users + profiles + club membership).
  *   v1.3: usa `db = supabase as any` para evitar errores de tipos en queries
  *         hasta que se regeneren los tipos de Supabase.
- *         onAuthStateChange maneja todo incluyendo INITIAL_SESSION.
- *         Limpia query cache al logout.
+ *   v1.4: onAuthStateChange callback es NO-async para evitar bloqueo de la cola
+ *         de eventos de Supabase. En v2, si el callback es async y awaita algo,
+ *         signInWithPassword queda bloqueado esperando que INITIAL_SESSION termine
+ *         → el botón "Entrando..." se cuelga indefinidamente.
+ *         fetchUserData se llama fire-and-forget; isLoading se resuelve en su .finally().
  */
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
@@ -16,7 +19,6 @@ import { queryClient } from '@/lib/queryClient';
 import type { User, Profile } from '@/types';
 import type { Session } from '@supabase/supabase-js';
 
-// Cast para evitar errores de TypeScript en tablas v2 hasta regenerar tipos
 const db = supabase as any;
 
 export interface ClubMembership {
@@ -68,19 +70,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .maybeSingle(),
       ]);
 
-      if (userRes.data) setUser(userRes.data as User);
+      if (userRes.data)   setUser(userRes.data as User);
       if (profileRes.data) setProfile(profileRes.data as Profile);
 
       if (clubRes.data) {
         setClubMembership({
           club_id: clubRes.data.club_id,
-          role: clubRes.data.role as ClubMembership['role'],
-          club: clubRes.data.clubs as ClubMembership['club'],
+          role:    clubRes.data.role as ClubMembership['role'],
+          club:    clubRes.data.clubs as ClubMembership['club'],
         });
       } else {
         setClubMembership(null);
       }
     } catch (err) {
+      console.error('fetchUserData error:', err);
     }
   };
 
@@ -98,22 +101,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, newSession) => {
+      // FIX v1.4: callback NO-async.
+      // Supabase JS v2 procesa eventos en cola secuencial. Si este callback
+      // es async y awaita fetchUserData (3 queries de red), signInWithPassword
+      // queda bloqueado esperando que INITIAL_SESSION termine → login se cuelga.
+      // Solución: llamar fetchUserData sin await (fire-and-forget).
+      // isLoading se resuelve en el .finally() de fetchUserData.
+      (event, newSession) => {
         setSession(newSession);
 
         if (newSession?.user) {
-          await fetchUserData(newSession.user.id);
+          fetchUserData(newSession.user.id).finally(() => setIsLoading(false));
         } else {
           clearUserData();
           if (event === 'SIGNED_OUT') {
             queryClient.clear();
           }
+          setIsLoading(false);
         }
-
-        // Resuelve isLoading con cualquier evento incluyendo INITIAL_SESSION.
-        // INITIAL_SESSION dispara al montar y es la señal de que el estado
-        // de auth fue determinado.
-        setIsLoading(false);
       }
     );
 
@@ -121,8 +126,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
+    // Cargar datos del usuario antes de resolver — así cuando Login.tsx llama
+    // navigate('/'), user/profile/clubMembership ya están seteados y
+    // ProtectedRoute no redirige de vuelta a /login por user === null.
+    if (data.user) {
+      await fetchUserData(data.user.id);
+    }
   };
 
   const signUp = async (email: string, password: string, fullName: string) => {
@@ -138,15 +149,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
-  // Limpiar estado local de inmediato — no depender de la red.
-  // supabase.auth.signOut() hace un fetch que puede colgar indefinidamente
-  // sin timeout, dejando el await suspendido y el navigate nunca ejecutándose.
-  clearUserData();
-  setSession(null);
-  queryClient.clear();
-  // Invalidar sesión en el servidor en background (sin await)
-  supabase.auth.signOut().catch(() => {});
-};
+    // Limpiar estado local de inmediato — no depender de la red.
+    clearUserData();
+    setSession(null);
+    queryClient.clear();
+    // Invalidar sesión en el servidor en background (sin await)
+    supabase.auth.signOut().catch(() => {});
+  };
 
   return (
     <AuthContext.Provider value={{
