@@ -151,6 +151,8 @@ export default function Login() {
               <p className="font-semibold text-foreground">👤 Coachs de prueba:</p>
               <p>📧 coach@woditos.app · 🔑 Woditos2026!</p>
               <p>📧 test-coach@woditos.app · 🔑 Woditos2026!</p>
+              <p className="font-semibold text-foreground">📋 Sumate al Club Test usando este código: </p>
+              <p>🔢 Código Club Test: 6BBE3B </p>
             </div>
 
             <p className="text-center text-sm text-muted-foreground">
