@@ -1,13 +1,14 @@
 /**
  * Archivo: AppLayout.tsx
  * Ruta: src/components/layout/AppLayout.tsx
- * Última modificación: 2026-04-12
+ * Última modificación: 2026-04-13
  * Descripción: Layout principal. Sidebar desktop colapsable, nav móvil inferior.
  *   v2.4: sidebar corregido por rol:
  *         - Miembro: navItems → separador → Rutinas (bottomItems)
  *         - Coach: navItems → separador → Rutinas + Sesiones + Coach Panel (coachItems)
- *         Fix logout: se removió navigate('/login') manual — ProtectedRoute redirige
- *         automáticamente cuando la sesión se anula, evitando race condition.
+ *         Fix logout: navigate('/login') en try/finally garantiza redirect.
+ *   v2.5: logo navega a home (mobile y desktop).
+ *         Club badge mobile: max-w reducido + flecha ↑ siempre visible con shrink-0.
  */
 import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
@@ -63,10 +64,6 @@ export default function AppLayout() {
   const role    = user?.role as string | undefined;
   const isCoach = role === 'coach' || role === 'super_admin' || role === 'club_admin';
 
-  // FIX: navigate('/login') se ejecuta en try/finally para garantizar que
-  // siempre se redirige, incluso si signOut tarda o falla silenciosamente.
-  // Sin este navigate, React puede batchear el update de session→null y
-  // ProtectedRoute no re-renderiza a tiempo → el botón "no hace nada".
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -112,16 +109,16 @@ export default function AppLayout() {
         style={{ width: collapsed ? 72 : 256 }}
         className="hidden md:flex flex-col border-r border-border bg-card transition-all duration-200 ease-in-out overflow-hidden shrink-0"
       >
-        {/* Logo + toggle */}
+        {/* Logo + toggle — logo navega a home */}
         <div className="flex items-center border-b border-border h-14 shrink-0"
           style={collapsed
             ? { justifyContent: 'center' }
             : { justifyContent: 'space-between', paddingLeft: 12, paddingRight: 12 }}>
           {!collapsed && (
-            <div className="flex items-center gap-2 overflow-hidden">
+            <NavLink to="/" className="flex items-center gap-2 overflow-hidden">
               <img src={woditosLogo} alt="Woditos" className="h-7 shrink-0" />
               <span className="font-display font-bold text-foreground truncate">Woditos</span>
-            </div>
+            </NavLink>
           )}
           <button onClick={() => setCollapsed(c => !c)}
             className="flex items-center justify-center h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all shrink-0">
@@ -143,9 +140,7 @@ export default function AppLayout() {
             <div className="border-t border-border" style={{ margin: collapsed ? '6px 0' : '4px 0' }} />
 
             {isCoach
-              // Coach: Rutinas, Coach Panel, Sesiones juntos
               ? coachItems.map(renderNavItem)
-              // Miembro: solo Rutinas con su separador
               : memberBottomItems.map(renderNavItem)
             }
           </div>
@@ -255,39 +250,44 @@ export default function AppLayout() {
           <div className="flex-1 flex items-center"><NextSessionBanner /></div>
           <div className="flex items-center justify-center">
             {clubMembership ? (
-            <button
-              onClick={() => navigate('/planes')}
-              className="group flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-card text-sm hover:border-primary/50 transition-colors"
-            >
-              <div className="w-2 h-2 rounded-full bg-primary" />
-              <span className="font-medium text-foreground max-w-[160px] truncate">{clubMembership.club.name}</span>
-              {clubMembership.club.plan !== 'free' && (
-                <span className="text-xs text-muted-foreground">
-                  · {clubMembership.club.plan === 'pro_plus' ? 'Pro+' : 'Pro'}
-                </span>
-              )}
-              <span className="text-[10px] text-primary/70 group-hover:text-primary transition-colors ml-0.5">↑</span>
-            </button>
-          ) : <div className="w-32" />}
+              <button
+                onClick={() => navigate('/planes')}
+                className="group flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-card text-sm hover:border-primary/50 transition-colors"
+              >
+                <div className="w-2 h-2 rounded-full bg-primary" />
+                <span className="font-medium text-foreground max-w-[160px] truncate">{clubMembership.club.name}</span>
+                {clubMembership.club.plan !== 'free' && (
+                  <span className="text-xs text-muted-foreground">
+                    · {clubMembership.club.plan === 'pro_plus' ? 'Pro+' : 'Pro'}
+                  </span>
+                )}
+                <span className="text-[10px] text-primary/70 group-hover:text-primary transition-colors ml-0.5">↑</span>
+              </button>
+            ) : <div className="w-32" />}
           </div>
           <div className="flex-1 flex items-center justify-end"><NotificationsBell /></div>
         </header>
 
         {/* Header móvil */}
         <header className="md:hidden flex items-center px-3 py-2.5 border-b border-border bg-card shrink-0">
-          <div className="flex items-center gap-2 flex-1 min-w-0">
+          {/* Logo navega a home en mobile */}
+          <NavLink to="/" className="flex items-center gap-2 flex-1 min-w-0">
             <img src={woditosLogo} alt="Woditos" className="h-7 shrink-0" />
             <span className="font-display font-bold text-foreground text-sm truncate">Woditos</span>
-          </div>
+          </NavLink>
+
+          {/* Club badge: punto + nombre truncado corto + flecha siempre visible */}
           {clubMembership && (
-  <button
-    onClick={() => navigate('/planes')}
-    className="flex items-center gap-1.5 px-2 py-1 rounded-md border border-border bg-card/80 text-xs mx-2 shrink-0 hover:border-primary/50 transition-colors"
-  >
-    <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-    <span className="font-medium text-foreground max-w-[80px] truncate">{clubMembership.club.name}</span>
-  </button>
-)}
+            <button
+              onClick={() => navigate('/planes')}
+              className="flex items-center gap-1 px-2 py-1 rounded-md border border-border bg-card/80 text-xs mx-1 shrink-0 hover:border-primary/50 transition-colors"
+            >
+              <div className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+              <span className="font-medium text-foreground max-w-[56px] truncate">{clubMembership.club.name}</span>
+              <span className="text-primary shrink-0 font-bold leading-none">↑</span>
+            </button>
+          )}
+
           <div className="flex items-center gap-1 shrink-0">
             <NotificationsBell />
             <Popover>
@@ -317,7 +317,6 @@ export default function AppLayout() {
                     {theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
                   </button>
                   <div className="border-t border-border my-1" />
-                  {/* FIX logout mobile: onClick directo, no onPointerDown */}
                   <button
                     onClick={handleSignOut}
                     className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm text-destructive hover:bg-destructive/10 transition-colors">
