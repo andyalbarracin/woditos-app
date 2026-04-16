@@ -1,209 +1,5 @@
 # WODITOS — LOG DE AVANCES
-> Archivo de seguimiento técnico del proyecto. Última actualización: 2026-03-17.
-
----
-
-## 🔍 AUDITORÍA HONESTA — Sesión 2026-03-09
-
-### Contexto
-Se solicitó una auditoría cruzada entre:
-1. Lo que el AI reportó como "completado"
-2. Lo que el prompt original requería
-3. El estado **real y verificado** del código y la base de datos
-
----
-
-## ✅ LO QUE SÍ EXISTE Y FUNCIONA
-
-### Base de Datos (verificado via queries directas)
-| Tabla | Registros | Estado |
-|-------|-----------|--------|
-| `users` | 5+ (Andy + dummies) | ✅ |
-| `profiles` | 5+ | ✅ |
-| `exercise_wiki` | 23 ejercicios | ✅ Bien poblado |
-| `food_wiki` | 15 alimentos | ✅ Bien poblado |
-| `sessions` | 13+ sesiones | ✅ Hay sesiones programadas |
-| `stories` | 1+ activa | ⚠️ Pocas historias |
-| `attendance` | 5+ registros | ✅ Toggle funcional (marcar/desmarcar) |
-| `posts` | 6+ posts | ✅ |
-| `groups` | 3+ grupos | ✅ |
-| `notifications` | Activo | ✅ RLS corregido para coaches |
-
-### Código (verificado via lectura de archivos)
-| Feature | Archivo | Estado Real |
-|---------|---------|-------------|
-| Login con Google OAuth | `src/pages/Login.tsx` | ✅ |
-| Sidebar con rol Coach | `src/components/layout/AppLayout.tsx` | ✅ `formatRole()` mapea `super_admin → "Coach"` |
-| Rutas protegidas Coach | `src/App.tsx` con `CoachRoute` | ✅ |
-| StoriesBar (Instagram-style) | `src/components/community/StoriesBar.tsx` | ✅ |
-| Agenda con reservas + crear sesión | `src/pages/Agenda.tsx` | ✅ Botón crear sesión para coaches |
-| Biblioteca con detalle | `src/pages/Library.tsx` + detalle | ✅ |
-| Sistema de Asistencia | `src/pages/Attendance.tsx` | ✅ Toggle marcar/desmarcar, QR, notas |
-| Perfil con QR + avatar upload | `src/pages/Profile.tsx` | ✅ Subida a bucket avatars + refresh global |
-| Coach Dashboard | `src/pages/CoachDashboard.tsx` | ✅ Analíticas, usa CreateSessionDialog |
-| Dashboard diferenciado | `src/pages/Dashboard.tsx` | ✅ Roles coach/member, crear sesión |
-| Crear sesión (componente compartido) | `src/components/CreateSessionDialog.tsx` | ✅ Calendar picker, duración +/-15min, 24h |
-| Notificaciones coach→asistentes | `src/pages/Attendance.tsx` | ✅ RLS corregido |
-| Notificaciones reserva→coach | `Agenda.tsx` + `Dashboard.tsx` | ✅ |
-| Validación/Sanitización | `src/lib/validation.ts` | ✅ Zod + sanitizeText |
-| Footer copyright | `AppLayout.tsx`, `Login.tsx`, `Register.tsx` | ✅ "© 2026 Woditos" |
-
----
-
-## 📋 RESUMEN DE ESTADO POR FASE DEL PROMPT
-
-| Fase | Nombre | Estado |
-|------|--------|--------|
-| 0 | Auditoría total | ✅ |
-| 1 | Estabilidad y documentación | ✅ |
-| 2 | Roles y visibilidad | ✅ |
-| 3 | Usuarios dummy + credenciales | ✅ Creados 4 usuarios |
-| 4 | Comunidad y stories | ✅ Feed + StoriesBar |
-| 5 | Perfiles y experiencia social | ✅ Avatar upload, analytics coach |
-| 6 | Biblioteca y páginas de detalle | ✅ |
-| 7 | Sistema de asistencia | ✅ Toggle marcar/desmarcar, crear miembros inline |
-| 8 | Identidad única + QR | ✅ |
-| 9 | Google Login | ✅ |
-| 10 | UI/UX/Branding | ✅ Paleta, footer, 24h format |
-| 11 | Validación final | ⚠️ Pendiente testing exhaustivo |
-
----
-
-## 🗓️ HISTORIAL DE SESIONES
-
-### Sesión 1 (~2026-03-08)
-**Lo que se hizo:** Estructura base, stories, biblioteca, asistencia, QR, OAuth, documentación.
-
-### Sesión 2 (2026-03-09)
-**Lo que se hizo:** Auditoría cruzada, creación de WODITOS_LOG.md.
-
-### Sesión 3 (2026-03-09)
-**Lo que se hizo:** Usuarios dummy (4 auth users + profiles + memberships + posts + stories + attendance).
-
-### Sesión 4 (2026-03-12)
-**Lo que se hizo:**
-- Seguridad: `src/lib/validation.ts` con Zod (sanitizeText, schemas)
-- Documentación SaaS: `docs/SAAS_TIERS.md`, `docs/SECURITY.md`, `docs/ARCHITECTURE.md`
-- Footer copyright en toda la app
-- Dashboard diferenciado por rol (coach ve analytics, member ve sesiones)
-- Notificaciones al coach cuando un miembro reserva
-- Asistencia: toggle marcar/desmarcar (delete on re-click)
-- Avatar upload con refresh global (bucket `avatars`)
-- Perfil coach con analytics (alumnos, sesiones, asistencia)
-- Crear miembros inline desde asistencia
-
-### Sesión 5 (2026-03-13)
-**Lo que se hizo:**
-- Fix nombres en Coach Panel (join profiles en reservations query)
-- Fix avatar sync (refreshUserData en useAuth)
-- Fix attendance toggle: RLS policy `attendance_delete` para coaches
-- Fix attendance en CoachDashboard: toggle con delete
-
-### Sesión 6 (2026-03-16)
-**Lo que se hizo:**
-- **Fix envío de mensajes a asistentes:** RLS de `notifications` tenía política `ALL` con `user_id = auth.uid()`, bloqueando inserts de coaches para otros usuarios. Se separó en políticas granulares (SELECT/UPDATE/DELETE own + INSERT para coaches a cualquier user).
-- **Componente CreateSessionDialog:** Nuevo componente reutilizable (`src/components/CreateSessionDialog.tsx`) usado en Agenda, Dashboard y Attendance. Features:
-  - Calendar picker (react-day-picker) para selección de fecha
-  - Hora de inicio con input time 24h (sin AM/PM)
-  - Duración con botones +/- 15 minutos y label "hasta las XXhs"
-  - Crear crew inline
-  - Sanitización de inputs
-- **Botón "Crear sesión" en Agenda:** Visible para coaches, tanto en el header como cuando no hay sesiones el día seleccionado.
-- **Botón "Crear sesión" en Dashboard:** Cuando el coach no tiene sesiones próximas.
-- **Refactor:** CoachDashboard y Attendance ahora usan el componente compartido CreateSessionDialog, eliminando duplicación de código (~300 líneas menos).
-
-### Sesión 7 (2026-03-17)
-**Lo que se hizo:**
-- **Fix formato 24h real en modal de sesión:** se reemplazó el input nativo de hora por selectores de hora/minutos (00-23 / 00-15-30-45) para eliminar AM/PM en todos los dispositivos.
-- **Fix re-reserva en Agenda:** al volver a reservar una sesión cancelada, ahora se reactiva la reserva existente (`reservation_status = confirmed`, `cancelled_at = null`) en lugar de fallar por conflicto de registro previo.
-- **Fix Stories en negro + UX estilo Instagram:**
-  - viewer con contenedor **9:16**
-  - render de imagen/video según extensión
-  - eliminación de fallback externo
-  - pausa del avance automático al mantener presionado
-  - swipe horizontal para cambiar de usuario de story
-
----
-
-## 🔐 CREDENCIALES DE ACCESO
-
-### Usuario Real
-| Email | Password | Rol | Notas |
-|-------|----------|-----|-------|
-| figo.albarra@gmail.com | (contraseña del dueño) | super_admin / Coach | Dueño del proyecto |
-
-### Usuarios Dummy (✅ CREADOS 2026-03-09)
-| Email | Password | Rol | Estado |
-|-------|----------|-----|--------|
-| coach@woditos.app | Woditos2024! | coach | ✅ Activo |
-| maria@woditos.app | Woditos2024! | member | ✅ Activo |
-| juan@woditos.app | Woditos2024! | member | ✅ Activo |
-| sofia@woditos.app | Woditos2024! | member | ✅ Activo |
-
----
-
-## 🗺️ ARQUITECTURA ACTUAL
-
-```
-src/
-├── App.tsx                    ← Router + Guards (ProtectedRoute, PublicRoute, CoachRoute)
-├── index.css                  ← Design tokens (HSL), paleta, gradientes
-├── pages/
-│   ├── Login.tsx              ← Email/pass + Google OAuth ✅
-│   ├── Register.tsx           ← Registro básico ✅
-│   ├── Dashboard.tsx          ← Home diferenciado coach/member + crear sesión ✅
-│   ├── Agenda.tsx             ← Calendario semanal + reservas + crear sesión ✅
-│   ├── Community.tsx          ← Feed + StoriesBar + composer ✅
-│   ├── Library.tsx            ← Búsqueda ejercicios/alimentos ✅
-│   ├── ExerciseDetail.tsx     ← Detalle ejercicio + MuscleDiagram ✅
-│   ├── FoodDetail.tsx         ← Detalle alimento ✅
-│   ├── Profile.tsx            ← Perfil + QR + stats + avatar upload ✅
-│   ├── CoachDashboard.tsx     ← Panel coach + analíticas + crear sesión ✅
-│   └── Attendance.tsx         ← Asistencia + toggle + crear miembros ✅
-├── components/
-│   ├── CreateSessionDialog.tsx ← Modal crear sesión (calendar, +/-15min) ✅ NUEVO
-│   ├── layout/AppLayout.tsx   ← Sidebar desktop + nav móvil + footer ✅
-│   ├── community/StoriesBar.tsx ← Stories Instagram-style ✅
-│   └── library/MuscleDiagram.tsx ← SVG muscular interactivo ✅
-├── lib/
-│   ├── validation.ts          ← Zod schemas + sanitizeText ✅
-│   └── utils.ts               ← cn() helper ✅
-└── hooks/
-    ├── useAuth.tsx            ← Auth + perfil + refreshUserData ✅
-    └── useTheme.tsx           ← Toggle dark/light ✅
-```
-
----
-
-## 📊 MODELO SAAS (documentado en docs/SAAS_TIERS.md)
-
-| Tier | Usuarios | Estado |
-|------|----------|--------|
-| Free | 1-5 | Funcional (actual) |
-| Pro | 6-22 | Documentado, pendiente integración |
-| Team | 23-50 | Documentado |
-| Enterprise | 50-999 | Documentado |
-
-Integración de pagos: RevenueCat (pendiente).
-
----
-
-## 🚀 PRÓXIMOS PASOS
-
-1. **Testing E2E:** Probar flujos completos con usuarios dummy (coach + member)
-2. **Push notifications reales:** Web Push API + Edge Functions
-3. **Emails transaccionales:** Confirmación de reserva, recordatorio de sesión
-4. **Multi-tenancy:** Tabla `organizations` + `subscriptions` para SaaS
-5. **Leaderboard:** Ranking de asistencia/racha por crew
-6. **Exportar asistencia a PDF**
-7. **Integración RevenueCat** para pagos
-
----
-
-*LOG mantenido manualmente. Actualizar al inicio/fin de cada sesión de trabajo.*
-
-# WODITOS — LOG DE AVANCES
-> Última actualización: 2026-03-28
+> Última actualización: 2026-04-14
 
 ---
 
@@ -213,156 +9,251 @@ Integración de pagos: RevenueCat (pendiente).
 
 | Tabla | Estado |
 |-------|--------|
-| `users` | ✅ Con 6 usuarios (Andy + 5 dummies) |
+| `users` | ✅ 10+ usuarios (Andy + dummies + reales) |
 | `profiles` | ✅ Con avatares, goals, join_date |
-| `clubs` | ✅ Club "Crew Woditos" + sistema multi-club |
-| `club_memberships` | ✅ Todos los usuarios asignados al club inicial |
-| `groups` | ✅ 3+ grupos (Palermo Runners, Funcional Belgrano, Costanera Sur) |
-| `group_memberships` | ✅ |
-| `sessions` | ✅ 10+ sesiones con club_id asignado |
+| `clubs` | ✅ Crew Woditos + Club Test + otros reales |
+| `club_memberships` | ✅ RLS completo, 7 policies |
+| `groups` | ✅ |
+| `sessions` | ✅ Con start_time (no date), coach_id, created_by |
 | `reservations` | ✅ |
 | `attendance` | ✅ UNIQUE(session_id, user_id) |
-| `posts` | ✅ 6+ posts dummy |
-| `comments` | ✅ |
-| `reactions` | ✅ |
-| `stories` | ✅ |
-| `notifications` | ✅ RLS con policy separada para coaches |
+| `posts` | ✅ |
+| `comments` / `reactions` / `stories` | ✅ |
+| `notifications` | ✅ RLS con INSERT para coaches a otros users |
 | `achievements` | ✅ |
 | `coach_notes` | ✅ |
-| `exercise_wiki` | ✅ 23 ejercicios |
-| `food_wiki` | ✅ 15 alimentos |
-| `push_subscriptions` | ✅ |
-| `coach_invites` | ✅ Con columna `club_id`, RLS permite coaches |
-| `session_feedback` | ✅ UNIQUE(session_id, user_id), RLS completo |
+| `exercise_wiki` | ✅ |
+| `food_wiki` | ✅ |
+| `coach_invites` | ✅ Con club_id, RLS coaches |
+| `session_feedback` | ✅ UNIQUE(session_id, user_id), upsert |
+| `routines` | ✅ RLS 4 policies |
+| `routine_exercises` | ✅ RLS 2 policies |
+| `routine_assignments` | ✅ RLS 3 policies |
+| `routine_results` | ✅ RLS 2 policies |
+| `exercise_library` | ✅ ~870 ejercicios, instrucciones ES, RLS 7 policies |
+| `personal_records` | ✅ RLS 2 policies |
+| `clubs.plan` | ✅ free / pro / pro_plus |
 
-### SQL aplicado (acumulado)
-```sql
--- Políticas RLS notifications
-CREATE POLICY "notifications_insert_for_others" ON public.notifications
-  FOR INSERT WITH CHECK (get_my_role() = ANY(ARRAY['super_admin','coach','club_admin']));
+### Ramas Git activas
 
--- session_feedback tabla
-CREATE TABLE public.session_feedback (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  session_id uuid NOT NULL REFERENCES public.sessions(id) ON DELETE CASCADE,
-  user_id uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-  rating smallint NOT NULL CHECK (rating BETWEEN 1 AND 5),
-  discomforts text[] DEFAULT '{}',
-  note text,
-  created_at timestamptz DEFAULT now(),
-  UNIQUE(session_id, user_id)
-);
-ALTER TABLE public.session_feedback ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "feedback_insert_own" ON public.session_feedback FOR INSERT WITH CHECK (user_id = auth.uid());
-CREATE POLICY "feedback_select_own" ON public.session_feedback FOR SELECT USING (user_id = auth.uid() OR get_my_role() = ANY(ARRAY['super_admin','coach','club_admin']));
-CREATE POLICY "feedback_update_own" ON public.session_feedback FOR UPDATE USING (user_id = auth.uid());
-
--- coach_invites: permitir a coaches
-DROP POLICY IF EXISTS "coach_invites_insert" ON public.coach_invites;
-CREATE POLICY "coach_invites_insert" ON public.coach_invites FOR INSERT WITH CHECK (get_my_role() = ANY(ARRAY['super_admin','coach','club_admin']));
-DROP POLICY IF EXISTS "coach_invites_select" ON public.coach_invites;
-CREATE POLICY "coach_invites_select" ON public.coach_invites FOR SELECT USING (created_by = auth.uid() OR get_my_role() = 'super_admin');
-
--- club_id en coach_invites (si no existe)
-ALTER TABLE public.coach_invites ADD COLUMN IF NOT EXISTS club_id uuid REFERENCES public.clubs(id);
-
--- sessions RLS (actualización sin coach del mismo club)
--- (aplicado en sesiones anteriores)
-
--- attendance RLS delete para coaches
--- (aplicado en sesiones anteriores)
-```
+| Rama | Propósito |
+|------|-----------|
+| `main` | Desarrollo activo — Vercel auto-deploy |
+| `prod` | Producción estable |
+| `beta_v2` | Beta pública |
+| `backup-v2.0` | Snapshot v2.0 |
+| `backup-v1.0` | Snapshot histórico v1.0 (no tocar) |
+| `beta_v1` | Histórico v1 (no tocar) |
 
 ---
 
 ## 🗓️ HISTORIAL DE SESIONES
 
-### Sesiones 1-7 (hasta 2026-03-17)
-Ver log anterior. Resumen: estructura base, stories, biblioteca, asistencia, QR, OAuth, usuarios dummy, validación Zod, CreateSessionDialog, formato 24h, re-reserva fix.
+### Sesiones 1–7 (hasta 2026-03-17)
+Estructura base, stories, biblioteca, asistencia, QR, OAuth, usuarios dummy, validación Zod, CreateSessionDialog, formato 24h, re-reserva fix.
 
 ### Sesión 8 (2026-03-27)
-**Implementado:**
-- Club badge en header (izq: próxima sesión | centro: club | der: campana)
-- Tab "Hoy" del Coach Panel con calendario + detalle del día en 2 columnas
-- RLS sessions_update (tomar sesiones sin coach del mismo club)
-- RLS attendance_delete
-- CreateSessionDialog: club_id + validación fecha pasada + días pasados deshabilitados
-- Foto de perfil 20MB + bucket avatars SQL
-- Flujo de registro con Club (3 pasos)
-- SQL clubs, club_memberships, migración de datos
-- SessionFeedbackModal + useSessionFeedback + integración en App.tsx
-- SQL session_feedback
-- Profile.tsx con insights del miembro (6 cards)
-- Dashboard modularizado: CoachDashboardView + MemberDashboardView + orquestador
-- NextSessionBanner fix (filtra sesiones futuras para miembros)
-- Sesiones disponibles con nombre del coach, horario hasta, barra de progreso de lugares
-- Queries separadas para coach sin límite global de 10
-- vercel.json con rewrites SPA + cache headers
-- Branch cleanup y backup-v1.0
+Club badge en header, tab "Hoy" Coach Panel, RLS sessions_update, foto perfil 20MB, registro con Club 3 pasos, SessionFeedbackModal, Profile insights, Dashboard modularizado, NextSessionBanner fix, vercel.json rewrites.
 
 ### Sesión 9 (2026-03-28)
+Fix Vercel env vars, sidebar colapsable desktop, Login fix scroll, Register fixes (toast email inválido, token invitación), Agenda sesiones pasadas "Cerrada", SessionFeedbackModal (elimina notif al enviar, upsert), NotificationsBell reabre modal feedback, InviteCoach para todos los coaches con club_id.
+
+### Sesión 10 (2026-04-08) — Seguridad + Legal
 **Implementado:**
-- **Fix Vercel:** Variables de entorno faltaban en el nuevo proyecto → app conectaba a Supabase viejo
-- **Sidebar colapsable** en AppLayout.tsx:
-  - Toggle con ícono Menu
-  - Colapsado: `w-[72px]`, íconos 24px, height 52px, centrados, tooltips
-  - Expandido: `w-64` con íconos + labels
-  - Usa CSS inline para garantizar tamaños (no sobreescrito por Tailwind)
-  - Sigue tema global (`bg-card`, no navy fijo)
-- **Login fix:** `h-screen overflow-hidden` + columna formulario `overflow-y-auto` → elimina scroll no deseado. Copyright dentro del flujo del formulario
-- **Register fix:**
-  - Toast de email inválido aparece en paso de cuenta (no en paso club)
-  - Mensaje específico si email ya registrado
-  - Campo de token de invitación manual para coaches
-  - Footer dentro del flujo, no absoluto
-- **Agenda:** sesiones pasadas muestran "Cerrada" / "Completada" / badge "Finalizada". `isPast = new Date(s.end_time) < new Date()`
-- **SessionFeedbackModal:**
-  - Al **enviar**: elimina la notificación (no vuelve a aparecer)
-  - Al **omitir**: marca como leída (puede reabrirse desde campana)
-  - Usa `upsert` en lugar de `insert` para manejar feedback duplicado
-- **NotificationsBell:**
-  - Click en notificación `session_feedback` reabre `SessionFeedbackModal`
-  - Estado `feedbackTarget` gestiona el modal dentro de la campana
-- **CoachDashboardView:**
-  - Fix: `setClaimingSessionId(null)` en `onSuccess` del claimMutation
-  - Invalida `next-session` query al tomar sesión → banner se actualiza sin recargar
-- **InviteCoach:**
-  - Disponible para todos los coaches (no solo super_admin)
-  - Genera invitaciones con el `club_id` del coach que las crea
-  - Muestra nombre del club en el banner informativo
-  - Lista solo las invitaciones creadas por el usuario actual
-- **CoachDashboard:** tab "Invitar Coach" visible para todos los coaches
-- **RLS notifications:** policy `notifications_insert_for_others` para coaches
-- **App.tsx:** ProtectedRoute y CoachRoute definidos en el mismo archivo, Outlet importado
+- `src/lib/validation.ts`: schemas Zod reforzados, sanitizeText en todos los inputs
+- Auditoría RLS: policies granulares en todas las tablas v1
+- `vercel.json`: security headers (CSP, X-Frame-Options, HSTS, Referrer-Policy, Permissions-Policy)
+- `PrivacyPolicy.tsx` + `TermsOfUse.tsx`: páginas legales completas (Ley 25.326 Argentina)
+- `Login.tsx` + `Register.tsx` + `Support.tsx`: links a páginas legales
+- `App.tsx`: rutas públicas `/privacidad` y `/terminos`
+- `Plans.tsx`: página de planes en `/planes` con tiers beta y nota "Plan Pro gratis"
+- Club badge en header desktop clickeable → `/planes`
+- `Register.tsx` v2: 4 pasos (rol, perfil, objetivos, club) con `GoalSelector` visual (tarjetas con íconos)
+
+### Sesión 11 (2026-04-09) — Rutinas v2.0
+**Implementado:**
+- Módulo completo de rutinas:
+  - `RoutineBuilder.tsx`: creador/editor de rutinas. Fix edit mode (TanStack Query v5: `onSuccess` deprecado → `useEffect`)
+  - `RoutineDetail.tsx`: vista detalle de rutina con ejercicios
+  - `RoutineLogModal.tsx`: modal para registrar resultado (feeling, RPE, tiempo, log por ejercicio)
+  - `RoutinesTab.tsx`: tab en CoachDashboard con chips de sesión asignada
+  - `Routines.tsx`: página principal, vista coach + vista alumno con tabs Pendientes/Historial
+- Exercise picker migrado a `free-exercise-db` (~870 ejercicios, sin API key)
+  - CDN: `https://yuhonas.github.io/free-exercise-db/`
+  - IDs URL-safe: reemplaza caracteres no alfanuméricos por guiones (fix `3/4 sit-up` → 404)
+- `exerciseTranslations.ts`: ~870 ejercicios con traducción nombre por nombre + fallback word-by-word
+- SQL: tablas `routines`, `routine_exercises`, `routine_assignments`, `routine_results` con RLS
+- SQL: tabla `exercise_library` con `instructions text[]`, `is_global boolean`, ~870 ejercicios importados
+
+### Sesión 12 (2026-04-10) — SessionDetail + Library + Sidebar
+**Implementado:**
+- `SessionDetail.tsx`: página `/sesion/:id` con 3 tabs: Asistencia, Rutinas asignadas, Notas del coach
+- `Agenda.tsx`: tarjetas de sesión clickeables para coaches (navegan a `/sesion/:id`)
+- `Library.tsx`: tab "Librería" integrado a la Wiki
+- `LibraryExerciseDetail.tsx`: `/biblioteca/libreria/:id` — detalla ejercicio con imágenes y instrucciones ES
+  - Detecta si ID es UUID (exercise_library DB) o CDN (fex-...)
+  - Badge "✓ Instrucciones en español" cuando viene de DB
+- `AppLayout.tsx` v2.0–v2.3: sidebar actualizado (Rutinas visible para todos, separadores por rol)
+- `CoachDashboard.tsx`: tab Rutinas + botón "Nueva Rutina"
+- `useExerciseDB.ts`: hooks `useExerciseLibraryItem`, `useExerciseLibrary`, `useExerciseLibraryPopulated`
+
+### Sesión 13 (2026-04-12) — Seguridad datos + Fixes
+**Implementado:**
+- `MemberDashboardView.tsx`: upcomingSessions filtrada por coaches del mismo club (2 pasos)
+- `CoachDashboard.tsx`: allSessions y allAttendance filtradas por coach_id (antes exponía todos los clubs)
+- `Attendance.tsx` v2.3: monthSessions, daySessions y groups filtrados por clubCoachIds compartida. Rate limiting en comunicados (useRateLimit, 3 cada 5 minutos)
+- `useRateLimit.ts`: hook de rate limiting cliente-side con countdown
+- `sanitizeText` aplicado en todos los inputs de texto libre
+- `Plans.tsx` con badge "Tu plan actual" y CTA para coaches fundadores beta
+
+### Sesión 14 (2026-04-12) — AppLayout v2.4 + Login fix
+**Implementado:**
+- `AppLayout.tsx` v2.4:
+  - Sidebar corregido por rol: Miembro → navItems + Rutinas / Coach → navItems + Rutinas + Coach Panel + Sesiones
+  - Fix logout mobile: `onPointerDown` en botón del Popover
+  - Fix logout race condition: `navigate('/login', { replace: true })` en try/finally
+  - Club badge mobile: `max-w` reducido, flecha ↑ con `shrink-0` siempre visible
+  - Logo (desktop y mobile) navega a home con `<NavLink to="/">`
+- `Routines.tsx` v2.3: usa `RoutineLogModal` en lugar de `RoutineFeedbackModal` para "Completar"
+- `RoutineLogModal.tsx`: pasa `assignmentId` y `assignedBy` para notificar al coach al completar
+- `Profile.tsx`: sección "Completaciones de Rutinas" en actividad del miembro
+
+### Sesión 15 (2026-04-13) — Mobile fixes
+**Implementado:**
+- `LibraryExerciseDetail.tsx`: fix imágenes mobile — `flex flex-col sm:flex-row` + `style={{ height: '260px' }}` inline para evitar conflictos CSS en Safari/Brave iOS
+- `AppLayout.tsx` v2.5: club badge mobile con `max-w-[56px]` y flecha ↑ `shrink-0`; logo navega a home
+- Supabase Security Advisor: SQL `SET search_path TO 'public'` en 6 funciones SECURITY DEFINER
+- Leaked Password Protection: habilitado en Supabase Dashboard
+- SQL passwords test accounts: `coach@woditos.app` y `test-coach@woditos.app` → `Woditos2026!`
+- SQL membership: `coach@woditos.app` movido de Crew Woditos → Club Test
+
+### Sesión 16 (2026-04-14) — Login bug fix (useAuth)
+**Implementado:**
+- `useAuth.tsx` v1.4: fix login colgado en "Entrando..."
+  - Root cause: `onAuthStateChange` era `async` y hacía `await fetchUserData()`. Supabase JS v2 procesa eventos en cola secuencial → `signInWithPassword` quedaba bloqueado esperando que `INITIAL_SESSION` terminara
+  - Fix: callback `onAuthStateChange` ahora es NO-async. `fetchUserData` se llama fire-and-forget con `.finally(() => setIsLoading(false))`
+  - Fix form reset en primer intento: `signIn()` ahora llama `await fetchUserData(data.user.id)` directamente antes de resolver → cuando `navigate('/')` dispara, `user/profile/clubMembership` ya están cargados → `ProtectedRoute` no redirige de vuelta a `/login`
 
 ---
 
-## 🚀 PRÓXIMOS PASOS
+## 🔐 CREDENCIALES DE ACCESO
+
+### Usuario Real (dueño del proyecto)
+| Email | Rol |
+|-------|-----|
+| figo.albarra@gmail.com | super_admin |
+
+### Usuarios de Prueba
+| Email | Password | Rol | Club |
+|-------|----------|-----|------|
+| coach@woditos.app | Woditos2026! | coach | Club Test |
+| test-coach@woditos.app | Woditos2026! | coach | Club Test |
+| maria@woditos.app | Woditos2026! | member | Crew Woditos |
+| juan@woditos.app | Woditos2026! | member | Crew Woditos |
+| sofia@woditos.app | Woditos2026! | member | Crew Woditos |
+
+### Códigos de Club
+| Club | Código |
+|------|--------|
+| Crew Woditos | C10168 |
+| Club Test | 6BBE3B |
+
+---
+
+## 🗺️ ARQUITECTURA ACTUAL
+
+```
+src/
+├── App.tsx                        ← Router + Guards + rutas públicas legales
+├── pages/
+│   ├── Login.tsx                  ✅ Email/pass + Google OAuth + usuarios prueba
+│   ├── Register.tsx               ✅ 4 pasos con GoalSelector visual
+│   ├── Onboarding.tsx             ✅ Pantalla post-registro para vincular club
+│   ├── Dashboard.tsx              ✅ Home diferenciado coach/member
+│   ├── Agenda.tsx                 ✅ Semana + reservas + cards clickeables coaches
+│   ├── SessionDetail.tsx          ✅ /sesion/:id — Asistencia/Rutinas/Notas tabs
+│   ├── Attendance.tsx             ✅ Control asistencia + QR + rate limiting
+│   ├── CoachDashboard.tsx         ✅ 5 tabs: Agenda/Miembros/Analytics/Rutinas/Invitar
+│   ├── Routines.tsx               ✅ Coach: lista+asigna / Alumno: pendientes+historial
+│   ├── Plans.tsx                  ✅ /planes — tiers + beta badge
+│   ├── Community.tsx              ✅ Feed + StoriesBar
+│   ├── Library.tsx                ✅ Wiki + tab Librería ejercicios
+│   ├── LibraryExerciseDetail.tsx  ✅ Detalle ejercicio con imágenes + instrucciones ES
+│   ├── Profile.tsx                ✅ QR + avatar + stats + actividad + rutinas
+│   ├── ResetPassword.tsx          ✅ Flujo 3 fases reset contraseña
+│   ├── Support.tsx                ✅ Centro de ayuda completo v2
+│   ├── PrivacyPolicy.tsx          ✅ Ley 25.326 Argentina
+│   └── TermsOfUse.tsx             ✅
+├── components/
+│   ├── layout/AppLayout.tsx       ✅ v2.5 sidebar + mobile nav + logo home
+│   ├── routines/
+│   │   ├── RoutineBuilder.tsx     ✅ Creador/editor con exercise picker
+│   │   ├── RoutineDetail.tsx      ✅ Vista detalle + RoutineLogModal
+│   │   ├── RoutineLogModal.tsx    ✅ Registra resultado + notifica coach
+│   │   └── RoutinesTab.tsx        ✅ Tab en CoachDashboard con chips sesión
+│   ├── dashboard/
+│   │   ├── CoachDashboardView.tsx ✅
+│   │   ├── MemberDashboardView.tsx ✅ Sesiones filtradas por club
+│   │   ├── FeedbackAnalytics.tsx  ✅
+│   │   └── FeedbackHistory.tsx    ✅
+│   ├── CreateSessionDialog.tsx    ✅ Modal crear sesión compartido
+│   ├── NotificationsBell.tsx      ✅ Reabre SessionFeedbackModal
+│   ├── NextSessionBanner.tsx      ✅ Float mobile + desktop banner
+│   ├── SessionFeedbackModal.tsx   ✅ Upsert, elimina notif al enviar
+│   ├── InviteCoach.tsx            ✅ Para todos los coaches
+│   └── community/StoriesBar.tsx   ✅
+├── hooks/
+│   ├── useAuth.tsx                ✅ v1.4 — callback no-async, signIn awaita fetchUserData
+│   ├── useExerciseDB.ts           ✅ CDN + exercise_library hooks
+│   ├── useRateLimit.ts            ✅ Rate limiting cliente-side
+│   └── useTheme.tsx               ✅
+├── lib/
+│   ├── validation.ts              ✅ Zod schemas + sanitizeText
+│   ├── exerciseTranslations.ts    ✅ ~870 ejercicios ES + word-by-word fallback
+│   └── queryClient.ts             ✅
+└── integrations/supabase/client.ts ✅ Navigator Locks bypass para Vite HMR
+```
+
+---
+
+## 🔧 PATRONES Y GOTCHAS DOCUMENTADOS
+
+| Problema | Solución |
+|----------|----------|
+| TanStack Query v5: `onSuccess` en `useQuery` deprecado | Usar `useEffect` watching query data |
+| Supabase FK join `sessions.coach_id → users` | Sintaxis: `users!coach_id(profiles(full_name))` |
+| `club_admin` no existe en TypeScript union | Usar `const role = user?.role as string` |
+| RLS clubs SELECT: nuevo club sin membership | Agregar `owner_id = auth.uid()` a SELECT policy |
+| Recharts Tooltip vs shadcn Tooltip | Alias: `import { Tooltip as RechartsTooltip }` |
+| Nuevas RPC functions sin tipos | `(supabase.rpc as any)('name', params)` |
+| Tailwind specificity en sidebar icons | Usar `style={{}}` inline |
+| PostgREST `.order()` en tabla referenciada | Ordenar client-side con `useMemo` |
+| `useMemo` import incorrecto | Siempre de `'react'`, no de TanStack |
+| `session_feedback` upsert | `onConflict: 'session_id,user_id'` |
+| Notifications INSERT para coaches | Policy separada: `role IN ('coach', 'super_admin', 'club_admin')` |
+| Exercise IDs con `/` → 404 | Reemplazar non-alphanumeric con guiones |
+| Vercel env vars perdidas | Re-agregar manualmente al recrear proyecto |
+| Login colgado "Entrando..." | `onAuthStateChange` callback NO-async + `signIn` awaita `fetchUserData` |
+| Form reset en primer intento de login | `signIn` awaita `fetchUserData` antes de resolver → datos listos para `navigate('/')` |
+| Navigator Locks + Vite HMR | `lock: ((_name, _timeout, fn) => fn()) as any` en createClient |
+| Imágenes mobile Safari/Brave | `style={{ height }}` inline en lugar de clases Tailwind para evitar purge/cache |
+| `const db = supabase as any` | Para tablas v2 hasta regenerar tipos |
+
+---
+
+## 🚀 PENDIENTES
 
 ### Alta prioridad
-- [ ] **Panel de gestión del Club** — ver/editar join_code, cambiar plan, listar miembros del club
-- [ ] **Unclaim/delete sesiones desde CoachDashboard** — alert de confirmación, notificación a inscriptos, solo el creador puede eliminar
+- [ ] Panel de gestión del Club (`/club`) — ver/editar join_code, listar miembros, cambiar plan
+- [ ] Regenerar tipos Supabase (eliminar `const db = supabase as any`)
 
 ### Media prioridad
-- [ ] CoachDashboard modularización (si supera 600 líneas al agregar unclaim/delete)
-- [ ] Leaderboard de asistencia
-- [ ] Exportar asistencia CSV
+- [ ] Instrucciones en español para ejercicios sin traducción aún (script de población `exercise_library`)
+- [ ] Records Personales UI (`personal_records` ya en DB)
+- [ ] Export CSV asistencia (papaparse ya instalado)
+- [ ] IA para generar rutinas (Edge Function + OpenAI)
 
 ### Infraestructura futura
 - [ ] RevenueCat billing
-- [ ] Multi-tenancy (tabla `organizations`)
 - [ ] Push notifications server-side
-- [ ] Emails transaccionales
-
----
-
-## 📊 CRÉDENCIALES ACTUALIZADAS
-
-| Email | Password | Rol |
-|-------|----------|-----|
-| figo.albarra@gmail.com | (personal) | super_admin |
-| coach@woditos.app | Coach2026! | coach |
-| maria@woditos.app | Woditos2026! | member |
-| juan@woditos.app | Woditos2026! | member |
-| sofia@woditos.app | Woditos2026! | member |
-| test@woditos.app | 123456 | member |
+- [ ] Emails transaccionales (confirmación reserva, recordatorio sesión)

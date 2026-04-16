@@ -1,10 +1,10 @@
 /**
  * Archivo: Support.tsx
  * Ruta: src/pages/Support.tsx
- * Última modificación: 2026-04-10
+ * Última modificación: 2026-04-14
  * Descripción: Página de soporte, preguntas frecuentes y tutorial de la app.
- *   Incluye guía para coaches y miembros, FAQ, contacto de soporte y sección legal.
- *   v1.1: agrega sección "Legal" con links a Términos de Uso y Política de Privacidad.
+ *   v1.2: actualizada para Woditos v2.0 — rutinas, librería de ejercicios,
+ *         detalle de sesión, beta y planes, navegación actualizada.
  */
 import woditosLogo from '@/assets/woditos-logo.png';
 import { Copy, Check, FileText, ShieldCheck } from 'lucide-react';
@@ -35,9 +35,7 @@ export default function Support() {
   return (
     <div className="max-w-3xl mx-auto space-y-10 animate-fade-in pb-12">
 
-      {/* ═══════════════════════════════════════════════════════════ */}
       {/* HEADER */}
-      {/* ═══════════════════════════════════════════════════════════ */}
       <div className="text-center space-y-3">
         <img src={woditosLogo} alt="Woditos" className="h-14 mx-auto" />
         <h1 className="font-display text-3xl font-extrabold text-foreground">
@@ -48,12 +46,23 @@ export default function Support() {
         </p>
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* BETA BANNER */}
+      <div className="bg-primary/10 border border-primary/30 rounded-xl p-5 space-y-2">
+        <div className="flex items-center gap-2">
+          <span className="text-lg">🚀</span>
+          <h2 className="font-display font-bold text-foreground">Woditos está en Beta</h2>
+        </div>
+        <p className="text-sm text-foreground/80 leading-relaxed">
+          Estamos en fase beta abierta. Todos los clubes tienen acceso completo al <strong>Plan Pro</strong> sin costo mientras la plataforma crece. Cuando lancemos funcionalidades premium y habilitemos los planes superiores, te avisaremos con anticipación para que puedas decidir con tiempo.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Tu feedback es clave — escribinos a woditos.soporte@gmail.com con sugerencias o reportes de errores.
+        </p>
+      </div>
+
       {/* ÍNDICE */}
-      {/* ═══════════════════════════════════════════════════════════ */}
       <nav className="bg-card border border-border rounded-xl p-5 space-y-4">
         <h2 className="font-display text-lg font-bold text-foreground">Índice</h2>
-
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold">General</p>
@@ -62,29 +71,31 @@ export default function Support() {
             <a href="#navegacion" className="block text-primary hover:underline">→ Navegación de la app</a>
             <a href="#perfil" className="block text-primary hover:underline">→ Tu perfil</a>
             <a href="#notificaciones" className="block text-primary hover:underline">→ Notificaciones</a>
+            <a href="#planes" className="block text-primary hover:underline">→ Planes y Beta</a>
           </div>
-
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold">Para Miembros</p>
             <a href="#m-reservar" className="block text-primary hover:underline">→ Reservar sesiones</a>
             <a href="#m-agenda" className="block text-primary hover:underline">→ Tu agenda</a>
             <a href="#m-feedback" className="block text-primary hover:underline">→ Feedback post-sesión</a>
+            <a href="#m-rutinas" className="block text-primary hover:underline">→ Rutinas asignadas</a>
             <a href="#m-comunidad" className="block text-primary hover:underline">→ Comunidad y feed</a>
             <a href="#m-insights" className="block text-primary hover:underline">→ Insights y estadísticas</a>
           </div>
-
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold">Para Coaches</p>
             <a href="#c-crear-sesion" className="block text-primary hover:underline">→ Crear sesiones</a>
-            <a href="#c-gestionar" className="block text-primary hover:underline">→ Tomar, soltar y eliminar sesiones</a>
+            <a href="#c-detalle-sesion" className="block text-primary hover:underline">→ Detalle de sesión</a>
+            <a href="#c-gestionar" className="block text-primary hover:underline">→ Tomar, soltar y eliminar</a>
             <a href="#c-asistencia" className="block text-primary hover:underline">→ Control de asistencia</a>
+            <a href="#c-rutinas" className="block text-primary hover:underline">→ Rutinas</a>
             <a href="#c-panel" className="block text-primary hover:underline">→ Coach Panel</a>
             <a href="#c-invitar" className="block text-primary hover:underline">→ Invitar coaches y miembros</a>
             <a href="#c-analytics" className="block text-primary hover:underline">→ Analytics</a>
           </div>
-
           <div className="space-y-2">
-            <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold">Ayuda</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold">Recursos</p>
+            <a href="#libreria" className="block text-primary hover:underline">→ Librería de ejercicios</a>
             <a href="#faq" className="block text-primary hover:underline">→ Preguntas frecuentes</a>
             <a href="#contacto" className="block text-primary hover:underline">→ Contacto de soporte</a>
             <a href="#legal" className="block text-primary hover:underline">→ Legal</a>
@@ -101,10 +112,10 @@ export default function Support() {
           Primeros pasos
         </h2>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          Woditos es una plataforma para comunidades de running y entrenamiento funcional. Conecta a coaches con sus alumnos, permitiendo gestionar sesiones grupales, asistencia, feedback y comunicación - todo en un solo lugar.
+          Woditos es una plataforma para comunidades de running y entrenamiento funcional. Conecta a coaches con sus alumnos permitiendo gestionar sesiones grupales, rutinas de entrenamiento, asistencia, feedback y comunicación — todo en un solo lugar.
         </p>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          Hay dos roles principales: <strong>Coach</strong> (crea y gestiona sesiones, crews y miembros) y <strong>Miembro</strong> (reserva sesiones, recibe feedback y participa de la comunidad).
+          Hay dos roles principales: <strong>Coach</strong> (crea sesiones y rutinas, gestiona crews y miembros, analiza performance) y <strong>Miembro</strong> (reserva sesiones, recibe y completa rutinas, participa de la comunidad).
         </p>
       </section>
 
@@ -112,21 +123,19 @@ export default function Support() {
         <h2 className="font-display text-2xl font-bold text-foreground border-b border-border pb-2">
           Registro y acceso
         </h2>
-
         <h3 className="font-display text-lg font-semibold text-foreground mt-4">Crear una cuenta</h3>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          Podés registrarte de dos formas: con tu email y contraseña, o directamente con tu cuenta de Google. Al registrarte, elegís si sos <strong>Coach</strong> o <strong>Miembro</strong>.
+          El registro tiene cuatro pasos: elegís tu rol (Coach o Miembro), configurás tu perfil, definís tus objetivos de entrenamiento, y conectás con tu club.
         </p>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          <strong>Como Miembro:</strong> necesitás un código de club que tu coach te comparte. Ingresalo durante el registro o en la pantalla de onboarding.
+          <strong>Como Miembro:</strong> necesitás un código de club que tu coach te comparte. Ingresalo en el último paso del registro o en la pantalla de onboarding si lo saltás.
         </p>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          <strong>Como Coach:</strong> podés crear tu propio club (se genera automáticamente un código para invitar miembros) o unirte a un club existente si otro coach te envió una invitación.
+          <strong>Como Coach:</strong> podés crear tu propio club (se genera automáticamente un código para invitar miembros) o unirte a un club existente con una invitación de otro coach.
         </p>
-
         <h3 className="font-display text-lg font-semibold text-foreground mt-4">Recuperar contraseña</h3>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          Si olvidás tu contraseña, tocá <em>"¿Olvidaste tu contraseña?"</em> en la pantalla de login. Te enviaremos un email con un link para crear una contraseña nueva. El link expira en 24 horas.
+          Tocá <em>"¿Olvidaste tu contraseña?"</em> en la pantalla de login. Ingresá tu email y te enviamos un link para crear una contraseña nueva (expira en 24 horas).
         </p>
       </section>
 
@@ -135,13 +144,13 @@ export default function Support() {
           Navegación de la app
         </h2>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          <strong>En computadora:</strong> usá la barra lateral (sidebar) a la izquierda. Podés colapsarla con el ícono de menú ☰ para tener más espacio.
+          <strong>En computadora:</strong> usá la barra lateral (sidebar) a la izquierda. Podés colapsarla con el ícono ☰ para tener más espacio. El logo Woditos te lleva al inicio.
         </p>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          <strong>En celular:</strong> usá la barra de navegación en la parte inferior de la pantalla. Las opciones principales son: Inicio, Agenda, Crew (comunidad), Wiki (biblioteca) y Perfil. Los coaches tienen además el ícono de Coach Panel.
+          <strong>En celular:</strong> usá la barra de navegación inferior. Las opciones son: Inicio, Agenda, Crew, Wiki, Perfil, Rutinas. Los coaches tienen además el ícono Coach.
         </p>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          En el header encontrás: el banner de tu próxima sesión, el badge de tu club, la campana de notificaciones, y tu avatar (tocalo para acceder a tu perfil, cambiar tema o cerrar sesión).
+          En el header encontrás: el banner de tu próxima sesión (desktop), el badge de tu club (tocalo para ver los planes), la campana de notificaciones, y tu avatar (acceso a perfil, tema y logout).
         </p>
       </section>
 
@@ -150,7 +159,10 @@ export default function Support() {
           Tu perfil
         </h2>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          Desde tu perfil podés: cambiar tu foto (tocá sobre el avatar), editar tu nombre, definir tus objetivos de entrenamiento, y agregar un contacto de emergencia. También tenés tu código QR personal para check-in rápido en sesiones presenciales.
+          Desde tu perfil podés: cambiar tu foto (tocá el avatar), editar tu nombre, definir objetivos de entrenamiento, y agregar un contacto de emergencia. También tenés tu código QR personal para check-in rápido en sesiones presenciales.
+        </p>
+        <p className="text-sm text-foreground/80 leading-relaxed">
+          La sección <strong>"Tu actividad"</strong> muestra: sesiones esta semana vs la anterior, asistencia del mes, tipo de sesión favorito, compañero/a más frecuente, coach del mes y frases motivadoras según tu racha.
         </p>
       </section>
 
@@ -159,10 +171,25 @@ export default function Support() {
           Notificaciones
         </h2>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          La campana 🔔 en el header te muestra notificaciones sobre: reservas nuevas, sesiones canceladas, feedback pendiente, anuncios del coach y recordatorios. Las notificaciones no leídas se marcan con un punto azul y un contador.
+          La campana 🔔 en el header muestra notificaciones sobre: reservas, sesiones canceladas, feedback pendiente, rutinas asignadas, anuncios del coach y recordatorios. Los no leídos se marcan con un punto y un contador.
         </p>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          Podés marcar todas como leídas con un solo toque. Si tenés un navegador compatible, también podés activar notificaciones push para no perderte nada.
+          Tocando una notificación de feedback pendiente, se reabre el modal directamente. Podés marcar todas como leídas con un solo toque.
+        </p>
+      </section>
+
+      <section id="planes" className="space-y-4 scroll-mt-20">
+        <h2 className="font-display text-2xl font-bold text-foreground border-b border-border pb-2">
+          Planes y Beta
+        </h2>
+        <p className="text-sm text-foreground/80 leading-relaxed">
+          Durante la fase beta, <strong>todos los clubes tienen Plan Pro activo sin costo</strong>. Esto incluye acceso a todas las funcionalidades actuales: rutinas, librería de ejercicios, analytics, invitaciones, y más.
+        </p>
+        <p className="text-sm text-foreground/80 leading-relaxed">
+          Podés ver el estado de tu plan tocando el badge de tu club en el header (el punto naranja con el nombre). Desde ahí se accede a la página de Planes donde se detalla qué incluye cada nivel.
+        </p>
+        <p className="text-sm text-foreground/80 leading-relaxed">
+          Cuando se habiliten los planes de pago, los clubes en beta recibirán un aviso anticipado y condiciones especiales para coaches fundadores.
         </p>
       </section>
 
@@ -181,13 +208,13 @@ export default function Support() {
           Reservar sesiones
         </h2>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          Desde la página de <strong>Inicio</strong> o desde <strong>Agenda</strong>, podés ver las sesiones disponibles. Cada sesión muestra: horario, tipo (running, funcional, EMOM, etc.), crew, ubicación, coach asignado y lugares disponibles.
+          Desde <strong>Inicio</strong> o <strong>Agenda</strong> podés ver las sesiones disponibles. Cada sesión muestra: horario, tipo, crew, coach y lugares disponibles con barra de progreso.
         </p>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          Tocá <strong>"Reservar"</strong> para confirmar tu lugar. Tu coach recibe una notificación automática. Si cambiás de opinión, podés cancelar la reserva antes de que empiece la sesión.
+          Tocá <strong>"Reservar"</strong> para confirmar tu lugar (el coach recibe notificación). Podés cancelar en cualquier momento antes de que empiece la sesión.
         </p>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          La barra de lugares te indica cuántos quedan disponibles. Cuando quedan pocos (3 o menos), se muestra en rojo para que te apures.
+          Cuando quedan 3 o menos lugares, la barra se muestra en rojo para que te apures.
         </p>
       </section>
 
@@ -196,10 +223,7 @@ export default function Support() {
           Tu agenda
         </h2>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          La <strong>Agenda</strong> te muestra la semana completa con todas las sesiones programadas. Los días que tienen sesiones se marcan con un punto naranja. Tocá un día para ver el detalle.
-        </p>
-        <p className="text-sm text-foreground/80 leading-relaxed">
-          Navegá entre semanas con las flechas ← →. Tus sesiones reservadas aparecen con el badge "Reservado" y las sesiones pasadas se muestran como "Finalizada" o "Cerrada".
+          La <strong>Agenda</strong> muestra la semana completa. Los días con sesiones tienen un punto naranja. Las sesiones pasadas aparecen como "Finalizada" o "Cerrada" y no se pueden reservar ni cancelar.
         </p>
       </section>
 
@@ -208,10 +232,25 @@ export default function Support() {
           Feedback post-sesión
         </h2>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          Después de cada sesión a la que asististe, te aparece un modal para dejar tu feedback. Elegí un emoji del 1 al 5, indicá si tuviste alguna incomodidad (si la valoración es baja), y opcionalmente dejá una nota para tu coach.
+          Después de cada sesión aparece un modal para dejar tu feedback: elegí un emoji del 1 al 5, indicá si tuviste incomodidades (si la valoración es baja) y dejá una nota opcional para tu coach.
         </p>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          Si cerrás el modal sin completarlo, queda como notificación pendiente en tu campana 🔔 - podés reabrirlo tocando esa notificación.
+          Si cerrás el modal sin completarlo, queda como notificación pendiente en tu campana 🔔 para reabrirlo después.
+        </p>
+      </section>
+
+      <section id="m-rutinas" className="space-y-4 scroll-mt-20">
+        <h2 className="font-display text-2xl font-bold text-foreground border-b border-border pb-2">
+          Rutinas asignadas
+        </h2>
+        <p className="text-sm text-foreground/80 leading-relaxed">
+          En la sección <strong>Rutinas</strong> encontrás dos tabs: <strong>Pendientes</strong> (rutinas que tu coach te asignó para hacer) e <strong>Historial</strong> (rutinas que ya completaste).
+        </p>
+        <p className="text-sm text-foreground/80 leading-relaxed">
+          Tocá una rutina para ver el detalle de ejercicios. Cuando estés listo, tocá <strong>"Completar"</strong> para registrar tu resultado: cómo te sentiste (emoji), RPE (esfuerzo percibido del 1 al 10), tiempo total, y pesos/reps por ejercicio de forma opcional.
+        </p>
+        <p className="text-sm text-foreground/80 leading-relaxed">
+          Al completar una rutina, tu coach recibe una notificación automática con tu resultado.
         </p>
       </section>
 
@@ -220,10 +259,7 @@ export default function Support() {
           Comunidad y feed
         </h2>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          La sección <strong>Crew</strong> es el espacio social del club. Podés ver publicaciones de tu coach y compañeros, dar likes y comentar. Los posts pueden ser de texto, anuncios o logros compartidos.
-        </p>
-        <p className="text-sm text-foreground/80 leading-relaxed">
-          En la parte superior encontrás las Stories estilo Instagram - contenido efímero de tu comunidad.
+          La sección <strong>Crew</strong> es el espacio social del club. Podés ver publicaciones de tu coach y compañeros, dar likes y comentar. En la parte superior están las Stories estilo Instagram — contenido efímero de tu comunidad.
         </p>
       </section>
 
@@ -232,10 +268,7 @@ export default function Support() {
           Insights y estadísticas
         </h2>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          En tu <strong>Perfil</strong> encontrás estadísticas personales: racha de asistencia, sesiones totales, porcentaje de asistencia, y logros desbloqueados.
-        </p>
-        <p className="text-sm text-foreground/80 leading-relaxed">
-          La sección "Tu actividad" te muestra: sesiones esta semana vs la anterior, asistencia del mes, tu tipo de sesión favorito, tu compañero/a más frecuente, y tu coach del mes. También una frase motivadora basada en tu racha.
+          En tu <strong>Perfil</strong> encontrás estadísticas personales: racha de asistencia, sesiones totales, porcentaje de asistencia y logros desbloqueados. La sección "Tu actividad" detalla patrones de entrenamiento y compara semanas.
         </p>
       </section>
 
@@ -254,16 +287,28 @@ export default function Support() {
           Crear sesiones
         </h2>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          Tocá <strong>"+ Nueva Sesión"</strong> desde el Inicio, la Agenda o el Coach Panel. Se abre un formulario donde configurás:
+          Tocá <strong>"+ Nueva Sesión"</strong> desde el Inicio, la Agenda o el Coach Panel. Configurás: crew, título, tipo (Running, Funcional, AMRAP, EMOM, HIIT, Técnica), fecha, hora, duración (botones +/- de 15 min), ubicación y capacidad.
         </p>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          <strong>Crew</strong> → elegí uno existente o creá uno nuevo inline.
-          <strong> Título</strong> → nombre descriptivo (ej: "AMRAP 20min", "Fartlek en el Rosedal").
-          <strong> Tipo</strong> → Running, Funcional, AMRAP, EMOM, HIIT o Técnica.
-          <strong> Fecha</strong> → calendario con días pasados bloqueados.
-          <strong> Hora</strong> → selectores de hora y minuto en formato 24h.
-          <strong> Duración</strong> → ajustable con botones +/- de 15 minutos; muestra la hora de fin automáticamente.
-          <strong> Ubicación y capacidad</strong> → opcionales.
+          También podés asignar una rutina a la sesión directamente desde el módulo de Rutinas.
+        </p>
+      </section>
+
+      <section id="c-detalle-sesion" className="space-y-4 scroll-mt-20">
+        <h2 className="font-display text-2xl font-bold text-foreground border-b border-border pb-2">
+          Detalle de sesión
+        </h2>
+        <p className="text-sm text-foreground/80 leading-relaxed">
+          Desde la Agenda, tocando una sesión accedés a su página de detalle con tres tabs:
+        </p>
+        <p className="text-sm text-foreground/80 leading-relaxed">
+          <strong>👥 Asistencia →</strong> listado de inscriptos con estado de asistencia (presente / tarde / ausente).
+        </p>
+        <p className="text-sm text-foreground/80 leading-relaxed">
+          <strong>📋 Rutinas →</strong> rutinas asignadas a esta sesión con estado de completado por cada miembro.
+        </p>
+        <p className="text-sm text-foreground/80 leading-relaxed">
+          <strong>📝 Notas →</strong> notas internas del coach para la sesión.
         </p>
       </section>
 
@@ -272,13 +317,13 @@ export default function Support() {
           Tomar, soltar y eliminar sesiones
         </h2>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          <strong>Tomar sesión →</strong> si hay sesiones sin coach asignado, aparecen en tu Dashboard con un botón "Tomar". Al tomarla, se te asigna como coach.
+          <strong>Tomar sesión →</strong> las sesiones sin coach aparecen en tu Dashboard con botón "Tomar".
         </p>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          <strong>Soltar sesión →</strong> si ya no podés dar una clase, tocá el ícono 👤⁻ en tu sesión. Se desasigna y vuelve a "sin coach". Los inscriptos reciben una notificación.
+          <strong>Soltar sesión →</strong> tocá el ícono 👤⁻ para desasignarte. Los inscriptos reciben una notificación.
         </p>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          <strong>Eliminar sesión →</strong> tocá el ícono 🗑️ para eliminarla permanentemente. Se pide confirmación y se informa cuántos inscriptos serán notificados. Solo puede eliminar quien la creó o un super_admin.
+          <strong>Eliminar sesión →</strong> tocá 🗑️ para eliminarla permanentemente (se pide confirmación). Solo puede eliminarla quien la creó o un super_admin.
         </p>
       </section>
 
@@ -287,14 +332,31 @@ export default function Support() {
           Control de asistencia
         </h2>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          Desde <strong>Sesiones</strong> en el menú lateral, accedés al control completo. Seleccioná un día en el calendario y una sesión. Para cada inscripto, marcá:
+          Desde <strong>Sesiones</strong> en el menú, seleccioná un día y una sesión. Para cada inscripto marcá: ✓ Presente · ⏱ Tarde · ✕ Ausente. Tocá de nuevo el mismo estado para desmarcarlo.
         </p>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          ✓ <strong>Presente</strong> (verde) · ⏱ <strong>Tarde</strong> (amarillo) · ✕ <strong>Ausente</strong> (rojo).
-          Tocá de nuevo el mismo estado para desmarcarlo. Podés escanear el QR personal del miembro para check-in rápido, o agregar miembros manualmente.
+          Podés escanear el QR personal del miembro para check-in rápido, agregar miembros manualmente, o enviar un mensaje a todos los asistentes desde la misma pantalla.
+        </p>
+      </section>
+
+      <section id="c-rutinas" className="space-y-4 scroll-mt-20">
+        <h2 className="font-display text-2xl font-bold text-foreground border-b border-border pb-2">
+          Rutinas
+        </h2>
+        <p className="text-sm text-foreground/80 leading-relaxed">
+          Desde <strong>Rutinas</strong> en el menú podés crear y gestionar rutinas de entrenamiento para tu club. Al crear una rutina configurás:
         </p>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          También podés enviar un mensaje a todos los asistentes de la sesión desde la misma pantalla.
+          <strong>Nombre y tipo</strong> (Fuerza, Cardio, Funcional, Movilidad, etc.) · <strong>Nivel</strong> (Principiante, Intermedio, Avanzado) · <strong>Duración estimada</strong> · <strong>Ejercicios</strong> con series, repeticiones y peso opcionales.
+        </p>
+        <p className="text-sm text-foreground/80 leading-relaxed">
+          Los ejercicios se seleccionan desde una librería de +870 ejercicios categorizados. Podés buscar por nombre, grupo muscular o equipo.
+        </p>
+        <p className="text-sm text-foreground/80 leading-relaxed">
+          Una vez creada, podés <strong>asignar la rutina a una sesión</strong> (usando el calendario para elegir el día y seleccionando la sesión) o asignarla directamente a miembros específicos.
+        </p>
+        <p className="text-sm text-foreground/80 leading-relaxed">
+          Cuando un miembro completa una rutina, recibís una notificación con su resultado (feeling, RPE, tiempo y pesos registrados).
         </p>
       </section>
 
@@ -303,19 +365,22 @@ export default function Support() {
           Coach Panel
         </h2>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          El Coach Panel es tu centro de operaciones. Tiene cuatro tabs:
+          Tu centro de operaciones con cinco tabs:
         </p>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          <strong>📅 Agenda →</strong> calendario mensual con tus sesiones.
+          <strong>📅 Agenda →</strong> calendario mensual con tus sesiones por día, asistencia rápida y botones de acción.
         </p>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          <strong>👥 Miembros →</strong> lista de todos los miembros de tu club con su nivel de experiencia y estado.
+          <strong>👥 Miembros →</strong> lista de todos los miembros del club con nivel de experiencia y estado.
         </p>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          <strong>📊 Analytics →</strong> gráficos de sesiones por tipo, distribución de asistencia, y actividad semanal de los últimos 30 días.
+          <strong>📊 Analytics →</strong> sesiones por tipo, distribución de asistencia y actividad semanal (últimos 30 días). Incluye análisis de feedback emocional de miembros.
         </p>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          <strong>🔗 Invitar Coach →</strong> generá links de invitación para sumar coaches a tu club.
+          <strong>📋 Rutinas →</strong> acceso rápido a tus rutinas y botón "Nueva Rutina".
+        </p>
+        <p className="text-sm text-foreground/80 leading-relaxed">
+          <strong>🔗 Invitar →</strong> generá links de invitación para sumar coaches a tu club.
         </p>
       </section>
 
@@ -324,10 +389,10 @@ export default function Support() {
           Invitar coaches y miembros
         </h2>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          <strong>Para invitar miembros:</strong> compartí el código de club que aparece en la tab "Invitar Coach" del Coach Panel.
+          <strong>Para miembros:</strong> compartí el código de club de 6 caracteres que aparece en la tab "Invitar". El miembro lo ingresa al registrarse o en el onboarding.
         </p>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          <strong>Para invitar coaches:</strong> generá un link de invitación desde la misma tab. Podés configurar el email sugerido y la fecha de expiración (1 a 30 días).
+          <strong>Para coaches:</strong> generá un link de invitación con email sugerido y fecha de expiración (1 a 30 días).
         </p>
       </section>
 
@@ -336,9 +401,28 @@ export default function Support() {
           Analytics
         </h2>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          En la tab Analytics del Coach Panel encontrás tres visualizaciones de los últimos 30 días:
-          <strong> Sesiones por tipo</strong> (barras), <strong>Distribución de asistencia</strong> (torta)
-          y <strong>Actividad semanal</strong> (sesiones y asistentes por semana).
+          En Analytics del Coach Panel encontrás visualizaciones de los últimos 30 días: <strong>Sesiones por tipo</strong> (barras), <strong>Distribución de asistencia</strong> (torta), <strong>Actividad semanal</strong> (sesiones y asistentes) y <strong>Feedback emocional</strong> de miembros por sesión.
+        </p>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* LIBRERÍA */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+
+      <section id="libreria" className="space-y-4 scroll-mt-20">
+        <div className="border-t border-border pt-6">
+          <h1 className="font-display text-2xl font-extrabold text-foreground scroll-mt-20">
+            📚 Librería de Ejercicios
+          </h1>
+        </div>
+        <p className="text-sm text-foreground/80 leading-relaxed">
+          En la sección <strong>Wiki → Librería</strong> encontrás más de 870 ejercicios categorizados por grupo muscular y equipo, con fotos de posición inicial y final, instrucciones paso a paso en español, y músculos trabajados.
+        </p>
+        <p className="text-sm text-foreground/80 leading-relaxed">
+          Podés filtrar por grupo muscular (abdomen, pecho, espalda, piernas, hombros, etc.) o buscar por nombre. Los ejercicios con el badge <strong>"✓ Instrucciones en español"</strong> tienen instrucciones completas traducidas directamente en la plataforma.
+        </p>
+        <p className="text-sm text-foreground/80 leading-relaxed">
+          La librería también es el banco de ejercicios que usan los coaches al armar rutinas.
         </p>
       </section>
 
@@ -356,43 +440,55 @@ export default function Support() {
         {[
           {
             q: '¿Cómo me uno a un club si no tengo el código?',
-            a: 'Pedile el código a tu coach. Él lo encuentra en Coach Panel → Invitar Coach. Es un código de 6 caracteres que ingresás al registrarte.',
+            a: 'Pedile el código a tu coach. Lo encuentra en Coach Panel → Invitar. Es un código de 6 caracteres que ingresás al registrarte o en el onboarding.',
           },
           {
             q: '¿Puedo pertenecer a más de un club?',
-            a: 'Por ahora, cada usuario pertenece a un solo club. Esta funcionalidad se expandirá en futuras versiones.',
+            a: 'Por ahora, cada usuario pertenece a un solo club. Esta funcionalidad se expandirá en versiones futuras.',
           },
           {
             q: '¿Qué pasa si mi coach elimina una sesión a la que me inscribí?',
-            a: 'Recibís una notificación automática informándote que la sesión fue cancelada. Tu reserva se elimina sin que tengas que hacer nada.',
+            a: 'Recibís una notificación automática informándote la cancelación. Tu reserva se elimina sin que tengas que hacer nada.',
           },
           {
-            q: '¿Puedo cancelar una reserva?',
-            a: 'Sí, tocá "Cancelar" en tu sesión confirmada desde el Dashboard o la Agenda. Podés hacerlo en cualquier momento antes de que empiece la sesión.',
+            q: '¿Cómo completo una rutina que me asignó mi coach?',
+            a: 'Andá a Rutinas → Pendientes. Tocá la rutina y luego "Completar". Se abre un modal donde podés registrar cómo te sentiste, el esfuerzo percibido (RPE), el tiempo total y los pesos usados en cada ejercicio.',
+          },
+          {
+            q: '¿El coach ve los resultados cuando completo una rutina?',
+            a: 'Sí, tu coach recibe una notificación con tu resultado y puede ver el historial desde el detalle de sesión o desde tu perfil de miembro.',
+          },
+          {
+            q: '¿Las rutinas vienen con instrucciones en español?',
+            a: 'Los ejercicios de la librería tienen instrucciones en español. Al ver el detalle de un ejercicio, un badge verde confirma si tiene instrucciones completas en español.',
+          },
+          {
+            q: '¿Cómo cancelo una reserva?',
+            a: 'Tocá "Cancelar" en tu sesión confirmada desde el Dashboard o la Agenda, antes de que empiece.',
           },
           {
             q: '¿Qué significa "Cerrada" en una sesión?',
-            a: 'Significa que la sesión ya terminó. No se puede reservar ni cancelar. Si asististe, tu coach puede marcar tu asistencia.',
+            a: 'Que la sesión ya terminó. No se puede reservar ni cancelar. Si asististe, tu coach puede marcar tu asistencia.',
           },
           {
             q: '¿Cómo cambio mi foto de perfil?',
-            a: 'Andá a Perfil → pasá el mouse (o tocá) sobre tu avatar → aparece un ícono de cámara. Tocalo para subir una imagen nueva (máximo 20MB).',
+            a: 'Andá a Perfil y tocá tu avatar. Aparece un ícono de cámara para subir una imagen nueva (máximo 20MB).',
           },
           {
             q: '¿Cómo funciona el QR personal?',
-            a: 'En tu Perfil hay un botón de QR. Al tocarlo, se genera un código QR único. Tu coach lo escanea con la función de Asistencia para hacer check-in rápido sin buscar tu nombre.',
+            a: 'En tu Perfil hay un botón de QR. Tu coach lo escanea desde Sesiones → Asistencia para hacer check-in rápido sin buscar tu nombre.',
           },
           {
-            q: '¿La app funciona offline?',
-            a: 'No, Woditos requiere conexión a internet para funcionar correctamente. Todas las operaciones se sincronizan en tiempo real con el servidor.',
+            q: '¿Por qué todos tienen Plan Pro gratis?',
+            a: 'Woditos está en fase beta. Todos los clubes tienen acceso completo al Plan Pro sin costo mientras la plataforma crece y se estabiliza. Cuando se habiliten planes de pago, se avisará con tiempo.',
           },
           {
-            q: '¿Cómo recupero mi contraseña?',
-            a: 'En la pantalla de login, tocá "¿Olvidaste tu contraseña?". Ingresá tu email y te enviamos un link para crear una contraseña nueva.',
+            q: '¿La app funciona sin internet?',
+            a: 'No, Woditos requiere conexión a internet. Todas las operaciones se sincronizan en tiempo real con el servidor.',
           },
           {
             q: '¿Cómo cierro sesión en el celular?',
-            a: 'Tocá tu avatar en la esquina superior derecha del header. Se abre un menú con la opción "Cerrar sesión".',
+            a: 'Tocá tu avatar en la esquina superior derecha del header. Se abre un menú con "Cerrar sesión".',
           },
         ].map(({ q, a }, i) => (
           <div key={i} className="bg-card border border-border rounded-xl p-4">
@@ -402,10 +498,7 @@ export default function Support() {
         ))}
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════ */}
       {/* CONTACTO */}
-      {/* ═══════════════════════════════════════════════════════════ */}
-
       <section id="contacto" className="scroll-mt-20">
         <div className="bg-primary/5 border border-primary/20 rounded-xl p-6 text-center space-y-3">
           <h2 className="font-display text-xl font-bold text-foreground">¿Necesitás ayuda?</h2>
@@ -430,25 +523,15 @@ export default function Support() {
         </div>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════════ */}
-      {/* LEGAL — nuevo en v1.1                                      */}
-      {/* ═══════════════════════════════════════════════════════════ */}
-
+      {/* LEGAL */}
       <section id="legal" className="scroll-mt-20">
         <div className="border-t border-border pt-6 mb-4">
-          <h1 className="font-display text-2xl font-extrabold text-foreground">
-            Legal
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Documentos legales y políticas de Woditos.
-          </p>
+          <h1 className="font-display text-2xl font-extrabold text-foreground">Legal</h1>
+          <p className="text-sm text-muted-foreground mt-1">Documentos legales y políticas de Woditos.</p>
         </div>
-
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Link
-            to="/terminos"
-            className="group flex items-start gap-4 bg-card border border-border rounded-xl p-5 hover:border-primary/50 hover:bg-primary/5 transition-all"
-          >
+          <Link to="/terminos"
+            className="group flex items-start gap-4 bg-card border border-border rounded-xl p-5 hover:border-primary/50 hover:bg-primary/5 transition-all">
             <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10 shrink-0">
               <FileText size={20} className="text-primary" />
             </div>
@@ -461,11 +544,8 @@ export default function Support() {
               </p>
             </div>
           </Link>
-
-          <Link
-            to="/privacidad"
-            className="group flex items-start gap-4 bg-card border border-border rounded-xl p-5 hover:border-primary/50 hover:bg-primary/5 transition-all"
-          >
+          <Link to="/privacidad"
+            className="group flex items-start gap-4 bg-card border border-border rounded-xl p-5 hover:border-primary/50 hover:bg-primary/5 transition-all">
             <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10 shrink-0">
               <ShieldCheck size={20} className="text-primary" />
             </div>
@@ -481,17 +561,10 @@ export default function Support() {
         </div>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════════ */}
       {/* FOOTER */}
-      {/* ═══════════════════════════════════════════════════════════ */}
-
       <footer className="text-center space-y-2 pt-4">
-        <p className="text-sm text-foreground/60 italic">
-          "{getSlogan()}"
-        </p>
-        <p className="text-xs text-muted-foreground">
-          © 2026 Woditos. Todos los derechos reservados.
-        </p>
+        <p className="text-sm text-foreground/60 italic">"{getSlogan()}"</p>
+        <p className="text-xs text-muted-foreground">© 2026 Woditos. Todos los derechos reservados.</p>
       </footer>
     </div>
   );
