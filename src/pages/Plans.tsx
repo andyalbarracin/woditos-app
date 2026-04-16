@@ -77,8 +77,8 @@ const PLANS: Plan[] = [
       { text: 'Notificaciones por email',      included: true,  soon: true  },
       { text: 'IA para generar rutinas',       included: true,  soon: true  },
       { text: 'Export CSV de reportes',        included: true,  soon: true  },
-      { text: 'Notificaciones WhatsApp',       included: false              },
       { text: 'Branding personalizado',        included: false              },
+      { text: 'Notificaciones WhatsApp',       included: false              },
       { text: 'Soporte prioritario',           included: false              },
     ],
     disabled: false,
@@ -99,7 +99,7 @@ const PLANS: Plan[] = [
       { text: 'Hasta 150 miembros',           included: true  },
       { text: 'Coaches ilimitados',           included: true  },
       { text: 'Branding personalizado',       included: true  },
-      { text: 'Notificaciones WhatsApp',      included: true  },
+      { text: 'Notificaciones WhatsApp',      included: true,  soon: true  },
       { text: 'Soporte prioritario',          included: true  },
       { text: 'Integración de pagos MP',      included: true  },
       { text: 'Leaderboard y gamificación',   included: true  },
@@ -236,19 +236,19 @@ export default function Plans() {
                 { label: 'IA para generar rutinas',   row: [false, true,  true,  true ], proSoon: true  },
                 { label: 'Notificaciones por email',  row: [false, true,  true,  true ], proSoon: true  },
                 { label: 'Export CSV',                row: [false, true,  true,  true ], proSoon: true  },
-                { label: 'Notificaciones WhatsApp',   row: [false, false, true,  true ], proSoon: false },
+                { label: 'Notificaciones WhatsApp',   row: [false, false, true,  true ], proSoon: false, proPlustSoon: true  },
                 { label: 'Integración de pagos MP',   row: [false, false, true,  true ], proSoon: false },
                 { label: 'Branding personalizado',    row: [false, false, true,  true ], proSoon: false },
                 { label: 'API pública',               row: [false, false, false, true ], proSoon: false },
                 { label: 'White-label',               row: [false, false, false, true ], proSoon: false },
                 { label: 'Soporte dedicado',          row: [false, false, false, true ], proSoon: false },
-              ].map(({ label, row, proSoon }, i) => (
+              ].map(({ label, row, proSoon, proPlustSoon }, i) => (
                 <tr key={label} className={i % 2 === 0 ? 'bg-muted/20' : ''}>
                   <td className="px-6 py-2.5 text-foreground/80">{label}</td>
                   {row.map((has, j) => (
                     <td key={j} className="text-center px-3 py-2.5">
                       {has ? (
-                        j === 1 && proSoon ? (
+                        (j === 1 && proSoon) || (j === 2 && proPlustSoon) ? (
                           <span className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/60 border border-border/60 rounded px-1 py-0.5">
                             pronto
                           </span>
