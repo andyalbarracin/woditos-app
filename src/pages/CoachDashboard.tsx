@@ -449,8 +449,9 @@ export default function CoachDashboard() {
                 {members && members.length > 0 ? members.map((m: any) => {
                   const mp = m.users?.profiles;
                   return (
-                    <tr key={m.id} className="border-b border-border last:border-0 hover:bg-muted/50">
-                      <td className="px-4 py-3">
+                  <tr key={m.id}
+                    className="border-b border-border last:border-0 hover:bg-muted/50 cursor-pointer"
+                    onClick={() => navigate(`/miembro/${m.users?.id}`)}>                      <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">
                             {mp?.full_name?.slice(0, 2).toUpperCase() || '?'}

@@ -1,201 +1,206 @@
 /**
  * Archivo: NotificationsBell.tsx
  * Ruta: src/components/NotificationsBell.tsx
- * Última modificación: 2026-03-28
- * Descripción: Campana de notificaciones. Detecta notificaciones de tipo
- *   session_feedback y reabre el modal de feedback al hacer click.
+ * Última modificación: 2026-04-14
+ * Descripción: Campana de notificaciones con dropdown y navegación al destino.
+ *   Tipos manejados:
+ *   - session_feedback: abre SessionFeedbackModal (comportamiento existente)
+ *   - routine: navega a /rutinas
+ *   - session: navega a /sesion/:id (si está en action_url) o /asistencia
+ *   - reservation: navega a /agenda
+ *   - announcement: sin navegación
+ *   v2.0: notificaciones clickeables con destino según tipo.
  */
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
-import { Bell, BellRing } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Bell, X, Check } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { formatDistanceToNow } from 'date-fns';
+import { Button } from '@/components/ui/button';
+import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { usePushNotifications } from '@/hooks/usePushNotifications';
 import SessionFeedbackModal from '@/components/SessionFeedbackModal';
-
-interface Notification {
-  id: string;
-  title: string;
-  message: string;
-  type: string;
-  is_read: boolean;
-  created_at: string;
-  action_url: string | null;
-}
 
 interface FeedbackTarget {
   sessionId: string;
   sessionTitle: string;
-  sessionLocation: string | null;
+  sessionLocation?: string;
   notificationId: string;
+}
+
+/**
+ * Parsea action_url para feedback: "feedback:sessionId|||title|||location"
+ */
+function parseFeedbackAction(actionUrl: string): FeedbackTarget | null {
+  if (!actionUrl?.startsWith('feedback:')) return null;
+  const parts = actionUrl.replace('feedback:', '').split('|||');
+  if (parts.length < 2) return null;
+  return {
+    sessionId:       parts[0],
+    sessionTitle:    parts[1],
+    sessionLocation: parts[2] || undefined,
+    notificationId:  '',
+  };
+}
+
+/**
+ * Devuelve la ruta destino para una notificación o null si no tiene.
+ */
+function getNotificationRoute(n: any): string | null {
+  switch (n.type) {
+    case 'routine':     return '/rutinas';
+    case 'reservation': return '/agenda';
+    case 'session': {
+      // action_url puede tener "session:sessionId"
+      if (n.action_url?.startsWith('session:')) {
+        const sid = n.action_url.replace('session:', '');
+        return `/sesion/${sid}`;
+      }
+      return '/asistencia';
+    }
+    default: return null;
+  }
 }
 
 export default function NotificationsBell() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [feedbackTarget, setFeedbackTarget] = useState<FeedbackTarget | null>(null);
-  const push = usePushNotifications();
 
   const { data: notifications } = useQuery({
     queryKey: ['notifications', user?.id],
     queryFn: async () => {
-      if (!user?.id) return [];
       const { data } = await supabase
         .from('notifications')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', user!.id)
         .order('created_at', { ascending: false })
-        .limit(20);
-      return (data || []) as Notification[];
+        .limit(30);
+      return data || [];
     },
     enabled: !!user?.id,
     refetchInterval: 30000,
   });
 
+  const unreadCount = notifications?.filter((n: any) => !n.is_read).length ?? 0;
+
+  const markRead = useMutation({
+    mutationFn: async (id: string) => {
+      await supabase.from('notifications').update({ is_read: true }).eq('id', id);
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+  });
+
   const markAllRead = useMutation({
     mutationFn: async () => {
-      if (!user?.id) return;
-      await supabase.from('notifications').update({ is_read: true })
-        .eq('user_id', user.id).eq('is_read', false);
+      await supabase.from('notifications')
+        .update({ is_read: true })
+        .eq('user_id', user!.id)
+        .eq('is_read', false);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
   });
 
-  const markOneRead = useMutation({
-    mutationFn: async (notificationId: string) => {
-      await supabase.from('notifications').update({ is_read: true }).eq('id', notificationId);
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
-  });
+  const handleNotificationClick = (n: any) => {
+    // Marcar como leída
+    if (!n.is_read) markRead.mutate(n.id);
 
-  const handleNotificationClick = (notif: Notification) => {
-    if (!notif.is_read) markOneRead.mutate(notif.id);
-
-    // Si es feedback, abrir el modal en vez de navegar
-    if (notif.type === 'session_feedback' && notif.action_url) {
-      const parts = notif.action_url.replace('feedback:', '').split('|||');
-      if (parts.length >= 2) {
-        setFeedbackTarget({
-          sessionId: parts[0],
-          sessionTitle: parts[1],
-          sessionLocation: parts[2] || null,
-          notificationId: notif.id,
-        });
+    // session_feedback: abrir modal
+    if (n.type === 'session_feedback' && n.action_url) {
+      const target = parseFeedbackAction(n.action_url);
+      if (target) {
+        setFeedbackTarget({ ...target, notificationId: n.id });
         setOpen(false);
         return;
       }
     }
 
-    if (notif.action_url) window.location.href = notif.action_url;
-    setOpen(false);
+    // Resto: navegar
+    const route = getNotificationRoute(n);
+    if (route) {
+      setOpen(false);
+      navigate(route);
+    }
   };
 
-  const unreadCount = notifications?.filter(n => !n.is_read).length || 0;
-
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'announcement': return '📢';
-      case 'session':      return '🏃';
-      case 'achievement':  return '🏆';
-      case 'reminder':     return '⏰';
-      case 'session_feedback': return '💬';
-      default:             return '💬';
-    }
+  const isClickable = (n: any) => {
+    if (n.type === 'session_feedback' && n.action_url) return true;
+    return !!getNotificationRoute(n);
   };
 
   return (
     <>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground">
+          <button className="relative flex items-center justify-center h-9 w-9 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors focus:outline-none">
             <Bell size={20} />
             {unreadCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-primary text-primary-foreground text-[10px] font-bold rounded-full flex items-center justify-center">
+              <span className="absolute -top-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
                 {unreadCount > 9 ? '9+' : unreadCount}
               </span>
             )}
-          </Button>
+          </button>
         </PopoverTrigger>
-        <PopoverContent className="w-80 p-0 bg-card border-border" align="end">
+
+        <PopoverContent className="w-80 p-0 bg-card border-border shadow-lg" align="end" sideOffset={8}>
+          {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-            <span className="font-display font-bold text-foreground">Notificaciones</span>
+            <h3 className="font-display font-bold text-foreground text-sm">Notificaciones</h3>
             {unreadCount > 0 && (
-              <Button variant="ghost" size="sm" className="text-xs text-primary hover:text-primary"
-                onClick={() => markAllRead.mutate()}>
-                Marcar todas leídas
-              </Button>
+              <button onClick={() => markAllRead.mutate()}
+                className="text-xs text-primary hover:underline flex items-center gap-1">
+                <Check size={12} /> Marcar todas como leídas
+              </button>
             )}
           </div>
 
-          <ScrollArea className="h-[320px]">
-            {notifications && notifications.length > 0 ? (
-              <div className="divide-y divide-border">
-                {notifications.map(notif => (
-                  <button
-                    key={notif.id}
-                    onClick={() => handleNotificationClick(notif)}
-                    className={cn(
-                      'w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors',
-                      !notif.is_read && 'bg-primary/5'
-                    )}
-                  >
-                    <div className="flex gap-3">
-                      <span className="text-lg shrink-0">{getTypeIcon(notif.type)}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <p className={cn(
-                            'text-sm truncate',
-                            notif.is_read ? 'text-muted-foreground' : 'font-medium text-foreground'
-                          )}>
-                            {notif.title}
-                          </p>
-                          {!notif.is_read && (
-                            <span className="w-2 h-2 rounded-full bg-primary shrink-0 mt-1.5" />
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{notif.message}</p>
-                        <p className="text-[10px] text-muted-foreground/60 mt-1">
-                          {formatDistanceToNow(new Date(notif.created_at), { addSuffix: true, locale: es })}
-                        </p>
-                      </div>
-                    </div>
-                  </button>
-                ))}
+          {/* List */}
+          <div className="max-h-[380px] overflow-y-auto">
+            {!notifications?.length ? (
+              <div className="px-4 py-8 text-center">
+                <Bell size={24} className="mx-auto text-muted-foreground mb-2" />
+                <p className="text-sm text-muted-foreground">No tenés notificaciones</p>
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center h-full py-8 text-center">
-                <Bell size={32} className="text-muted-foreground mb-2" />
-                <p className="text-sm text-muted-foreground">Sin notificaciones</p>
-              </div>
+              notifications.map((n: any) => (
+                <div
+                  key={n.id}
+                  onClick={() => handleNotificationClick(n)}
+                  className={cn(
+                    'flex items-start gap-3 px-4 py-3 border-b border-border/50 last:border-0 transition-colors',
+                    !n.is_read && 'bg-primary/5',
+                    isClickable(n) ? 'cursor-pointer hover:bg-muted/50' : 'cursor-default'
+                  )}>
+                  {/* Dot unread */}
+                  <div className="shrink-0 mt-1.5">
+                    {!n.is_read
+                      ? <div className="w-2 h-2 rounded-full bg-primary" />
+                      : <div className="w-2 h-2" />
+                    }
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground">{n.title}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.message}</p>
+                    <p className="text-[10px] text-muted-foreground/60 mt-1">
+                      {format(new Date(n.created_at), "d MMM · HH:mm", { locale: es })}
+                    </p>
+                  </div>
+                  {isClickable(n) && (
+                    <span className="text-[10px] text-primary/70 shrink-0 mt-1">→</span>
+                  )}
+                </div>
+              ))
             )}
-          </ScrollArea>
-
-          {push.isSupported && (
-            <div className="px-4 py-3 border-t border-border">
-              {push.isSubscribed ? (
-                <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground gap-2"
-                  onClick={() => push.unsubscribe()} disabled={push.isLoading}>
-                  <BellRing size={14} /> Desactivar notificaciones push
-                </Button>
-              ) : (
-                <Button variant="default" size="sm" className="w-full text-xs gap-2"
-                  onClick={() => push.subscribe()} disabled={push.isLoading}>
-                  <BellRing size={14} /> {push.isLoading ? 'Activando...' : 'Activar notificaciones push'}
-                </Button>
-              )}
-            </div>
-          )}
+          </div>
         </PopoverContent>
       </Popover>
 
-      {/* Modal de feedback reabierto desde la campana */}
+      {/* Session feedback modal */}
       {feedbackTarget && (
         <SessionFeedbackModal
           open={!!feedbackTarget}

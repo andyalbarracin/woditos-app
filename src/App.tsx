@@ -1,15 +1,10 @@
 /**
  * Archivo: App.tsx
  * Ruta: src/App.tsx
- * Última modificación: 2026-04-10
+ * Última modificación: 2026-04-14
  * Descripción: Punto de entrada de la app. Rutas, providers,
  *   OnboardingGuard y AppWithFeedback.
- *   v2.0: agrega rutas del módulo de rutinas (/rutinas/*).
- *   v2.1: agrega /sesion/:id para detalle de sesión de coaches.
- *   v2.2: agrega /mi-sesion/:id para detalle de sesión de miembros.
- *   v2.3: agrega rutas públicas /privacidad y /terminos.
- *   v2.4: fix OnboardingGuard — usaba !user como spinner eterno cuando
- *         fetchUserData fallaba silenciosamente. Ahora usa isLoading.
+ *   v2.5: agrega ruta /miembro/:id para MemberProfileView (solo coaches).
  */
 import { Toaster } from '@/components/ui/toaster';
 import { Toaster as Sonner } from '@/components/ui/sonner';
@@ -55,12 +50,13 @@ import PrivacyPolicy from '@/pages/PrivacyPolicy';
 import TermsOfUse from '@/pages/TermsOfUse';
 import Plans from '@/pages/Plans';
 
+// Pages v2.5 — Perfil de miembro para coach
+import MemberProfileView from '@/pages/MemberProfileView';
 
 // Feedback modal
 import SessionFeedbackModal from '@/components/SessionFeedbackModal';
 import { useSessionFeedback } from '@/hooks/useSessionFeedback';
 
-// ── Spinner compartido ────────────────────────────────────────
 function Spinner() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
@@ -68,8 +64,6 @@ function Spinner() {
     </div>
   );
 }
-
-// ── Guards ────────────────────────────────────────────────────
 
 function ProtectedRoute() {
   const { session, isLoading } = useAuth();
@@ -80,18 +74,9 @@ function ProtectedRoute() {
 
 function OnboardingGuard() {
   const { user, clubMembership, isLoading } = useAuth();
-
-  // Mostrar spinner SOLO mientras la sesión está cargando.
-  // Antes usaba !user como condición del spinner, lo que causaba
-  // un loop eterno si fetchUserData tardaba o fallaba silenciosamente.
   if (isLoading) return <Spinner />;
-
-  // Si no hay user después de cargar → redirigir a login
   if (!user) return <Navigate to="/login" replace />;
-
-  // Si hay user pero no tiene club → onboarding
   if (!clubMembership) return <Navigate to="/onboarding" replace />;
-
   return <Outlet />;
 }
 
@@ -103,8 +88,6 @@ function CoachRoute({ children }: { children: React.ReactNode }) {
   if (!isCoach) return <Navigate to="/inicio" replace />;
   return <>{children}</>;
 }
-
-// ── Wrappers ──────────────────────────────────────────────────
 
 function RoutineBuilderEdit() {
   const { id } = useParams<{ id: string }>();
@@ -127,8 +110,6 @@ function AppWithFeedback() {
     />
   );
 }
-
-// ── App ───────────────────────────────────────────────────────
 
 function App() {
   return (
@@ -157,7 +138,7 @@ function App() {
                     <Route element={<AppLayout />}>
 
                       {/* v1.0 */}
-                      <Route path="/"          element={<Navigate to="/inicio" replace />} />
+                      <Route path="/"           element={<Navigate to="/inicio" replace />} />
                       <Route path="/inicio"     element={<Dashboard />} />
                       <Route path="/agenda"     element={<Agenda />} />
                       <Route path="/comunidad"  element={<Community />} />
@@ -169,19 +150,22 @@ function App() {
                       <Route path="/asistencia" element={<Attendance />} />
                       <Route path="/coach"      element={<CoachRoute><CoachDashboard /></CoachRoute>} />
                       <Route path="/soporte"    element={<Support />} />
-                      <Route path="/planes" element={<Plans />} />
+                      <Route path="/planes"     element={<Plans />} />
 
                       {/* v2.0 — Rutinas */}
-                      <Route path="/rutinas"            element={<Routines />} />
-                      <Route path="/rutinas/nueva"      element={<CoachRoute><RoutineBuilder /></CoachRoute>} />
-                      <Route path="/rutinas/:id"         element={<RoutineDetail />} />
-                      <Route path="/rutinas/:id/editar" element={<CoachRoute><RoutineBuilderEdit /></CoachRoute>} />
+                      <Route path="/rutinas"             element={<Routines />} />
+                      <Route path="/rutinas/nueva"       element={<CoachRoute><RoutineBuilder /></CoachRoute>} />
+                      <Route path="/rutinas/:id"          element={<RoutineDetail />} />
+                      <Route path="/rutinas/:id/editar"  element={<CoachRoute><RoutineBuilderEdit /></CoachRoute>} />
 
                       {/* v2.1 — Detalle sesión coach */}
-                      <Route path="/sesion/:id" element={<CoachRoute><SessionDetail /></CoachRoute>} />
+                      <Route path="/sesion/:id"    element={<CoachRoute><SessionDetail /></CoachRoute>} />
 
                       {/* v2.2 — Detalle sesión miembro */}
                       <Route path="/mi-sesion/:id" element={<MemberSessionDetail />} />
+
+                      {/* v2.5 — Perfil de miembro (vista coach) */}
+                      <Route path="/miembro/:id"   element={<CoachRoute><MemberProfileView /></CoachRoute>} />
 
                     </Route>
                   </Route>

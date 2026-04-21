@@ -43,9 +43,9 @@ const memberBottomItems = [
 
 // Visible para coaches — Rutinas incluida aquí, no en navItems
 const coachItems = [
-  { to: '/rutinas',    icon: ListChecks,     label: 'Rutinas',     end: false },
   { to: '/coach',      icon: Dumbbell,       label: 'Coach Panel', end: false },
   { to: '/asistencia', icon: ClipboardCheck, label: 'Sesiones',    end: false },
+  { to: '/rutinas',    icon: ListChecks,     label: 'Rutinas',     end: false },
 ];
 
 function formatRole(role: string | undefined): string {

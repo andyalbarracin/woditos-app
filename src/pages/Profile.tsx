@@ -1,14 +1,11 @@
 /**
  * Archivo: Profile.tsx
  * Ruta: src/pages/Profile.tsx
- * Última modificación: 2026-04-12
+ * Última modificación: 2026-04-14
  * Descripción: Perfil de usuario con foto, stats, logros e insights del miembro.
- *   Coach ve analytics en vez de objetivos.
- *   Miembro ve cards de actividad semanal/mensual, rutinas completadas y frase motivadora.
- *   v2.1: agrega sección "Mis Rutinas" en "Tu actividad" con stats de routine_results:
- *         total completadas, RPE promedio, tiempo total y últimas completadas.
+ *   v2.2: agrega tab "Documentos" usando DocumentsTab component.
+ *         Coach ve analytics + docs. Miembro ve actividad + docs.
  */
-
 import { useState, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -18,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   Flame, Calendar, TrendingUp, Trophy, Edit2, Save, X, QrCode,
@@ -29,6 +27,7 @@ import { es } from 'date-fns/locale';
 import { QRCodeSVG } from 'qrcode.react';
 import { profileUpdateSchema } from '@/lib/validation';
 import FeedbackHistory from '@/components/profile/FeedbackHistory';
+import DocumentsTab from '@/components/documents/DocumentsTab';
 
 const db = supabase as any;
 
@@ -86,7 +85,6 @@ export default function ProfilePage() {
     enabled: !!user?.id,
   });
 
-  // ── Coach analytics ───────────────────────────────────────────
   const { data: coachStats } = useQuery({
     queryKey: ['coach-profile-stats', user?.id],
     queryFn: async () => {
@@ -106,20 +104,11 @@ export default function ProfilePage() {
       }
       const { count: totalGroups } = await supabase.from('groups')
         .select('id', { count: 'exact', head: true }).eq('coach_id', user!.id);
-      const { data: monthAttendance } = await supabase.from('attendance')
-        .select('attendance_status, session_id')
-        .in('session_id', (sessionIds || []).map(s => s.id));
-      const totalRecords   = monthAttendance?.length || 0;
-      const presentRecords = monthAttendance?.filter(a =>
-        a.attendance_status === 'present' || a.attendance_status === 'late'
-      ).length || 0;
-      const attendanceRate = totalRecords > 0 ? Math.round((presentRecords / totalRecords) * 100) : 0;
-      return { sessionsThisMonth: sessionsThisMonth || 0, uniqueStudents, totalGroups: totalGroups || 0, attendanceRate };
+      return { sessionsThisMonth: sessionsThisMonth || 0, uniqueStudents, totalGroups: totalGroups || 0 };
     },
     enabled: !!user?.id && isCoach,
   });
 
-  // ── Insights de sesiones del miembro ─────────────────────────
   const { data: insights } = useQuery({
     queryKey: ['member-insights', user?.id],
     queryFn: async () => {
@@ -141,80 +130,36 @@ export default function ProfilePage() {
         ]);
 
       const typeCounts: Record<string, number> = {};
-      sessionTypes?.forEach((a: any) => {
-        const t = a.sessions?.session_type;
-        if (t) typeCounts[t] = (typeCounts[t] || 0) + 1;
-      });
+      sessionTypes?.forEach((a: any) => { const t = a.sessions?.session_type; if (t) typeCounts[t] = (typeCounts[t] || 0) + 1; });
       const favoriteType = Object.entries(typeCounts).sort((a, b) => b[1] - a[1])[0];
 
-      const sessionIds = monthPresent?.map((a: any) => a.session_id) || [];
-      let topPartner: { name: string; count: number } | null = null;
-      if (sessionIds.length > 0) {
-        const { data: sharedAtt } = await supabase.from('attendance')
-          .select('user_id, session_id, profiles!inner(full_name)')
-          .in('session_id', sessionIds).eq('attendance_status', 'present').neq('user_id', user.id);
-        const pc: Record<string, { name: string; count: number }> = {};
-        sharedAtt?.forEach((a: any) => {
-          const name = a.profiles?.full_name || 'Alguien';
-          if (!pc[a.user_id]) pc[a.user_id] = { name, count: 0 };
-          pc[a.user_id].count++;
-        });
-        const top = Object.values(pc).sort((a, b) => b.count - a.count)[0];
-        if (top && top.count >= 2) topPartner = top;
-      }
-
-      let topCoach: { name: string; count: number } | null = null;
-      if (sessionIds.length > 0) {
-        const { data: coachSessions } = await supabase.from('sessions')
-          .select('coach_id, profiles!coach_id(full_name)').in('id', sessionIds).not('coach_id', 'is', null);
-        const cc: Record<string, { name: string; count: number }> = {};
-        coachSessions?.forEach((s: any) => {
-          const name = s.profiles?.full_name || 'Tu coach';
-          if (!cc[s.coach_id]) cc[s.coach_id] = { name, count: 0 };
-          cc[s.coach_id].count++;
-        });
-        const topC = Object.values(cc).sort((a, b) => b.count - a.count)[0];
-        if (topC) topCoach = topC;
-      }
-
-      const thisWeekCount    = thisWeekAtt?.length   || 0;
-      const lastWeekCount    = lastWeekAtt?.length   || 0;
-      const monthReservCount = monthReservations?.length || 0;
+      const thisWeekCount     = thisWeekAtt?.length   || 0;
+      const lastWeekCount     = lastWeekAtt?.length   || 0;
+      const monthReservCount  = monthReservations?.length || 0;
       const monthPresentCount = monthPresent?.length || 0;
-      const attendancePct = monthReservCount > 0
-        ? Math.round((monthPresentCount / monthReservCount) * 100) : null;
+      const attendancePct = monthReservCount > 0 ? Math.round((monthPresentCount / monthReservCount) * 100) : null;
 
-      return {
-        thisWeekCount, lastWeekCount, weekDiff: thisWeekCount - lastWeekCount,
+      return { thisWeekCount, lastWeekCount, weekDiff: thisWeekCount - lastWeekCount,
         monthReservCount, monthPresentCount, attendancePct,
-        favoriteType: favoriteType ? { type: favoriteType[0], count: favoriteType[1] } : null,
-        topPartner, topCoach,
-      };
+        favoriteType: favoriteType ? { type: favoriteType[0], count: favoriteType[1] } : null };
     },
     enabled: !!user?.id && !isCoach,
   });
 
-  // ── Stats de rutinas completadas (miembro) ────────────────────
   const { data: routineStats } = useQuery({
     queryKey: ['member-routine-stats', user?.id],
     queryFn: async () => {
-      if (!user?.id) return null;
       const { data, error } = await db
         .from('routine_results')
-        .select('id, feeling, rpe, total_time_seconds, notes, completed_at, routines(id, name, type)')
-        .eq('user_id', user.id)
-        .order('completed_at', { ascending: false })
-        .limit(50);
+        .select('id, feeling, rpe, total_time_seconds, completed_at, routines(id, name, type)')
+        .eq('user_id', user!.id).order('completed_at', { ascending: false }).limit(50);
       if (error) throw error;
       if (!data?.length) return null;
-
       const total        = data.length;
       const avgRpe       = Math.round(data.reduce((s: number, r: any) => s + (r.rpe || 0), 0) / total);
       const totalSeconds = data.reduce((s: number, r: any) => s + (r.total_time_seconds || 0), 0);
       const totalHours   = Math.round(totalSeconds / 3600 * 10) / 10;
-      const recent       = data.slice(0, 3);
-
-      return { total, avgRpe, totalHours, recent };
+      return { total, avgRpe, totalHours, recent: data.slice(0, 3) };
     },
     enabled: !!user?.id && !isCoach,
   });
@@ -242,7 +187,7 @@ export default function ProfilePage() {
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user?.id) return;
-    if (!file.type.startsWith('image/')) { toast.error('Solo se permiten archivos de imagen'); return; }
+    if (!file.type.startsWith('image/')) { toast.error('Solo se permiten imágenes'); return; }
     if (file.size > 20 * 1024 * 1024) { toast.error('La imagen no puede superar 20MB'); return; }
     setUploadingAvatar(true);
     const ext  = file.name.split('.').pop();
@@ -251,15 +196,11 @@ export default function ProfilePage() {
     if (uploadError) { toast.error('No se pudo subir la imagen'); setUploadingAvatar(false); return; }
     const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
     const avatarUrl = `${urlData.publicUrl}?t=${Date.now()}`;
-    const { error: updateError } = await supabase.from('profiles')
-      .update({ avatar_url: avatarUrl, updated_at: new Date().toISOString() }).eq('user_id', user.id);
+    await supabase.from('profiles').update({ avatar_url: avatarUrl, updated_at: new Date().toISOString() }).eq('user_id', user.id);
     setUploadingAvatar(false);
-    if (updateError) { toast.error('No se pudo actualizar el perfil'); }
-    else {
-      await refreshUserData();
-      queryClient.invalidateQueries({ queryKey: ['profile'] });
-      toast.success('Foto de perfil actualizada');
-    }
+    await refreshUserData();
+    queryClient.invalidateQueries({ queryKey: ['profile'] });
+    toast.success('Foto de perfil actualizada');
   };
 
   const ACHIEVEMENT_ICONS: Record<string, string> = {
@@ -270,7 +211,7 @@ export default function ProfilePage() {
   return (
     <div className="max-w-2xl mx-auto space-y-6 animate-fade-in">
 
-      {/* Header */}
+      {/* Header card */}
       <div className="bg-card border border-border rounded-xl p-6">
         <div className="flex items-center gap-4 mb-4">
           <div className="relative group">
@@ -291,7 +232,6 @@ export default function ProfilePage() {
               </div>
             )}
           </div>
-
           <div className="flex-1">
             <h1 className="font-display text-2xl font-extrabold text-foreground">{profile?.full_name}</h1>
             <p className="text-sm text-muted-foreground">{formatRole(user?.role)} · {user?.email}</p>
@@ -301,7 +241,6 @@ export default function ProfilePage() {
               </p>
             )}
           </div>
-
           <div className="flex flex-col gap-1">
             <Button variant="ghost" size="icon"
               onClick={() => { setEditing(!editing); setForm({ full_name: profile?.full_name || '', goals: profile?.goals || '', emergency_contact: profile?.emergency_contact || '' }); }}
@@ -323,7 +262,7 @@ export default function ProfilePage() {
             {!isCoach && (
               <div className="space-y-2">
                 <Label>Mis objetivos</Label>
-                <Textarea value={form.goals} onChange={e => setForm(f => ({ ...f, goals: e.target.value }))} className="bg-background border-border" placeholder="Ej: Correr mi primer 10K en menos de 50 min" rows={3} />
+                <Textarea value={form.goals} onChange={e => setForm(f => ({ ...f, goals: e.target.value }))} className="bg-background border-border" placeholder="Ej: Correr mi primer 10K" rows={3} />
               </div>
             )}
             <div className="space-y-2">
@@ -339,12 +278,11 @@ export default function ProfilePage() {
 
       {/* Stats */}
       {isCoach ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           {[
-            { icon: Users,          label: 'Alumnos',      value: `${coachStats?.uniqueStudents || 0}`,   color: 'text-primary' },
-            { icon: Calendar,       label: 'Sesiones/mes', value: `${coachStats?.sessionsThisMonth || 0}`,color: 'text-secondary' },
-            { icon: ClipboardCheck, label: 'Asistencia',   value: `${coachStats?.attendanceRate || 0}%`,  color: 'text-accent' },
-            { icon: TrendingUp,     label: 'Crews',        value: `${coachStats?.totalGroups || 0}`,      color: 'text-info' },
+            { icon: Users,          label: 'Alumnos',      value: `${coachStats?.uniqueStudents || 0}`,    color: 'text-primary' },
+            { icon: Calendar,       label: 'Sesiones/mes', value: `${coachStats?.sessionsThisMonth || 0}`, color: 'text-secondary' },
+            { icon: ClipboardCheck, label: 'Crews',        value: `${coachStats?.totalGroups || 0}`,       color: 'text-accent' },
           ].map(({ icon: Icon, label, value, color }) => (
             <div key={label} className="bg-card border border-border rounded-xl p-4 text-center">
               <Icon size={20} className={`mx-auto ${color} mb-1`} />
@@ -356,189 +294,160 @@ export default function ProfilePage() {
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
-            { icon: Flame,      label: 'Racha',      value: `${stats?.current_streak || 0}`,        unit: 'días',     color: 'text-primary' },
-            { icon: Calendar,   label: 'Total',      value: `${stats?.total_sessions || 0}`,        unit: 'sesiones', color: 'text-secondary' },
-            { icon: TrendingUp, label: 'Asistencia', value: `${stats?.attendance_percentage || 0}`, unit: '%',        color: 'text-accent' },
-            { icon: Trophy,     label: 'Logros',     value: `${achievements?.length || 0}`,         unit: '',         color: 'text-info' },
+            { icon: Flame,      label: 'Racha',      value: `${stats?.current_streak || 0}`,        unit: 'días', color: 'text-primary' },
+            { icon: Calendar,   label: 'Total',      value: `${stats?.total_sessions || 0}`,        unit: '',     color: 'text-secondary' },
+            { icon: TrendingUp, label: 'Asistencia', value: `${stats?.attendance_percentage || 0}`, unit: '%',    color: 'text-accent' },
+            { icon: Trophy,     label: 'Logros',     value: `${achievements?.length || 0}`,         unit: '',     color: 'text-info' },
           ].map(({ icon: Icon, label, value, unit, color }) => (
             <div key={label} className="bg-card border border-border rounded-xl p-4 text-center">
               <Icon size={20} className={`mx-auto ${color} mb-1`} />
-              <p className="text-xl font-display font-bold text-foreground">
-                {value}<span className="text-sm font-normal">{unit}</span>
-              </p>
+              <p className="text-xl font-display font-bold text-foreground">{value}<span className="text-sm font-normal">{unit}</span></p>
               <p className="text-xs text-muted-foreground uppercase tracking-wider mt-0.5">{label}</p>
             </div>
           ))}
         </div>
       )}
 
-      {/* Objectives */}
-      {!isCoach && profile?.goals && !editing && (
-        <div className="bg-card border border-border rounded-xl p-5">
-          <h3 className="font-display font-bold text-foreground mb-2">🎯 Mis Objetivos</h3>
-          <p className="text-sm text-foreground/80 leading-relaxed">{profile.goals}</p>
-        </div>
-      )}
+      {/* Tabs: Perfil / Documentos */}
+      <Tabs defaultValue="perfil">
+        <TabsList className="bg-card border border-border grid grid-cols-2 h-auto gap-1 p-1">
+          <TabsTrigger value="perfil" className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            Mi Perfil
+          </TabsTrigger>
+          <TabsTrigger value="docs" className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            📄 Documentos
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Insights del miembro (sesiones) */}
-      {!isCoach && insights && (
-        <div className="space-y-3">
-          <h3 className="font-display text-lg font-bold text-foreground">📊 Tu actividad</h3>
+        {/* ── TAB PERFIL ────────────────────────────────────────── */}
+        <TabsContent value="perfil" className="mt-4 space-y-5">
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-card border border-border rounded-xl p-4">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1">Esta semana</p>
-              <p className="text-3xl font-display font-extrabold text-foreground">
-                {insights.thisWeekCount}<span className="text-sm font-normal text-muted-foreground ml-1">sesiones</span>
-              </p>
-              {insights.weekDiff !== 0 ? (
-                <p className={`text-xs mt-1 font-medium ${insights.weekDiff > 0 ? 'text-secondary' : 'text-destructive'}`}>
-                  {insights.weekDiff > 0 ? `+${insights.weekDiff}` : insights.weekDiff} vs semana ant.
-                </p>
-              ) : (
-                <p className="text-xs mt-1 text-muted-foreground">igual que la semana pasada</p>
-              )}
-            </div>
-
-            <div className="bg-card border border-border rounded-xl p-4">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1">Este mes</p>
-              {insights.attendancePct !== null ? (
-                <>
-                  <p className="text-3xl font-display font-extrabold text-foreground">
-                    {insights.attendancePct}<span className="text-sm font-normal text-muted-foreground">%</span>
-                  </p>
-                  <p className="text-xs mt-1 text-muted-foreground">
-                    {insights.monthPresentCount} de {insights.monthReservCount} reservas
-                  </p>
-                </>
-              ) : (
-                <p className="text-sm text-muted-foreground mt-2">Sin reservas aún</p>
-              )}
-            </div>
-          </div>
-
-          {insights.favoriteType && (
-            <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-4">
-              <div className="text-3xl">🏃</div>
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold">Tu sesión favorita</p>
-                <p className="font-display font-bold text-foreground capitalize mt-0.5">{insights.favoriteType.type}</p>
-                <p className="text-xs text-muted-foreground">
-                  {insights.favoriteType.count} {insights.favoriteType.count === 1 ? 'vez' : 'veces'} este mes
-                </p>
-              </div>
+          {/* Objetivos */}
+          {!isCoach && profile?.goals && !editing && (
+            <div className="bg-card border border-border rounded-xl p-5">
+              <h3 className="font-display font-bold text-foreground mb-2">🎯 Mis Objetivos</h3>
+              <p className="text-sm text-foreground/80 leading-relaxed">{profile.goals}</p>
             </div>
           )}
 
-          {(insights.topPartner || insights.topCoach) && (
-            <div className="grid grid-cols-2 gap-3">
-              {insights.topPartner && (
+          {/* Insights del miembro */}
+          {!isCoach && insights && (
+            <div className="space-y-3">
+              <h3 className="font-display text-lg font-bold text-foreground">📊 Tu actividad</h3>
+              <div className="grid grid-cols-2 gap-3">
                 <div className="bg-card border border-border rounded-xl p-4">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1">Tu compañero/a</p>
-                  <p className="font-display font-bold text-foreground text-sm mt-1 truncate">{insights.topPartner.name}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{insights.topPartner.count} sesiones juntos 👋</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1">Esta semana</p>
+                  <p className="text-3xl font-display font-extrabold text-foreground">{insights.thisWeekCount}<span className="text-sm font-normal text-muted-foreground ml-1">sesiones</span></p>
+                  {insights.weekDiff !== 0 ? (
+                    <p className={`text-xs mt-1 font-medium ${insights.weekDiff > 0 ? 'text-secondary' : 'text-destructive'}`}>
+                      {insights.weekDiff > 0 ? `+${insights.weekDiff}` : insights.weekDiff} vs semana ant.
+                    </p>
+                  ) : <p className="text-xs mt-1 text-muted-foreground">igual que la semana pasada</p>}
                 </div>
-              )}
-              {insights.topCoach && (
                 <div className="bg-card border border-border rounded-xl p-4">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1">Tu coach este mes</p>
-                  <p className="font-display font-bold text-foreground text-sm mt-1 truncate">{insights.topCoach.name}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {insights.topCoach.count} {insights.topCoach.count === 1 ? 'clase' : 'clases'}
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ── Rutinas completadas ──────────────────────────────── */}
-          {routineStats && (
-            <div className="bg-card border border-border rounded-xl p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <ListChecks size={16} className="text-primary" />
-                <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold">Mis Rutinas</p>
-              </div>
-
-              {/* Mini stats */}
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div>
-                  <p className="text-2xl font-display font-bold text-foreground">{routineStats.total}</p>
-                  <p className="text-xs text-muted-foreground">Completadas</p>
-                </div>
-                <div>
-                  <p className={`text-2xl font-display font-bold ${RPE_COLOR(routineStats.avgRpe)}`}>
-                    {routineStats.avgRpe}
-                  </p>
-                  <p className="text-xs text-muted-foreground">RPE prom.</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-display font-bold text-foreground">
-                    {routineStats.totalHours > 0 ? `${routineStats.totalHours}h` : '—'}
-                  </p>
-                  <p className="text-xs text-muted-foreground">Tiempo total</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1">Este mes</p>
+                  {insights.attendancePct !== null ? (
+                    <>
+                      <p className="text-3xl font-display font-extrabold text-foreground">{insights.attendancePct}<span className="text-sm font-normal text-muted-foreground">%</span></p>
+                      <p className="text-xs mt-1 text-muted-foreground">{insights.monthPresentCount} de {insights.monthReservCount} reservas</p>
+                    </>
+                  ) : <p className="text-sm text-muted-foreground mt-2">Sin reservas aún</p>}
                 </div>
               </div>
-
-              {/* Últimas 3 rutinas completadas */}
-              {routineStats.recent.length > 0 && (
-                <div className="space-y-1.5 pt-1 border-t border-border">
-                  <p className="text-xs text-muted-foreground font-medium">Últimas completadas</p>
-                  {routineStats.recent.map((r: any) => {
-                    const minutes = r.total_time_seconds ? Math.round(r.total_time_seconds / 60) : null;
-                    return (
-                      <div key={r.id} className="flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <span>{FEELING_EMOJI[r.feeling] || '😐'}</span>
-                          <span className="text-foreground truncate">{r.routines?.name || 'Rutina'}</span>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0 text-muted-foreground">
-                          {minutes && <span>{minutes} min</span>}
-                          <span>{format(new Date(r.completed_at), "d MMM", { locale: es })}</span>
-                          <CheckCircle2 size={12} className="text-secondary" />
-                        </div>
-                      </div>
-                    );
-                  })}
+              {insights.favoriteType && (
+                <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-4">
+                  <div className="text-3xl">🏃</div>
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold">Tu sesión favorita</p>
+                    <p className="font-display font-bold text-foreground capitalize mt-0.5">{insights.favoriteType.type}</p>
+                    <p className="text-xs text-muted-foreground">{insights.favoriteType.count} {insights.favoriteType.count === 1 ? 'vez' : 'veces'} este mes</p>
+                  </div>
                 </div>
               )}
-            </div>
-          )}
-
-          {/* Frase motivadora */}
-          <div className="bg-primary/10 border border-primary/20 rounded-xl p-4">
-            <p className="text-sm text-foreground leading-relaxed">
-              {getMotivationalPhrase(stats?.current_streak || 0, insights.thisWeekCount)}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Feedback del miembro */}
-      {!isCoach && <FeedbackHistory />}
-
-      {/* Achievements */}
-      <div>
-        <h3 className="font-display text-lg font-bold text-foreground mb-3">🏆 Logros</h3>
-        {achievements && achievements.length > 0 ? (
-          <div className="grid grid-cols-2 gap-3">
-            {achievements.map((a: any) => (
-              <div key={a.id} className="bg-card border border-border rounded-xl p-4">
-                <span className="text-2xl">{ACHIEVEMENT_ICONS[a.achievement_type] || '🏅'}</span>
-                <p className="font-medium text-foreground text-sm mt-2">{a.title}</p>
-                {a.description && <p className="text-xs text-muted-foreground mt-1">{a.description}</p>}
-                <p className="text-xs text-muted-foreground mt-2">
-                  {a.earned_at && format(new Date(a.earned_at), "d MMM yyyy", { locale: es })}
+              {/* Rutinas */}
+              {routineStats && (
+                <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <ListChecks size={16} className="text-primary" />
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold">Mis Rutinas</p>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div>
+                      <p className="text-2xl font-display font-bold text-foreground">{routineStats.total}</p>
+                      <p className="text-xs text-muted-foreground">Completadas</p>
+                    </div>
+                    <div>
+                      <p className={`text-2xl font-display font-bold ${RPE_COLOR(routineStats.avgRpe)}`}>{routineStats.avgRpe}</p>
+                      <p className="text-xs text-muted-foreground">RPE prom.</p>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-display font-bold text-foreground">{routineStats.totalHours > 0 ? `${routineStats.totalHours}h` : '—'}</p>
+                      <p className="text-xs text-muted-foreground">Tiempo total</p>
+                    </div>
+                  </div>
+                  {routineStats.recent.length > 0 && (
+                    <div className="space-y-1.5 pt-1 border-t border-border">
+                      <p className="text-xs text-muted-foreground font-medium">Últimas completadas</p>
+                      {routineStats.recent.map((r: any) => {
+                        const minutes = r.total_time_seconds ? Math.round(r.total_time_seconds / 60) : null;
+                        return (
+                          <div key={r.id} className="flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              <span>{FEELING_EMOJI[r.feeling] || '😐'}</span>
+                              <span className="text-foreground truncate">{r.routines?.name || 'Rutina'}</span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0 text-muted-foreground">
+                              {minutes && <span>{minutes} min</span>}
+                              <span>{format(new Date(r.completed_at), "d MMM", { locale: es })}</span>
+                              <CheckCircle2 size={12} className="text-secondary" />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+              {/* Frase motivadora */}
+              <div className="bg-primary/10 border border-primary/20 rounded-xl p-4">
+                <p className="text-sm text-foreground leading-relaxed">
+                  {getMotivationalPhrase(stats?.current_streak || 0, insights.thisWeekCount)}
                 </p>
               </div>
-            ))}
+            </div>
+          )}
+
+          {/* Feedback */}
+          {!isCoach && <FeedbackHistory />}
+
+          {/* Logros */}
+          <div>
+            <h3 className="font-display text-lg font-bold text-foreground mb-3">🏆 Logros</h3>
+            {achievements && achievements.length > 0 ? (
+              <div className="grid grid-cols-2 gap-3">
+                {achievements.map((a: any) => (
+                  <div key={a.id} className="bg-card border border-border rounded-xl p-4">
+                    <span className="text-2xl">{ACHIEVEMENT_ICONS[a.achievement_type] || '🏅'}</span>
+                    <p className="font-medium text-foreground text-sm mt-2">{a.title}</p>
+                    {a.description && <p className="text-xs text-muted-foreground mt-1">{a.description}</p>}
+                    <p className="text-xs text-muted-foreground mt-2">{a.earned_at && format(new Date(a.earned_at), "d MMM yyyy", { locale: es })}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="bg-card border border-border rounded-xl p-6 text-center">
+                <Trophy size={24} className="mx-auto text-muted-foreground mb-2" />
+                <p className="text-sm text-muted-foreground">Tus logros aparecerán aquí</p>
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="bg-card border border-border rounded-xl p-6 text-center">
-            <Trophy size={24} className="mx-auto text-muted-foreground mb-2" />
-            <p className="text-sm text-muted-foreground">Tus logros aparecerán aquí</p>
-          </div>
-        )}
-      </div>
+        </TabsContent>
+
+        {/* ── TAB DOCUMENTOS ───────────────────────────────────── */}
+        <TabsContent value="docs" className="mt-4">
+          {user?.id && <DocumentsTab userId={user.id} canUpload={true} canDelete={true} />}
+        </TabsContent>
+      </Tabs>
 
       {/* QR Dialog */}
       <Dialog open={showQR} onOpenChange={setShowQR}>
@@ -547,9 +456,7 @@ export default function ProfilePage() {
             <DialogTitle className="font-display">Mi QR Personal</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col items-center gap-4 py-2">
-            <p className="text-sm text-muted-foreground">
-              Mostrá este QR a tu coach para registro rápido de asistencia
-            </p>
+            <p className="text-sm text-muted-foreground">Mostrá este QR a tu coach para registro rápido</p>
             <div className="bg-white p-4 rounded-xl">
               <QRCodeSVG value={`woditos://member/${user?.id}`} size={200} level="M" includeMargin={false} />
             </div>
