@@ -253,10 +253,13 @@ export default function RoutineDetail() {
                         className="w-full max-w-xs mx-auto rounded-lg" />
                     )}
                     {/* Link a la Wiki — solo si tiene exercise_db_id */}
-                    {ex.exercise_db_id && (
+                      {ex.exercise_db_id && (
                       <button
-                        onClick={() => navigate(`/biblioteca/libreria/${ex.exercise_db_id}`)}
-                        className="flex items-center gap-2 text-xs text-primary hover:underline mt-1">
+                      onClick={() => {
+                        const id = ex.exercise_db_id!;
+                        const cleanId = id.startsWith('lib-') ? id.slice(4) : id;
+                        navigate(`/biblioteca/libreria/${cleanId}`);
+                      }}                        className="flex items-center gap-2 text-xs text-primary hover:underline mt-1">
                         <BookOpen className="h-3.5 w-3.5" />
                         Ver instrucciones completas en la Wiki
                       </button>

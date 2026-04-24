@@ -33,6 +33,7 @@ import CreateSessionDialog from '@/components/CreateSessionDialog';
 import InviteCoach from '@/components/InviteCoach';
 import FeedbackAnalytics from '@/components/dashboard/FeedbackAnalytics';
 import RoutinesTab from '@/components/dashboard/RoutinesTab';
+import ExerciseManager from '@/pages/ExerciseManager';
 
 const PIE_COLORS = ['hsl(165,100%,39%)', 'hsl(17,81%,52%)', 'hsl(45,100%,60%)', 'hsl(217,47%,55%)'];
 
@@ -283,8 +284,8 @@ export default function CoachDashboard() {
 
       {/* Tabs */}
       <Tabs defaultValue="today">
-        <TabsList className="bg-card border border-border grid grid-cols-2 sm:grid-cols-5 h-auto gap-1 p-1">
-          <TabsTrigger value="today" className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+        <TabsList className="bg-card border border-border grid grid-cols-2 sm:grid-cols-6 h-auto gap-1 p-1">
+            <TabsTrigger value="today" className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <Calendar size={14} /> Agenda
           </TabsTrigger>
           <TabsTrigger value="members" className="gap-1.5 data-[state=active]:bg-secondary data-[state=active]:text-secondary-foreground">
@@ -295,6 +296,9 @@ export default function CoachDashboard() {
           </TabsTrigger>
           <TabsTrigger value="routines" className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <ListChecks size={14} /> Rutinas
+          </TabsTrigger>
+          <TabsTrigger value="exercises" className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <Activity size={14} /> Ejercicios
           </TabsTrigger>
           {isCoach && (
             <TabsTrigger value="invites" className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
@@ -528,7 +532,10 @@ export default function CoachDashboard() {
         <TabsContent value="routines" className="mt-4">
           <RoutinesTab />
         </TabsContent>
-
+                {/* ── TAB EJERCICIOS ────────────────────────────────────── */}
+        <TabsContent value="exercises" className="mt-4">
+          <ExerciseManager />
+        </TabsContent>
         {/* ── TAB INVITAR ───────────────────────────────────────── */}
         {isCoach && (
           <TabsContent value="invites" className="mt-4">

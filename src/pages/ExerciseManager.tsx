@@ -315,8 +315,9 @@ export default function ExerciseManager() {
             const imgSrc = ex.image_start_url || ex.gif_url;
             return (
               <div key={ex.id}
-                className="bg-card border border-border rounded-xl p-3 flex items-center gap-3 hover:border-border/80 transition-colors">
-                {/* Imagen */}
+            className="bg-card border border-border rounded-xl p-3 flex items-center gap-3 hover:border-border/80 transition-colors cursor-pointer"
+            onClick={() => navigate(`/biblioteca/libreria/${ex.id}`)}>
+                  {/* Imagen */}
                 <div className="w-14 h-14 rounded-lg bg-muted overflow-hidden shrink-0 flex items-center justify-center">
                   {imgSrc ? (
                     <img src={imgSrc} alt={ex.name}
