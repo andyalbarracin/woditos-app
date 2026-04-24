@@ -1,24 +1,31 @@
 /**
  * Archivo: ExercisePickerModal.tsx
  * Ruta: src/components/routines/ExercisePickerModal.tsx
- * Última modificación: 2026-04-06
+ * Última modificación: 2026-04-23
  * Descripción: Modal para buscar y agregar ejercicios al builder.
- *   Usa free-exercise-db (GitHub CDN). El JSON de ~870 ejercicios se carga
- *   una sola vez y se cachea. Filtros por bodyPart, búsqueda por nombre
- *   en español o inglés, todo client-side.
+ *   Fuentes de datos:
+ *   1. free-exercise-db (GitHub CDN) — ~870 ejercicios globales con GIFs
+ *   2. exercise_library (Supabase) — ejercicios wiki migrados + custom del club
+ *   Ambas fuentes se mergean y se muestran juntas con filtros por bodyPart.
+ *   v2.1: agrega Supabase query para wiki + coach exercises.
  */
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { Search, X, Plus, Loader2 } from 'lucide-react';
+import { Search, X, Plus, Loader2, Building2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { useExercises, useExerciseSearch } from '@/hooks/useExerciseDB';
 import {
   BODY_PARTS_OPTIONS,
   type ExerciseDBItem,
 } from '@/lib/exerciseTranslations';
+
+const db = supabase as any;
 
 interface Props {
   open: boolean;
@@ -40,45 +47,130 @@ const BODY_PART_COLORS: Record<string, string> = {
   neck:         'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
 };
 
-// Número de ejercicios a mostrar por "página" en el scroll
+const BODY_PART_ES: Record<string, string> = {
+  'back': 'Espalda', 'cardio': 'Cardio', 'chest': 'Pecho',
+  'lower arms': 'Antebrazos', 'lower legs': 'Piernas (inf.)',
+  'neck': 'Cuello', 'shoulders': 'Hombros', 'upper arms': 'Brazos',
+  'upper legs': 'Piernas (sup.)', 'waist': 'Abdomen',
+};
+
+const EQUIPMENT_ES: Record<string, string> = {
+  'body only': 'Peso corporal', 'barbell': 'Barra', 'dumbbell': 'Mancuernas',
+  'cable': 'Polea', 'machine': 'Máquina', 'kettlebells': 'Kettlebells',
+  'bands': 'Bandas', 'medicine ball': 'Pelota medicinal',
+  'exercise ball': 'Pelota fitball', 'foam roll': 'Foam roller', 'other': 'Otro',
+};
+
 const PAGE_SIZE = 30;
 
 export default function ExercisePickerModal({ open, onClose, onSelect, selectedIds = [] }: Props) {
+  const { clubMembership } = useAuth();
+  const clubId = clubMembership?.club_id;
+
   const [search, setSearch]           = useState('');
   const [activeBodyPart, setActive]   = useState<string | null>(null);
   const [imgErrors, setImgErrors]     = useState<Set<string>>(new Set());
   const [visibleCount, setVisible]    = useState(PAGE_SIZE);
 
-  // Reset al abrir/cerrar
   useEffect(() => {
     if (!open) { setSearch(''); setActive(null); setVisible(PAGE_SIZE); }
   }, [open]);
 
   const isSearching = search.length >= 2;
 
-  // Hooks de datos
+  // ── Fuente 1: CDN (free-exercise-db) ──────────────────────
   const listQuery   = useExercises({ bodyPart: activeBodyPart ?? undefined, enabled: open });
   const searchQuery = useExerciseSearch(search);
 
-  // Ejercicios a mostrar
-  const allItems: ExerciseDBItem[] = useMemo(() => {
+  const cdnItems: ExerciseDBItem[] = useMemo(() => {
     if (isSearching) return searchQuery.data ?? [];
     return listQuery.data?.pages.flat() ?? [];
   }, [isSearching, searchQuery.data, listQuery.data]);
 
-  // Filtro adicional client-side para búsqueda corta (1-2 chars)
-  const filtered = useMemo(() => {
-    if (search.length === 0 || isSearching) return allItems;
-    const lower = search.toLowerCase();
-    return allItems.filter(
-      ex => ex.nameES.toLowerCase().includes(lower) || ex.name.toLowerCase().includes(lower)
-    );
-  }, [allItems, search, isSearching]);
+  // ── Fuente 2: Supabase (wiki migrados + coach custom) ─────
+  const supabaseQuery = useQuery({
+    queryKey: ['exercise-library-picker', clubId],
+    queryFn: async () => {
+      // club_id NOT NULL → coach exercises
+      // gif_url IS NULL  → wiki exercises (CDN ones always have gif_url)
+      const { data, error } = await db
+        .from('exercise_library')
+        .select('id, name, name_en, body_part, equipment, target, gif_url, image_start_url, is_global, club_id, instructions')
+        .or('club_id.not.is.null,gif_url.is.null')
+        .order('name');
+      if (error) throw error;
+      return (data ?? []).map((ex: any): ExerciseDBItem => ({
+        id:               `lib-${ex.id}`,
+        name:             ex.name_en || ex.name,
+        nameES:           ex.name,
+        gifUrl:           ex.image_start_url || ex.gif_url || '',
+        bodyPart:         ex.body_part || 'other',
+        bodyPartES:       BODY_PART_ES[ex.body_part] || ex.body_part || 'Otro',
+        equipment:        ex.equipment || 'other',
+        equipmentES:      EQUIPMENT_ES[ex.equipment] || ex.equipment || 'Otro',
+        target:           ex.target || ex.body_part || '',
+        targetES:         ex.target || BODY_PART_ES[ex.body_part] || '',
+        secondaryMuscles: [],
+        instructions:     ex.instructions ?? [],
+      }));
+    },
+    enabled: open,
+    staleTime: 5 * 60 * 1000,
+  });
 
-  // Paginación virtual (mostrar de a lotes)
+  const supabaseItems: ExerciseDBItem[] = supabaseQuery.data ?? [];
+
+  // ── Merge + filtros ───────────────────────────────────────
+  const allItems = useMemo(() => {
+    // Combinar CDN + Supabase, evitando duplicados por nombre
+    const cdnNames = new Set(cdnItems.map(e => e.nameES.toLowerCase()));
+    const extras = supabaseItems.filter(e => !cdnNames.has(e.nameES.toLowerCase()));
+    return [...extras, ...cdnItems];
+    }, [cdnItems, supabaseItems]);
+
+  // Filtro por bodyPart y búsqueda corta
+  const filtered = useMemo(() => {
+    let items = allItems;
+
+    // Cuando no hay búsqueda larga pero sí filtro de body part,
+    // los items del CDN ya vienen filtrados por el hook.
+    // Pero los de Supabase no, así que los filtramos aquí.
+    if (activeBodyPart && !isSearching) {
+      items = items.filter(ex =>
+        ex.bodyPart === activeBodyPart ||
+        // Los CDN ya vienen filtrados, así que solo filtramos los extras
+        (!ex.id.startsWith('lib-'))
+      );
+      // Re-filtrar para que TODOS respeten el bodyPart
+      items = items.filter(ex => ex.bodyPart === activeBodyPart);
+    }
+
+    // Búsqueda corta (1 char) — filtro client-side
+    if (search.length > 0 && !isSearching) {
+      const lower = search.toLowerCase();
+      items = items.filter(
+        ex => ex.nameES.toLowerCase().includes(lower) || ex.name.toLowerCase().includes(lower)
+      );
+    }
+
+    // Búsqueda larga — CDN ya viene filtrado, pero filtrar Supabase extras
+    if (isSearching) {
+      const lower = search.toLowerCase();
+      // CDN items ya filtrados por searchQuery, sumar los extras que matcheen
+      const cdnFiltered = cdnItems.filter(() => true); // ya filtrados
+      const cdnNames = new Set(cdnFiltered.map(e => e.nameES.toLowerCase()));
+      const extraFiltered = supabaseItems.filter(e =>
+        !cdnNames.has(e.nameES.toLowerCase()) &&
+        (e.nameES.toLowerCase().includes(lower) || e.name.toLowerCase().includes(lower))
+      );
+      items = [...cdnFiltered, ...extraFiltered];
+    }
+
+    return items;
+  }, [allItems, activeBodyPart, search, isSearching, cdnItems, supabaseItems]);
+
   const displayed = filtered.slice(0, visibleCount);
   const hasMore   = filtered.length > visibleCount;
-
   const isLoading = listQuery.isLoading;
 
   const handleImgError = useCallback((id: string) => {
@@ -97,13 +189,12 @@ export default function ExercisePickerModal({ open, onClose, onSelect, selectedI
         <DialogHeader className="px-4 pt-4 pb-3 border-b shrink-0">
           <DialogTitle className="text-base font-semibold">Agregar ejercicio</DialogTitle>
 
-          {/* Buscador */}
           <div className="relative mt-2">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               value={search}
               onChange={e => { setSearch(e.target.value); setVisible(PAGE_SIZE); }}
-              placeholder="Buscar por nombre (ej: sentadilla, plancha…)"
+              placeholder="Buscar por nombre (ej: sentadilla, burpee, plancha…)"
               className="pl-9 pr-9"
               autoFocus
             />
@@ -115,7 +206,6 @@ export default function ExercisePickerModal({ open, onClose, onSelect, selectedI
             )}
           </div>
 
-          {/* Filtros bodyPart — solo cuando no hay búsqueda activa */}
           {!isSearching && (
             <div className="flex gap-1.5 flex-wrap mt-2">
               {BODY_PARTS_OPTIONS.map(opt => (
@@ -132,7 +222,6 @@ export default function ExercisePickerModal({ open, onClose, onSelect, selectedI
           )}
         </DialogHeader>
 
-        {/* Lista */}
         <ScrollArea className="flex-1 px-4">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
@@ -155,11 +244,11 @@ export default function ExercisePickerModal({ open, onClose, onSelect, selectedI
                 const alreadyAdded = selectedIds.includes(ex.id);
                 const imgFailed    = imgErrors.has(ex.id);
                 const bpColor      = BODY_PART_COLORS[ex.bodyPart] ?? 'bg-muted text-muted-foreground';
+                const isFromLib    = ex.id.startsWith('lib-');
 
                 return (
                   <div key={ex.id}
                     className="flex items-center gap-3 py-3 hover:bg-muted/40 rounded-lg px-1">
-                    {/* Imagen */}
                     <div className="h-14 w-14 shrink-0 rounded-md bg-muted overflow-hidden flex items-center justify-center">
                       {ex.gifUrl && !imgFailed ? (
                         <img src={ex.gifUrl} alt={ex.nameES}
@@ -171,9 +260,13 @@ export default function ExercisePickerModal({ open, onClose, onSelect, selectedI
                       )}
                     </div>
 
-                    {/* Info */}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{ex.nameES}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-sm font-medium truncate">{ex.nameES}</p>
+                        {isFromLib && (
+                          <Building2 size={11} className="text-primary shrink-0" />
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground truncate italic">{ex.name}</p>
                       <div className="flex items-center gap-1 mt-1">
                         <span className={`text-xs px-2 py-0.5 rounded-full ${bpColor}`}>
@@ -183,7 +276,6 @@ export default function ExercisePickerModal({ open, onClose, onSelect, selectedI
                       </div>
                     </div>
 
-                    {/* Botón */}
                     <Button
                       size="sm"
                       variant={alreadyAdded ? 'outline' : 'default'}
@@ -196,7 +288,6 @@ export default function ExercisePickerModal({ open, onClose, onSelect, selectedI
                 );
               })}
 
-              {/* Cargar más */}
               {hasMore && (
                 <div className="flex justify-center py-4">
                   <Button variant="outline" size="sm"
@@ -209,7 +300,6 @@ export default function ExercisePickerModal({ open, onClose, onSelect, selectedI
           )}
         </ScrollArea>
 
-        {/* Footer */}
         <div className="px-4 py-3 border-t shrink-0 flex justify-between items-center">
           <p className="text-xs text-muted-foreground">
             {isLoading

@@ -53,6 +53,9 @@ import Plans from '@/pages/Plans';
 // Pages v2.5 — Perfil de miembro para coach
 import MemberProfileView from '@/pages/MemberProfileView';
 
+// Pages v2.6 — Gestión de ejercicios
+import ExerciseManager from '@/pages/ExerciseManager';
+
 // Feedback modal
 import SessionFeedbackModal from '@/components/SessionFeedbackModal';
 import { useSessionFeedback } from '@/hooks/useSessionFeedback';
@@ -166,6 +169,9 @@ function App() {
 
                       {/* v2.5 — Perfil de miembro (vista coach) */}
                       <Route path="/miembro/:id"   element={<CoachRoute><MemberProfileView /></CoachRoute>} />
+
+                      {/* v2.6 — Gestión de ejercicios */}
+                      <Route path="/ejercicios"    element={<CoachRoute><ExerciseManager /></CoachRoute>} />
 
                     </Route>
                   </Route>

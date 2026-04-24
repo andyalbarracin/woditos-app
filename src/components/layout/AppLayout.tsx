@@ -16,7 +16,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import {
   Home, Calendar, Users, BookOpen, User, LogOut,
-  Dumbbell, Sun, Moon, ClipboardCheck, Menu, LifeBuoy, ListChecks,
+  Dumbbell, Sun, Moon, ClipboardCheck, Menu, LifeBuoy, ListChecks, Activity,
 } from 'lucide-react';
 import woditosLogo from '@/assets/woditos-logo.png';
 import { Button } from '@/components/ui/button';
@@ -46,6 +46,7 @@ const coachItems = [
   { to: '/coach',      icon: Dumbbell,       label: 'Coach Panel', end: false },
   { to: '/asistencia', icon: ClipboardCheck, label: 'Sesiones',    end: false },
   { to: '/rutinas',    icon: ListChecks,     label: 'Rutinas',     end: false },
+  { to: '/ejercicios', icon: Activity,       label: 'Ejercicios',  end: false },
 ];
 
 function formatRole(role: string | undefined): string {

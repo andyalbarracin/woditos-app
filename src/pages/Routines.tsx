@@ -175,7 +175,8 @@ export default function Routines() {
         .is('session_id', null)
         .order('assigned_at', { ascending: false });
       if (error) throw error;
-      return data ?? [];
+      // Filtrar asignaciones cuya rutina fue eliminada o bloqueada por RLS
+      return (data ?? []).filter((a: any) => a.routines != null);
     },
     enabled: !!user?.id && !isCoach,
   });
@@ -189,7 +190,7 @@ export default function Routines() {
         .select('id, feeling, rpe, notes, completed_at, total_time_seconds, routines(id, name, type, estimated_minutes)')
         .eq('user_id', user!.id).order('completed_at', { ascending: false }).limit(20);
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []).filter((r: any) => r.routines != null);
     },
     enabled: !!user?.id && !isCoach && activeTab === 'history',
   });
@@ -549,21 +550,21 @@ export default function Routines() {
               {assignedQuery.data?.map(a => (
                 <div key={a.id} className="rounded-xl border bg-card overflow-hidden">
                   <div className="p-4 cursor-pointer hover:bg-muted/30 transition-colors"
-                    onClick={() => navigate(`/rutinas/${a.routines.id}`)}>
+                    onClick={() => navigate(`/rutinas/${a.routines?.id}`)}>
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{a.routines.name}</p>
+                        <p className="font-medium truncate">{a.routines?.name}</p>
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
                           <Badge variant="secondary" className="text-xs">
-                            {TYPE_LABEL[a.routines.type] ?? a.routines.type}
+                            {TYPE_LABEL[a.routines?.type] ?? a.routines?.type}
                           </Badge>
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${LEVEL_COLOR[a.routines.level]}`}>
-                            {LEVEL_LABEL[a.routines.level] ?? a.routines.level}
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${LEVEL_COLOR[a.routines?.level]}`}>
+                            {LEVEL_LABEL[a.routines?.level] ?? a.routines?.level}
                           </span>
                         </div>
                         <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" /> {a.routines.estimated_minutes} min
+                            <Clock className="h-3 w-3" /> {a.routines?.estimated_minutes} min
                           </span>
                           <span>Asignada {format(new Date(a.assigned_at), "d 'de' MMMM", { locale: es })}</span>
                         </div>
@@ -573,17 +574,17 @@ export default function Routines() {
                   </div>
                   <div className="border-t px-4 py-2.5 flex gap-2">
                     <Button size="sm" variant="ghost" className="text-xs h-7"
-                      onClick={() => navigate(`/rutinas/${a.routines.id}`)}>
+                      onClick={() => navigate(`/rutinas/${a.routines?.id}`)}>
                       Ver ejercicios
                     </Button>
                     <Button size="sm"
                       className="text-xs h-7 gradient-primary text-primary-foreground gap-1 ml-auto"
                       onClick={() => setLogTarget({
                         assignmentId: a.id,
-                        routineId:    a.routines.id,
-                        routineName:  a.routines.name,
+                        routineId:    a.routines?.id,
+                        routineName:  a.routines?.name,
                         assignedBy:   a.assigned_by,
-                        exercises:    a.routines.routine_exercises ?? [],
+                        exercises:    a.routines?.routine_exercises ?? [],
                       })}>
                       <CheckCircle2 className="h-3.5 w-3.5" /> Completar
                     </Button>
@@ -613,15 +614,15 @@ export default function Routines() {
                 return (
                   <div key={r.id}
                     className="rounded-xl border bg-card p-4 cursor-pointer hover:shadow-sm transition-shadow"
-                    onClick={() => navigate(`/rutinas/${r.routines.id}`)}>
+                    onClick={() => navigate(`/rutinas/${r.routines?.id}`)}>
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-xl">{FEELING_EMOJI[r.feeling] || '😐'}</span>
-                          <p className="font-medium truncate">{r.routines.name}</p>
+                          <p className="font-medium truncate">{r.routines?.name}</p>
                         </div>
                         <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
-                          <span>{TYPE_LABEL[r.routines.type] ?? r.routines.type}</span>
+                          <span>{TYPE_LABEL[r.routines?.type] ?? r.routines?.type}</span>
                           <span>·</span>
                           <span className={`font-medium ${RPE_COLOR(r.rpe)}`}>RPE {r.rpe}</span>
                           {minutes && <span>· {minutes} min</span>}

@@ -271,7 +271,7 @@ export default function RoutineDetail() {
 
       {/* CTA miembro */}
       {!isCoach && routine.routine_exercises.length > 0 && (
-        <div className="sticky bottom-4">
+        <div className="pt-4">
           <Button className="w-full shadow-lg" size="lg" onClick={() => setLogOpen(true)}>
             <CheckCircle2 className="h-5 w-5 mr-2" /> Registrar resultado
           </Button>
