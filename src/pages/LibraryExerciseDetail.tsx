@@ -192,8 +192,8 @@ export default function LibraryExerciseDetail() {
       <div className="bg-muted/40 border border-border rounded-xl p-4">
         <p className="text-xs text-muted-foreground">
           {data.fromDB
-            ? 'Ejercicio de la librería Woditos · Instrucciones traducidas al español'
-            : 'Ejercicio de free-exercise-db · ' + data.bodyPartES + ' · ' + data.equipmentES}
+            ? 'Ejercicio de la Wiki de Woditos · Instrucciones traducidas desde el inglés'
+            : 'Ejercicio de la Librería · ' + data.bodyPartES + ' · ' + data.equipmentES}
         </p>
       </div>
     </div>

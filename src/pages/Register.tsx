@@ -1,15 +1,14 @@
 /**
  * Archivo: Register.tsx
  * Ruta: src/pages/Register.tsx
- * Última modificación: 2026-04-12
+ * Última modificación: 2026-04-29
  * Descripción: Registro en 4 pasos.
  *   1. Rol (miembro / coach)
  *   2. Cuenta (email, password, nombre, código de club o token)
  *   3. Perfil (fecha de nacimiento, peso, frecuencia de actividad, objetivos)
  *      + declaración jurada de veracidad de datos (legal)
  *   4. Crear club (solo coaches sin token)
- *   v1.2: sanitización con schemas de validation.ts.
- *   v1.3: paso 3 con datos de perfil para historial médico/deportivo.
+ *   v1.4: fuerza light mode. Quita gradient-surface.
  */
 import { useState, useEffect } from 'react';
 import React from 'react';
@@ -66,6 +65,21 @@ export default function Register() {
 
   const { signUp } = useAuth();
   const navigate   = useNavigate();
+
+  /* ── Forzar light mode en registro ───────────────────────────── */
+  useEffect(() => {
+    const root = document.documentElement;
+    const wasDark = root.classList.contains('dark');
+    root.classList.remove('dark');
+    root.classList.add('light');
+    return () => {
+      const stored = localStorage.getItem('theme');
+      if (stored === 'dark' || wasDark) {
+        root.classList.remove('light');
+        root.classList.add('dark');
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!inviteToken) return;
@@ -305,7 +319,7 @@ export default function Register() {
 
   // ── Render ────────────────────────────────────────────────────
   return (
-    <div className="flex min-h-screen items-center justify-center p-6 gradient-surface">
+    <div className="flex min-h-screen items-center justify-center p-6 bg-background">
       <div className="w-full max-w-sm space-y-8">
 
         <div className="text-center">

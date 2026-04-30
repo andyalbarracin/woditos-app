@@ -1,12 +1,12 @@
 /**
  * Archivo: Login.tsx
  * Ruta: src/pages/Login.tsx
- * Última modificación: 2026-04-10
+ * Última modificación: 2026-04-29
  * Descripción: Página de login con email/password, Google OAuth,
  *   y link a recuperación de contraseña.
- *   v1.1: agrega links a Términos de Uso y Política de Privacidad.
+ *   v1.2: fuerza light mode en login. Credenciales copiables con toast.
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
@@ -17,6 +17,29 @@ import woditosLogo from '@/assets/woditos-logo.png';
 import heroBg from '@/assets/hero-bg.jpg';
 import { toast } from 'sonner';
 import { loginSchema } from '@/lib/validation';
+import { Copy } from 'lucide-react';
+
+/* ── Helper: copiar al portapapeles ──────────────────────────── */
+const copyToClipboard = (text: string, label: string) => {
+  navigator.clipboard.writeText(text).then(
+    () => toast.success(`${label} copiado`),
+    () => toast.error('No se pudo copiar')
+  );
+};
+
+/* ── Componente de credencial copiable ───────────────────────── */
+function CopyField({ icon, value, label }: { icon: string; value: string; label: string }) {
+  return (
+    <span
+      onClick={() => copyToClipboard(value, label)}
+      className="inline-flex items-center gap-1 cursor-pointer hover:text-foreground transition-colors group"
+      title={`Copiar ${label.toLowerCase()}`}
+    >
+      {icon} {value}
+      <Copy size={10} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+    </span>
+  );
+}
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -26,6 +49,22 @@ export default function Login() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const { signIn } = useAuth();
   const navigate = useNavigate();
+
+  /* ── Forzar light mode en login ──────────────────────────────── */
+  useEffect(() => {
+    const root = document.documentElement;
+    const wasDark = root.classList.contains('dark');
+    root.classList.remove('dark');
+    root.classList.add('light');
+    return () => {
+      // Restaurar preferencia del usuario al salir del login
+      const stored = localStorage.getItem('theme');
+      if (stored === 'dark' || wasDark) {
+        root.classList.remove('light');
+        root.classList.add('dark');
+      }
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -143,16 +182,17 @@ export default function Login() {
               </Button>
             </form>
 
-            <div className="bg-muted/50 rounded-lg p-3 space-y-1 text-xs text-muted-foreground">
+            {/* ── Credenciales copiables ──────────────────────────── */}
+            <div className="bg-muted/50 rounded-lg p-3 space-y-1.5 text-xs text-muted-foreground">
               <p className="font-semibold text-foreground">👤 Usuarios de prueba:</p>
-              <p>📧 maria@woditos.app · 🔑 Woditos2026!</p>
-              <p>📧 juan@woditos.app · 🔑 Woditos2026!</p>
-              <p>📧 sofia@woditos.app · 🔑 Woditos2026!</p>
-              <p className="font-semibold text-foreground">👤 Coachs de prueba:</p>
-              <p>📧 coach@woditos.app · 🔑 Woditos2026!</p>
-              <p>📧 test-coach@woditos.app · 🔑 Woditos2026!</p>
-              <p className="font-semibold text-foreground">📋 Sumate al Club Test usando este código: </p>
-              <p>🔢 Código Club Test: 6BBE3B </p>
+              <p><CopyField icon="📧" value="maria@woditos.app" label="Email" /> · <CopyField icon="🔑" value="Woditos2026!" label="Contraseña" /></p>
+              <p><CopyField icon="📧" value="juan@woditos.app" label="Email" /> · <CopyField icon="🔑" value="Woditos2026!" label="Contraseña" /></p>
+              <p><CopyField icon="📧" value="sofia@woditos.app" label="Email" /> · <CopyField icon="🔑" value="Woditos2026!" label="Contraseña" /></p>
+              <p className="font-semibold text-foreground pt-1">👤 Coaches de prueba:</p>
+              <p><CopyField icon="📧" value="coach@woditos.app" label="Email" /> · <CopyField icon="🔑" value="Woditos2026!" label="Contraseña" /></p>
+              <p><CopyField icon="📧" value="test-coach@woditos.app" label="Email" /> · <CopyField icon="🔑" value="Woditos2026!" label="Contraseña" /></p>
+              <p className="font-semibold text-foreground pt-1">📋 Sumate al Club Test:</p>
+              <p><CopyField icon="🔢" value="6BBE3B" label="Código" /> ← tocá para copiar</p>
             </div>
 
             <p className="text-center text-sm text-muted-foreground">

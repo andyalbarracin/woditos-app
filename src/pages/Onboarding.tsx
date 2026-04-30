@@ -1,15 +1,15 @@
 /**
  * Archivo: Onboarding.tsx
  * Ruta: src/pages/Onboarding.tsx
- * Última modificación: 2026-04-10
+ * Última modificación: 2026-04-29
  * Descripción: Flujo de onboarding post-registro para usuarios sin club.
  *   Se muestra automáticamente cuando un usuario autenticado no tiene
  *   club_membership (ej: registro con Google, o registro sin código).
  *   Permite elegir rol, confirmar nombre, y unirse/crear club.
- *   v1.1: sanitización de fullName, joinCode, inviteCode y clubName
- *         con schemas de validation.ts.
+ *   v1.2: fuerza light mode. Quita gradient-surface (era dark).
+ *         Sanitización de inputs con schemas de validation.ts.
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
@@ -31,6 +31,21 @@ type Step = 'role' | 'details';
 export default function Onboarding() {
   const { user, profile, session, refreshUserData } = useAuth();
   const navigate = useNavigate();
+
+  /* ── Forzar light mode en onboarding ─────────────────────────── */
+  useEffect(() => {
+    const root = document.documentElement;
+    const wasDark = root.classList.contains('dark');
+    root.classList.remove('dark');
+    root.classList.add('light');
+    return () => {
+      const stored = localStorage.getItem('theme');
+      if (stored === 'dark' || wasDark) {
+        root.classList.remove('light');
+        root.classList.add('dark');
+      }
+    };
+  }, []);
 
   /* ── Pre-fill nombre desde profile o Google metadata ────────── */
   const googleName =
@@ -82,7 +97,6 @@ export default function Onboarding() {
 
       /* ── Miembro: unirse con código ──────────────────────────── */
       if (role === 'member' && joinCode.trim()) {
-        // Sanitizar código de club
         const joinResult = joinCodeSchema.safeParse(joinCode);
         if (!joinResult.success) {
           toast.error('Código de club inválido. Verificá con tu coach.');
@@ -93,7 +107,7 @@ export default function Onboarding() {
         const { data: club } = await supabase
           .from('clubs')
           .select('id, name')
-          .eq('join_code', joinResult.data)   // ← valor sanitizado
+          .eq('join_code', joinResult.data)
           .eq('status', 'active')
           .single();
 
@@ -110,7 +124,6 @@ export default function Onboarding() {
 
       /* ── Coach con token de invitación ───────────────────────── */
       } else if (role === 'coach' && coachMode === 'join' && inviteCode.trim()) {
-        // Sanitizar token de invitación
         const tokenResult = inviteTokenSchema.safeParse(inviteCode);
         if (!tokenResult.success) {
           toast.error('Token de invitación inválido.');
@@ -121,7 +134,7 @@ export default function Onboarding() {
         const { data: invite } = await supabase
           .from('coach_invites')
           .select('status, expires_at')
-          .eq('token', tokenResult.data)      // ← valor sanitizado
+          .eq('token', tokenResult.data)
           .single();
 
         if (!invite || invite.status !== 'pending' || new Date(invite.expires_at) < new Date()) {
@@ -131,7 +144,7 @@ export default function Onboarding() {
         }
 
         const { data: rpcResult } = await (supabase.rpc as any)('use_coach_invite', {
-          p_token: tokenResult.data,          // ← valor sanitizado
+          p_token: tokenResult.data,
           p_user_id: user.id,
         });
         const result = rpcResult as { success: boolean; error?: string } | null;
@@ -144,7 +157,6 @@ export default function Onboarding() {
 
       /* ── Coach crea club nuevo ───────────────────────────────── */
       } else if (role === 'coach' && coachMode === 'create') {
-        // Sanitizar nombre del club
         const clubResult = clubCreationSchema.safeParse({ name: clubName });
         if (!clubResult.success) {
           toast.error(clubResult.error.errors[0]?.message || 'Nombre de club inválido');
@@ -190,7 +202,7 @@ export default function Onboarding() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-6 gradient-surface">
+    <div className="flex min-h-screen items-center justify-center p-6 bg-background">
       <div className="w-full max-w-sm space-y-6">
 
         <div className="text-center">
